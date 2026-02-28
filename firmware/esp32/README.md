@@ -21,7 +21,15 @@ static const char *WIFI_PASS = "YOUR_PASSWORD";
 ## Upload Web Assets (SPIFFS)
 The HTML/CSS/JS live in `firmware/esp32/data/` and must be uploaded to SPIFFS.
 
-Arduino IDE 2.x:
+### PlatformIO (Recommended)
+1. Install PlatformIO.
+2. Run:
+
+```
+./tools/upload_spiffs.sh
+```
+
+### Arduino IDE 2.x
 1. Tools → `ESP32 Sketch Data Upload`.
 2. This creates and uploads a SPIFFS image.
 
