@@ -23,6 +23,7 @@ Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 
 - `Teensy RX` ← `ESP32 TX`
 - `GND` ↔ `GND`
 - Optional: `Teensy pin 4` → `ESP32 EN` (reset control)
+- Optional: `Teensy pin 5` → `ESP32 RST` (soft reset)
 
 ## Firmware Notes
 - Default UART: `Serial1` @ `921600`

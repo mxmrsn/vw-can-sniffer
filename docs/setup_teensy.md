@@ -60,6 +60,8 @@ Use this as a quick reference for CAN1:
 ## Optional ESP32 Reset (Teensy GPIO)
 If you want the Teensy to reset the ESP32:
 - Teensy `pin 4` → ESP32 `EN`
+- Teensy `pin 5` → ESP32 `RST`
 - Keep `EN` high for normal operation
 
 Note: `EN` is active‑low; pulling it low resets the ESP32.
+Note: `RST` is also active‑low; pulling it low reboots the ESP32 without cutting power.
