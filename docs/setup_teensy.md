@@ -23,7 +23,7 @@ This project uses the Arduino IDE + Teensyduino and the FlexCAN_T4 library.
 - Enable synthetic frames for bench testing by setting `TEST_MODE` to `1`.
 
 ## Recommended CAN Transceiver
-- `TJA1051` (good availability and 3.3V MCU I/O support via VIO pin)
+- `TJA1051T/3` (good availability and 3.3V MCU I/O support via VIO pin)
 
 ## TJA1051 Wiring (Typical)
 - `VCC` → 5V supply
@@ -32,6 +32,7 @@ This project uses the Arduino IDE + Teensyduino and the FlexCAN_T4 library.
 - `TXD` → Teensy CAN TX (see explicit pins below)
 - `RXD` ← Teensy CAN RX (see explicit pins below)
 - `CANH` / `CANL` → CAN bus
+- `S` → Teensy `pin 21` (optional silent mode control)
 
 Bench bus termination:
 - 120Ω at each end of the CAN bus (not at every node)
@@ -65,3 +66,8 @@ If you want the Teensy to reset the ESP32:
 
 Note: `EN` is active‑low; pulling it low resets the ESP32.
 Note: `RST` is also active‑low; pulling it low reboots the ESP32 without cutting power.
+
+## Optional TJA1051 Silent Mode
+- Teensy `pin 21` → TJA1051 `S`
+- `S = LOW` → normal mode
+- `S = HIGH` → silent (listen‑only)

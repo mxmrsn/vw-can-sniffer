@@ -15,7 +15,7 @@ Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 
 
 ## Hardware (Initial Setup)
 - Teensy 4.1
-- CAN transceiver (TJA1051 recommended)
+- CAN transceiver (TJA1051T/3 recommended)
 - ESP32 module (UART bridge for Wi‑Fi)
 
 ### Basic Wiring (Teensy ↔ ESP32)
@@ -24,6 +24,9 @@ Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 
 - `GND` ↔ `GND`
 - Optional: `Teensy pin 4` → `ESP32 EN` (reset control)
 - Optional: `Teensy pin 5` → `ESP32 RST` (soft reset)
+
+### CAN Transceiver (Optional Control)
+- Optional: `Teensy pin 21` → TJA1051 `S` (silent/listen‑only control)
 
 ## Firmware Notes
 - Default UART: `Serial1` @ `921600`

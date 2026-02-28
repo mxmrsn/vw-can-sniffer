@@ -26,6 +26,9 @@ static const uint32_t CAN_BAUD  = 500000; // typical VW CAN speed; adjust if nee
 #define ESP32_RST_PIN 5
 static const uint16_t ESP32_RESET_PULSE_MS = 100;
 
+// Optional CAN transceiver silent mode (Teensy pin 21 -> TJA1051 S)
+#define CAN_SILENT_PIN 21
+
 // CAN device (Teensy 4.1 has CAN1/CAN2/CAN3)
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
 
@@ -97,6 +100,9 @@ void setup() {
   digitalWrite(ESP32_RST_PIN, LOW);
   delay(ESP32_RESET_PULSE_MS);
   digitalWrite(ESP32_RST_PIN, HIGH);
+
+  pinMode(CAN_SILENT_PIN, OUTPUT);
+  digitalWrite(CAN_SILENT_PIN, LOW); // normal mode (LOW = normal, HIGH = silent)
 
   Can0.begin();
   Can0.setBaudRate(CAN_BAUD);
