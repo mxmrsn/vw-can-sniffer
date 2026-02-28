@@ -1,0 +1,43 @@
+# VW CAN Sniffer
+
+Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 4.1 and a UART stream protocol suitable for an ESP32 Wi‑Fi dashboard.
+
+## Scope
+- Teensy 4.1 CAN capture
+- UART framing protocol for streaming frames to a Wi‑Fi module
+- Future STM32H7 custom board
+
+## Current Contents
+- `firmware/teensy/teensy_uart_streamer.ino`
+- `docs/uart_protocol.md`
+
+## Hardware (Initial Setup)
+- Teensy 4.1
+- CAN transceiver (e.g., TJA1051, MCP2562)
+- ESP32 module (UART bridge for Wi‑Fi)
+
+### Basic Wiring (Teensy ↔ ESP32)
+- `Teensy TX` → `ESP32 RX`
+- `Teensy RX` ← `ESP32 TX`
+- `GND` ↔ `GND`
+
+## Firmware Notes
+- Default UART: `Serial1` @ `921600`
+- Default CAN speed: `500000`
+- CAN IDs encode extended frames with bit31 set
+
+### Test Mode
+Enable synthetic frames for bench testing:
+
+```
+#define TEST_MODE 1
+#define TEST_RATE_HZ 50
+```
+
+## Protocol
+See `docs/uart_protocol.md` for the UART framing spec.
+
+## Next Steps
+- ESP32 firmware to host a WebSocket dashboard
+- Basic browser UI for live frame display
+- STM32H7 hardware plan
