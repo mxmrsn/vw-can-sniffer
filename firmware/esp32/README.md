@@ -29,6 +29,18 @@ The HTML/CSS/JS live in `firmware/esp32/data/` and must be uploaded to SPIFFS.
 ./tools/upload_spiffs.sh
 ```
 
+To upload firmware:
+
+```
+./tools/upload_esp32.sh
+```
+
+To upload both firmware and SPIFFS:
+
+```
+./tools/upload_all_esp32.sh
+```
+
 ### Arduino IDE 2.x
 1. Tools → `ESP32 Sketch Data Upload`.
 2. This creates and uploads a SPIFFS image.
