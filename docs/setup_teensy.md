@@ -24,3 +24,14 @@ This project uses the Arduino IDE + Teensyduino and the FlexCAN_T4 library.
 
 ## Recommended CAN Transceiver
 - `TJA1051` (good availability and 3.3V MCU I/O support via VIO pin)
+
+## TJA1051 Wiring (Typical)
+- `VCC` → 5V supply
+- `VIO` → 3.3V (Teensy logic)
+- `GND` → Ground
+- `TXD` → Teensy CAN TX (use the Teensy 4.1 CAN1 TX pin from the official pinout)
+- `RXD` ← Teensy CAN RX (use the Teensy 4.1 CAN1 RX pin from the official pinout)
+- `CANH` / `CANL` → CAN bus
+
+Bench bus termination:
+- 120Ω at each end of the CAN bus (not at every node)
