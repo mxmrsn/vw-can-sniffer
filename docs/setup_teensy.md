@@ -29,9 +29,17 @@ This project uses the Arduino IDE + Teensyduino and the FlexCAN_T4 library.
 - `VCC` → 5V supply
 - `VIO` → 3.3V (Teensy logic)
 - `GND` → Ground
-- `TXD` → Teensy CAN TX (use the Teensy 4.1 CAN1 TX pin from the official pinout)
-- `RXD` ← Teensy CAN RX (use the Teensy 4.1 CAN1 RX pin from the official pinout)
+- `TXD` → Teensy CAN TX (see explicit pins below)
+- `RXD` ← Teensy CAN RX (see explicit pins below)
 - `CANH` / `CANL` → CAN bus
 
 Bench bus termination:
 - 120Ω at each end of the CAN bus (not at every node)
+
+## Teensy 4.1 CAN Pins (Explicit)
+These are the default CAN pin pairs on Teensy 4.1:
+- `CAN1` TX/RX: `CTX1 = pin 22`, `CRX1 = pin 23`
+- `CAN2` TX/RX: `CTX2 = pin 1`, `CRX2 = pin 0`
+- `CAN3` TX/RX: `CTX3 = pin 31`, `CRX3 = pin 30`
+
+This project uses `CAN1` in the sketches by default, so wire the transceiver to pins 22/23.
