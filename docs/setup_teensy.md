@@ -43,3 +43,16 @@ These are the default CAN pin pairs on Teensy 4.1:
 - `CAN3` TX/RX: `CTX3 = pin 31`, `CRX3 = pin 30`
 
 This project uses `CAN1` in the sketches by default, so wire the transceiver to pins 22/23.
+
+## Wiring Table (Teensy 4.1 CAN1 ↔ TJA1051)
+Use this as a quick reference for CAN1:
+
+| TJA1051 Pin | Connects To |
+| --- | --- |
+| `TXD` | Teensy `CTX1` (pin 22) |
+| `RXD` | Teensy `CRX1` (pin 23) |
+| `VCC` | 5V |
+| `VIO` | 3.3V |
+| `GND` | GND |
+| `CANH` | CANH |
+| `CANL` | CANL |
