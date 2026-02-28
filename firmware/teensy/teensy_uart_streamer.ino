@@ -20,6 +20,9 @@ static const uint32_t CAN_BAUD  = 500000; // typical VW CAN speed; adjust if nee
 // UART device
 #define UART_PORT Serial1
 
+// Optional ESP32 reset control (Teensy pin 4 -> ESP32 EN)
+#define ESP32_EN_PIN 4
+
 // CAN device (Teensy 4.1 has CAN1/CAN2/CAN3)
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
 
@@ -81,6 +84,9 @@ static inline uint32_t encode_can_id(const CAN_message_t &msg) {
 void setup() {
   UART_PORT.begin(UART_BAUD);
   while (!UART_PORT && millis() < 2000) {}
+
+  pinMode(ESP32_EN_PIN, OUTPUT);
+  digitalWrite(ESP32_EN_PIN, HIGH); // keep ESP32 enabled by default
 
   Can0.begin();
   Can0.setBaudRate(CAN_BAUD);

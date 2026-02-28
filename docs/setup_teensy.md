@@ -56,3 +56,10 @@ Use this as a quick reference for CAN1:
 | `GND` | GND |
 | `CANH` | CANH |
 | `CANL` | CANL |
+
+## Optional ESP32 Reset (Teensy GPIO)
+If you want the Teensy to reset the ESP32:
+- Teensy `pin 4` → ESP32 `EN`
+- Keep `EN` high for normal operation
+
+Note: `EN` is active‑low; pulling it low resets the ESP32.
