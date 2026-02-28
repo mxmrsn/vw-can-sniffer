@@ -24,6 +24,7 @@ static const uint32_t CAN_BAUD  = 500000; // typical VW CAN speed; adjust if nee
 #define ESP32_EN_PIN 4
 // Optional ESP32 reset line (Teensy pin 5 -> ESP32 RST)
 #define ESP32_RST_PIN 5
+static const uint16_t ESP32_RESET_PULSE_MS = 100;
 
 // CAN device (Teensy 4.1 has CAN1/CAN2/CAN3)
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
@@ -91,6 +92,11 @@ void setup() {
   digitalWrite(ESP32_EN_PIN, HIGH); // keep ESP32 enabled by default
   pinMode(ESP32_RST_PIN, OUTPUT);
   digitalWrite(ESP32_RST_PIN, HIGH); // keep ESP32 out of reset by default
+
+  // Optional reset pulse on boot to sync ESP32 state
+  digitalWrite(ESP32_RST_PIN, LOW);
+  delay(ESP32_RESET_PULSE_MS);
+  digitalWrite(ESP32_RST_PIN, HIGH);
 
   Can0.begin();
   Can0.setBaudRate(CAN_BAUD);
