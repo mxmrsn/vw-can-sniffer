@@ -28,6 +28,38 @@ Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 
 - Default CAN speed: `500000`
 - CAN IDs encode extended frames with bit31 set
 
+## System Block Diagram (ASCII)
+```
+                 CANH/CANL
+   ┌──────────────────────────────────────────┐
+   │              Bench / Vehicle             │
+   └──────────────────────────────────────────┘
+                    │
+                    │
+              ┌──────────┐        UART (3.3V)
+              │ TJA1051  │<-------------------------┐
+              └──────────┘                          │
+                    │ TXD/RXD                       │
+                    │                               │
+            ┌────────────────┐                      │
+            │ Teensy 4.1     │                      │
+            │ CAN1 (pins 22/23)                     │
+            │ UART -> ESP32  │----------------------┘
+            └────────────────┘
+                       │ Wi-Fi
+                       │
+                 ┌──────────┐
+                 │  ESP32   │
+                 │ Web UI   │
+                 └──────────┘
+                       │
+                       │ HTTP/WS
+                       ▼
+                 ┌──────────┐
+                 │ Browser  │
+                 └──────────┘
+```
+
 ### Test Mode
 Enable synthetic frames for bench testing:
 
