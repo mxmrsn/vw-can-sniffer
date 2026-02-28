@@ -9,12 +9,13 @@ Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 
 
 ## Current Contents
 - `firmware/teensy/teensy_uart_streamer.ino`
+- `firmware/teensy/teensy_can_simulator.ino`
 - `docs/uart_protocol.md`
 - `firmware/esp32/esp32_uart_gateway.ino`
 
 ## Hardware (Initial Setup)
 - Teensy 4.1
-- CAN transceiver (e.g., TJA1051, MCP2562)
+- CAN transceiver (TJA1051 recommended)
 - ESP32 module (UART bridge for Wi‑Fi)
 
 ### Basic Wiring (Teensy ↔ ESP32)

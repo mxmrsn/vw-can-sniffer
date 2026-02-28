@@ -21,3 +21,6 @@ This project uses the Arduino IDE + Teensyduino and the FlexCAN_T4 library.
 - Default CAN speed in the sketch is `500000`.
 - Default UART is `Serial1` at `921600`.
 - Enable synthetic frames for bench testing by setting `TEST_MODE` to `1`.
+
+## Recommended CAN Transceiver
+- `TJA1051` (good availability and 3.3V MCU I/O support via VIO pin)
