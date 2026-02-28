@@ -13,18 +13,17 @@
 static const uint32_t UART_BAUD = 921600;
 static const uint32_t CAN_BAUD  = 500000; // typical VW CAN speed; adjust if needed
 
+// External heartbeat LED (Teensy A0 / pin 14)
+#define LED_CAN_PIN 14
+static const uint32_t LED_PERIOD_MS = 500;
+static uint32_t led_last_ms = 0;
+
 // Set to 1 to generate synthetic frames on a timer (bench testing without CAN)
 #define TEST_MODE 0
 #define TEST_RATE_HZ 50
 
 // UART device
 #define UART_PORT Serial1
-
-// Optional ESP32 reset control (Teensy pin 4 -> ESP32 EN)
-#define ESP32_EN_PIN 4
-// Optional ESP32 reset line (Teensy pin 5 -> ESP32 RST)
-#define ESP32_RST_PIN 5
-static const uint16_t ESP32_RESET_PULSE_MS = 100;
 
 // Optional CAN transceiver silent mode (Teensy pin 21 -> TJA1051 S)
 #define CAN_SILENT_PIN 21
@@ -91,15 +90,8 @@ void setup() {
   UART_PORT.begin(UART_BAUD);
   while (!UART_PORT && millis() < 2000) {}
 
-  pinMode(ESP32_EN_PIN, OUTPUT);
-  digitalWrite(ESP32_EN_PIN, HIGH); // keep ESP32 enabled by default
-  pinMode(ESP32_RST_PIN, OUTPUT);
-  digitalWrite(ESP32_RST_PIN, HIGH); // keep ESP32 out of reset by default
-
-  // Optional reset pulse on boot to sync ESP32 state
-  digitalWrite(ESP32_RST_PIN, LOW);
-  delay(ESP32_RESET_PULSE_MS);
-  digitalWrite(ESP32_RST_PIN, HIGH);
+  pinMode(LED_CAN_PIN, OUTPUT);
+  digitalWrite(LED_CAN_PIN, LOW);
 
   pinMode(CAN_SILENT_PIN, OUTPUT);
   digitalWrite(CAN_SILENT_PIN, LOW); // normal mode (LOW = normal, HIGH = silent)
@@ -120,6 +112,13 @@ void setup() {
 }
 
 void loop() {
+  // Heartbeat LED
+  uint32_t now_ms = millis();
+  if (now_ms - led_last_ms >= LED_PERIOD_MS) {
+    led_last_ms = now_ms;
+    digitalWrite(LED_CAN_PIN, !digitalRead(LED_CAN_PIN));
+  }
+
   // Synthetic frame generator for bench testing
 #if TEST_MODE
   static uint32_t last_us = 0;

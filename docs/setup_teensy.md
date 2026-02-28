@@ -21,6 +21,11 @@ This project uses the Arduino IDE + Teensyduino and the FlexCAN_T4 library.
 - Default CAN speed in the sketch is `500000`.
 - Default UART is `Serial1` at `921600`.
 - Enable synthetic frames for bench testing by setting `TEST_MODE` to `1`.
+- Optional heartbeat LED on `A0 / pin 14` (blinks at 0.5s).
+
+## Teensy 4.0 UART Pins (Serial1)
+- `TX1 = pin 1`
+- `RX1 = pin 0`
 
 ## Recommended CAN Transceiver
 - `TJA1051T/3` (good availability and 3.3V MCU I/O support via VIO pin)
@@ -37,15 +42,15 @@ This project uses the Arduino IDE + Teensyduino and the FlexCAN_T4 library.
 Bench bus termination:
 - 120Ω at each end of the CAN bus (not at every node)
 
-## Teensy 4.1 CAN Pins (Explicit)
-These are the default CAN pin pairs on Teensy 4.1:
+## Teensy 4.0 CAN Pins (Explicit)
+These are the default CAN pin pairs on Teensy 4.0:
 - `CAN1` TX/RX: `CTX1 = pin 22`, `CRX1 = pin 23`
 - `CAN2` TX/RX: `CTX2 = pin 1`, `CRX2 = pin 0`
-- `CAN3` TX/RX: `CTX3 = pin 31`, `CRX3 = pin 30`
+- `CAN3` TX/RX: `CTX3 = pin 31`, `CRX3 = pin 30` (bottom pads)
 
 This project uses `CAN1` in the sketches by default, so wire the transceiver to pins 22/23.
 
-## Wiring Table (Teensy 4.1 CAN1 ↔ TJA1051)
+## Wiring Table (Teensy 4.0 CAN1 ↔ TJA1051)
 Use this as a quick reference for CAN1:
 
 | TJA1051 Pin | Connects To |
