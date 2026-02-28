@@ -28,7 +28,7 @@ Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 
 - Default CAN speed: `500000`
 - CAN IDs encode extended frames with bit31 set
 
-## System Block Diagram (ASCII)
+## System Block Diagram
 ```
                  CANH/CANL
    ┌──────────────────────────────────────────┐
