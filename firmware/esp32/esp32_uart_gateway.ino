@@ -37,6 +37,11 @@ static const uint8_t TYPE_CAN = 0x01;
 WebServer http(80);
 WebSocketsServer ws(81);
 
+// ---------- LED ----------
+static const int LED_PIN = LED_BUILTIN;
+static const uint32_t LED_PERIOD_MS = 500;
+static uint32_t led_last_ms = 0;
+
 
 // ---------- UART Parser ----------
 struct Parser {
@@ -48,6 +53,12 @@ struct Parser {
   uint8_t payload[32];
 } parser;
 
+// ---------- Stats ----------
+static uint32_t stat_rx_ok = 0;
+static uint32_t stat_rx_bad = 0;
+static uint32_t stat_bytes = 0;
+static uint32_t stat_last_ms = 0;
+
 static inline uint8_t xor_crc(const uint8_t *buf, size_t len) {
   uint8_t c = 0;
   for (size_t i = 0; i < len; i++) c ^= buf[i];
@@ -56,6 +67,7 @@ static inline uint8_t xor_crc(const uint8_t *buf, size_t len) {
 
 static void handle_can_payload(const uint8_t *p, uint8_t len) {
   if (len < 9) return; // ts(4)+id(4)+dlc(1)
+  stat_rx_ok++;
 
   uint32_t ts = 0, id = 0;
   memcpy(&ts, p, 4);
@@ -79,6 +91,7 @@ static void handle_can_payload(const uint8_t *p, uint8_t len) {
 }
 
 static void parser_feed(uint8_t b) {
+  stat_bytes++;
   switch (parser.state) {
     case 0: // wait SOF
       if (b == SOF) { parser.state = 1; }
@@ -110,6 +123,8 @@ static void parser_feed(uint8_t b) {
         if (parser.type == TYPE_CAN) {
           handle_can_payload(parser.payload, parser.len);
         }
+      } else {
+        stat_rx_bad++;
       }
       parser.state = 0;
       break;
@@ -129,6 +144,9 @@ static void setup_static_routes() {
 void setup() {
   Serial.begin(115200);
   UART_PORT.begin(UART_BAUD, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
+
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
 
   if (!SPIFFS.begin(true)) {
     // If this fails, the web UI won't load; UART/WebSocket still works.
@@ -166,5 +184,21 @@ void loop() {
   while (UART_PORT.available()) {
     uint8_t b = (uint8_t)UART_PORT.read();
     parser_feed(b);
+  }
+
+  // LED heartbeat
+  uint32_t now_ms = millis();
+  if (now_ms - led_last_ms >= LED_PERIOD_MS) {
+    led_last_ms = now_ms;
+    digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+  }
+
+  // Broadcast stats once per second
+  if (now_ms - stat_last_ms >= 1000) {
+    stat_last_ms = now_ms;
+    char out[128];
+    snprintf(out, sizeof(out), "{\"type\":\"stat\",\"rx\":%lu,\"bad\":%lu,\"bytes\":%lu}",
+             (unsigned long)stat_rx_ok, (unsigned long)stat_rx_bad, (unsigned long)stat_bytes);
+    ws.broadcastTXT(out);
   }
 }
