@@ -16,6 +16,37 @@ let onlyFilter = false;
 const perId = new Map();
 const lastData = new Map();
 let mockMode = false;
+const labels = new Map();
+
+function loadLabels() {
+  try {
+    const raw = localStorage.getItem('can_labels');
+    if (!raw) return;
+    const obj = JSON.parse(raw);
+    Object.keys(obj).forEach(k => labels.set(k, obj[k]));
+  } catch (e) {}
+}
+
+function saveLabels() {
+  const obj = {};
+  labels.forEach((v, k) => { obj[k] = v; });
+  localStorage.setItem('can_labels', JSON.stringify(obj));
+}
+
+function renderLabels() {
+  const tbody = document.getElementById('labels');
+  const rows = Array.from(labels.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  tbody.innerHTML = rows.map(([id, name]) => (
+    `<tr><td>${id}</td><td>${name}</td><td><button data-id="${id}">X</button></td></tr>`
+  )).join('');
+  tbody.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      labels.delete(btn.dataset.id);
+      saveLabels();
+      renderLabels();
+    });
+  });
+}
 
 function fmtId(id) {
   return (id >>> 0).toString(16).padStart(8, '0');
@@ -41,7 +72,7 @@ function dataHtml(id, bytes) {
 function render() {
   const tbody = document.getElementById('frames');
   tbody.innerHTML = frames.map(f => (
-    `<tr><td>${f.ts}</td><td>${fmtId(f.id)}</td><td>${f.dlc}</td><td>${dataHtml(f.id, f.bytes)}</td></tr>`
+    `<tr><td>${f.ts}</td><td>${fmtId(f.id)}${labels.get(fmtId(f.id)) ? ' ' + labels.get(fmtId(f.id)) : ''}</td><td>${f.dlc}</td><td>${dataHtml(f.id, f.bytes)}</td></tr>`
   )).join('');
   document.getElementById('stats').textContent =
     `Frames: ${count}  Last ts: ${lastTs}  Rx ok: ${statRx}  CRC bad: ${statBad}  Bytes: ${statBytes}  T rx_ok: ${tRxOk}  T drop: ${tRxDrop}`;
@@ -53,7 +84,7 @@ function render() {
   const perIdBody = document.getElementById('perId');
   const rows = Array.from(perId.entries()).sort((a, b) => b[1].rate - a[1].rate).slice(0, 20);
   perIdBody.innerHTML = rows.map(([id, info]) => (
-    `<tr><td>${fmtId(id)}</td><td>${info.rate.toFixed(1)} Hz</td><td>${info.lastSeenMs} ms</td></tr>`
+    `<tr><td>${fmtId(id)}${labels.get(fmtId(id)) ? ' ' + labels.get(fmtId(id)) : ''}</td><td>${info.rate.toFixed(1)} Hz</td><td>${info.lastSeenMs} ms</td></tr>`
   )).join('');
 }
 
@@ -113,6 +144,19 @@ function connect() {
 }
 
 connect();
+
+// Labels
+loadLabels();
+renderLabels();
+document.getElementById('addLabelBtn').addEventListener('click', () => {
+  const idRaw = document.getElementById('labelId').value.trim().toUpperCase();
+  const nameRaw = document.getElementById('labelName').value.trim();
+  if (!idRaw || !nameRaw) return;
+  const id = idRaw.padStart(8, '0');
+  labels.set(id, nameRaw);
+  saveLabels();
+  renderLabels();
+});
 
 // Mock mode for local UI preview
 function startMockMode() {

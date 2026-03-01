@@ -56,6 +56,20 @@ th, td {
 .hint { font-size: 11px; color: #777; margin-top: 8px; }
 .spacer { height: 8px; }
 
+.label-row {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0 8px 0;
+  flex-wrap: wrap;
+}
+
+.label-row input {
+  padding: 4px 6px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  min-width: 120px;
+}
+
 .byte {
   display: inline-block;
   padding: 0 2px;
