@@ -23,7 +23,7 @@ const labelSelect = document.getElementById('labelSelect');
 const observedIds = new Set();
 const chartData = [];
 const chartMaxPoints = 60;
-let chartTarget = { id: null, byte: null, labelKey: '' };
+let chartTarget = { id: null, byte: null, labelKey: '', lockedByLabel: false };
 let lastObservedSignature = '';
 let lastObservedList = [];
 let lastLabelSignature = '';
@@ -146,6 +146,7 @@ function clearSelectOptions(select) {
 
 function updateIdDropdown(force = false) {
   if (!idSelect) return;
+  if (chartTarget.lockedByLabel && !force) return;
   if (!force && lastObservedSignature === '') return;
   const currentValue = idSelect.value;
   clearSelectOptions(idSelect);
@@ -185,6 +186,19 @@ function updateLabelDropdown(force = false) {
     labelSelect.appendChild(opt);
   });
   if (!keys.includes(chartTarget.labelKey)) labelSelect.value = '';
+}
+
+function selectLabelTarget(key) {
+  chartTarget.labelKey = key;
+  if (key) {
+    const { id, byte } = splitLabelKey(key);
+    chartTarget.id = id;
+    chartTarget.byte = byte ? parseInt(byte, 10) : 0;
+    chartTarget.lockedByLabel = true;
+  } else {
+    chartTarget.byte = null;
+    chartTarget.lockedByLabel = false;
+  }
 }
 
 function getChartSample() {
@@ -283,6 +297,7 @@ connect();
 // Labels
 loadLabels();
 renderLabels();
+updateLabelDropdown(true);
 document.getElementById('addLabelBtn').addEventListener('click', () => {
   const idRaw = document.getElementById('labelId').value.trim().toUpperCase();
   const byteRaw = document.getElementById('labelByte').value.trim();
@@ -398,20 +413,14 @@ if (idSelect) {
     chartTarget.id = val || null;
     chartTarget.byte = null;
     chartTarget.labelKey = '';
+    chartTarget.lockedByLabel = false;
   });
 }
 
 if (labelSelect) {
   labelSelect.addEventListener('change', (e) => {
-    const key = e.target.value;
-    chartTarget.labelKey = key;
-    if (key) {
-      const { id, byte } = splitLabelKey(key);
-      chartTarget.id = id;
-      chartTarget.byte = byte ? parseInt(byte, 10) : 0;
-    } else {
-      chartTarget.byte = null;
-    }
+    selectLabelTarget(e.target.value);
+    updateLabelDropdown(true);
   });
 }
 
