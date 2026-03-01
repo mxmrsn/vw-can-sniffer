@@ -18,10 +18,15 @@ const lastData = new Map();
 let mockMode = false;
 const labels = new Map();
 let labelFilter = '';
+const idSelect = document.getElementById('idSelect');
+const labelSelect = document.getElementById('labelSelect');
 const observedIds = new Set();
 const chartData = [];
 const chartMaxPoints = 60;
-let chartTarget = { id: null, byte: null };
+let chartTarget = { id: null, byte: null, labelKey: '' };
+let lastObservedSignature = '';
+let lastObservedList = [];
+let lastLabelSignature = '';
 
 function loadLabels() {
   try {
@@ -118,36 +123,68 @@ function render() {
     `<tr><td>${fmtId(id)}${labels.get(fmtId(id)) ? ' ' + labels.get(fmtId(id)) : ''}</td><td>${info.rate.toFixed(1)} Hz</td><td>${info.lastSeenMs} ms</td></tr>`
   )).join('');
   updateChart();
-  updateObservedIds();
-  updateDropdowns();
+  const observedChanged = updateObservedIds();
+  if (observedChanged) updateIdDropdown();
 }
 
 function updateObservedIds() {
+  const ids = Array.from(perId.keys()).map(fmtId).sort();
+  const signature = ids.join(',');
   observedIds.clear();
-  perId.forEach((_, key) => {
-    observedIds.add(fmtId(key));
-  });
+  ids.forEach(id => observedIds.add(id));
+  lastObservedList = ids;
+  if (signature === lastObservedSignature) return false;
+  lastObservedSignature = signature;
+  return true;
 }
 
-function updateDropdowns() {
-  const idSelect = document.getElementById('idSelect');
-  const labelSelect = document.getElementById('labelSelect');
-  if (idSelect) {
-    const current = chartTarget.id || '';
-    const options = ['<option value=\"\">Auto</option>'];
-    Array.from(observedIds).sort().forEach(id => {
-      options.push(`<option value=\"${id}\"${id === current ? ' selected' : ''}>${id}</option>`);
-    });
-    idSelect.innerHTML = options.join('');
+function clearSelectOptions(select) {
+  while (select.firstChild) {
+    select.removeChild(select.firstChild);
   }
-  if (labelSelect) {
-    const current = chartTarget.labelKey || '';
-    const options = ['<option value=\"\">None</option>'];
-    Array.from(labels.entries()).sort((a, b) => a[0].localeCompare(b[0])).forEach(([key, name]) => {
-      options.push(`<option value=\"${key}\"${key === current ? ' selected' : ''}>${name} (${splitLabelKey(key).id}${splitLabelKey(key).byte ? ` byte ${splitLabelKey(key).byte}` : ''})</option>`);
-    });
-    labelSelect.innerHTML = options.join('');
+}
+
+function updateIdDropdown(force = false) {
+  if (!idSelect) return;
+  if (!force && lastObservedSignature === '') return;
+  const currentValue = idSelect.value;
+  clearSelectOptions(idSelect);
+  const autoOpt = document.createElement('option');
+  autoOpt.value = '';
+  autoOpt.textContent = 'Auto';
+  idSelect.appendChild(autoOpt);
+  lastObservedList.forEach(id => {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = id;
+    if (chartTarget.id === id) opt.selected = true;
+    idSelect.appendChild(opt);
+  });
+  if (currentValue && !observedIds.has(currentValue)) {
+    idSelect.value = chartTarget.id || '';
   }
+}
+
+function updateLabelDropdown(force = false) {
+  if (!labelSelect) return;
+  const keys = Array.from(labels.keys()).sort();
+  const signature = keys.join(',');
+  if (!force && signature === lastLabelSignature) return;
+  lastLabelSignature = signature;
+  clearSelectOptions(labelSelect);
+  const noneOpt = document.createElement('option');
+  noneOpt.value = '';
+  noneOpt.textContent = 'None';
+  labelSelect.appendChild(noneOpt);
+  keys.forEach(key => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    const { id, byte } = splitLabelKey(key);
+    opt.textContent = `${labels.get(key)} (${id}${byte ? ` byte ${byte}` : ''})`;
+    if (chartTarget.labelKey === key) opt.selected = true;
+    labelSelect.appendChild(opt);
+  });
+  if (!keys.includes(chartTarget.labelKey)) labelSelect.value = '';
 }
 
 function getChartSample() {
@@ -282,6 +319,7 @@ document.getElementById('importLabelsInput').addEventListener('change', (e) => {
       Object.keys(obj).forEach(k => labels.set(k, obj[k]));
       saveLabels();
       renderLabels();
+      updateLabelDropdown(true);
     } catch (err) {}
   };
   reader.readAsText(file);
@@ -354,24 +392,28 @@ document.getElementById('onlyFilter').addEventListener('change', (e) => {
   render();
 });
 
-document.getElementById('idSelect')?.addEventListener('change', (e) => {
-  const val = e.target.value;
-  chartTarget.id = val || null;
-  chartTarget.byte = null;
-  chartTarget.labelKey = '';
-});
-
-document.getElementById('labelSelect')?.addEventListener('change', (e) => {
-  const key = e.target.value;
-  chartTarget.labelKey = key;
-  if (key) {
-    const { id, byte } = splitLabelKey(key);
-    chartTarget.id = id;
-    chartTarget.byte = byte ? parseInt(byte, 10) : 0;
-  } else {
+if (idSelect) {
+  idSelect.addEventListener('change', (e) => {
+    const val = e.target.value;
+    chartTarget.id = val || null;
     chartTarget.byte = null;
-  }
-});
+    chartTarget.labelKey = '';
+  });
+}
+
+if (labelSelect) {
+  labelSelect.addEventListener('change', (e) => {
+    const key = e.target.value;
+    chartTarget.labelKey = key;
+    if (key) {
+      const { id, byte } = splitLabelKey(key);
+      chartTarget.id = id;
+      chartTarget.byte = byte ? parseInt(byte, 10) : 0;
+    } else {
+      chartTarget.byte = null;
+    }
+  });
+}
 
 // Per-ID rate calculation
 setInterval(() => {
