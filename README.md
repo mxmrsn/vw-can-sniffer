@@ -70,6 +70,30 @@ Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 
                  └──────────┘
 ```
 
+## Wiring Overview (ASCII)
+```
+Teensy 4.0                          TJA1051T/3                 CAN Bus
+-----------                          ----------                 -------
+CTX1 (pin 22) ---------------------> TXD
+CRX1 (pin 23) <--------------------- RXD
+pin 20 ----------------------------> S (silent)
+3V3 -------------------------------> VIO
+5V  -------------------------------> VCC
+GND -------------------------------> GND ---------------------- GND
+                                   CANH ---------------------- CANH
+                                   CANL ---------------------- CANL
+
+Teensy 4.0                          ESP32 (UART)               Wi-Fi
+-----------                          -----------               -----
+TX1 (pin 1) ----------------------> RX
+RX1 (pin 0) <---------------------- TX
+GND ------------------------------> GND                         ~~~
+
+LEDs / Buttons (Teensy 4.0)
+LED CAN (pin 14), LED Wi-Fi (pin 15), LED USB (pin 16), LED Silent (pin 21)
+Mode button (pin 8), Select button (pin 9)
+```
+
 ### Test Mode
 Enable synthetic frames for bench testing:
 
