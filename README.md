@@ -1,9 +1,9 @@
 # VW CAN Sniffer
 
-Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 4.1 and a UART stream protocol suitable for an ESP32 Wi‑Fi dashboard.
+Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 4.0 and a UART stream protocol suitable for an ESP32 Wi‑Fi dashboard.
 
 ## Scope
-- Teensy 4.1 CAN capture
+- Teensy 4.0 CAN capture
 - UART framing protocol for streaming frames to a Wi‑Fi module
 - Future STM32H7 custom board
 
@@ -14,7 +14,7 @@ Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 
 - `firmware/esp32/esp32_uart_gateway.ino`
 
 ## Hardware (Initial Setup)
-- Teensy 4.1
+- Teensy 4.0
 - CAN transceiver (TJA1051T/3 recommended)
 - ESP32 module (UART bridge for Wi‑Fi)
 
@@ -47,7 +47,7 @@ Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 
                     │ TXD/RXD                       │
                     │                               │
             ┌────────────────┐                      │
-            │ Teensy 4.1     │                      │
+            │ Teensy 4.0     │                      │
             │ CAN1 (pins 22/23)                     │
             │ UART -> ESP32  │----------------------┘
             └────────────────┘

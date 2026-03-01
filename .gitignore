@@ -2,9 +2,12 @@
 *~
 *.bak
 *backup*
+_autosave*
+*auto_saved_files*
 *.kicad_sch-bak
 *.kicad_pcb-bak
 *.kicad_prl
+*-backups/
 fp-info-cache
 .cache/
 
