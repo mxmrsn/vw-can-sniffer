@@ -21,41 +21,45 @@
   <div id="devState">Device: unknown</div>
 
   <div class="row">
-    <div class="card">
-      <div><strong>Recent Frames</strong></div>
-      <table>
-        <thead><tr><th>ts(us)</th><th>id</th><th>dlc</th><th>data</th></tr></thead>
-        <tbody id="frames"></tbody>
-      </table>
-    </div>
-    <div class="card">
-      <div><strong>Labels</strong></div>
-      <div class="label-row">
-        <input id="labelId" type="text" placeholder="ID (hex)" />
-        <input id="labelByte" type="text" placeholder="Byte (0-7 or blank)" />
-        <input id="labelName" type="text" placeholder="Label" />
-        <button id="addLabelBtn">Add/Update</button>
+    <div class="column main">
+      <div class="card">
+        <div><strong>Recent Frames</strong></div>
+        <table>
+          <thead><tr><th>ts(us)</th><th>id</th><th>dlc</th><th>data</th></tr></thead>
+          <tbody id="frames"></tbody>
+        </table>
       </div>
-      <div class="label-row">
-        <button id="exportLabelsBtn">Export</button>
-        <label class="file-btn">Import<input id="importLabelsInput" type="file" accept="application/json" /></label>
-      </div>
-      <table>
-        <thead><tr><th>id</th><th>byte</th><th>label</th><th></th></tr></thead>
-        <tbody id="labels"></tbody>
-      </table>
-      <div class="hint">Stored locally in your browser.</div>
     </div>
-    <div class="card">
-      <div><strong>Stats</strong></div>
-      <div id="stats"></div>
-      <div class="hint">Heartbeat LED should blink every 0.5s</div>
-      <div class="spacer"></div>
-      <div><strong>Per-ID</strong></div>
-      <table>
-        <thead><tr><th>id</th><th>rate</th><th>last seen</th></tr></thead>
-        <tbody id="perId"></tbody>
-      </table>
+    <div class="column side">
+      <div class="card">
+        <div><strong>Labels</strong></div>
+        <div class="label-row">
+          <input id="labelId" type="text" placeholder="ID (hex)" />
+          <input id="labelByte" type="text" placeholder="Byte (0-7 or blank)" />
+          <input id="labelName" type="text" placeholder="Label" />
+          <button id="addLabelBtn">Add/Update</button>
+        </div>
+        <div class="label-row">
+          <button id="exportLabelsBtn">Export</button>
+          <label class="file-btn">Import<input id="importLabelsInput" type="file" accept="application/json" /></label>
+        </div>
+        <table>
+          <thead><tr><th>id</th><th>byte</th><th>label</th><th></th></tr></thead>
+          <tbody id="labels"></tbody>
+        </table>
+        <div class="hint">Stored locally in your browser.</div>
+      </div>
+      <div class="card">
+        <div><strong>Stats</strong></div>
+        <div id="stats"></div>
+        <div class="hint">Heartbeat LED should blink every 0.5s</div>
+        <div class="spacer"></div>
+        <div><strong>Per-ID</strong></div>
+        <table>
+          <thead><tr><th>id</th><th>rate</th><th>last seen</th></tr></thead>
+          <tbody id="perId"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
