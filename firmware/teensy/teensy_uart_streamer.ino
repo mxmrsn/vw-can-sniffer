@@ -30,12 +30,15 @@ static OutputMode output_mode = OUTPUT_UART;
 #define CAN_SILENT_PIN 20
 
 // External LEDs
-#define LED_CAN_PIN 14     // CAN heartbeat
+#define LED_CAN_PIN 14     // CAN activity
 #define LED_WIFI_PIN 15    // UART/Wi-Fi active
-#define LED_USB_PIN 16     // USB active
+#define LED_USB_PIN 16     // USB activity
 #define LED_SILENT_PIN 21  // CAN silent indicator
-static const uint32_t LED_PERIOD_MS = 500;
-static uint32_t led_last_ms = 0;
+static const uint32_t LED_PULSE_MS = 40;
+static const uint32_t LED_WIFI_PERIOD_MS = 500;
+static uint32_t led_can_last_ms = 0;
+static uint32_t led_usb_last_ms = 0;
+static uint32_t led_wifi_last_ms = 0;
 
 // Buttons (active-low with pullups)
 #define BTN_MODE_PIN 8
@@ -134,6 +137,10 @@ void setup() {
     f.dlc = msg.len;
     for (uint8_t i = 0; i < msg.len; i++) f.data[i] = msg.buf[i];
     rb_push(f);
+
+    // CAN activity pulse
+    digitalWrite(LED_CAN_PIN, HIGH);
+    led_can_last_ms = millis();
   });
 }
 
@@ -147,6 +154,7 @@ void loop() {
     if (last_mode_state && !mode_state) {
       output_mode = (output_mode == OUTPUT_UART) ? OUTPUT_USB : OUTPUT_UART;
       last_btn_ms = now_ms;
+      USB_PORT.printf("Output mode: %s\n", output_mode == OUTPUT_UART ? "UART" : "USB");
     }
     if (last_select_state && !select_state) {
       // Reserved for future use
@@ -157,12 +165,22 @@ void loop() {
   last_select_state = select_state;
 
   // LEDs
-  if (now_ms - led_last_ms >= LED_PERIOD_MS) {
-    led_last_ms = now_ms;
-    digitalWrite(LED_CAN_PIN, !digitalRead(LED_CAN_PIN));
+  if (led_can_last_ms && now_ms - led_can_last_ms >= LED_PULSE_MS) {
+    digitalWrite(LED_CAN_PIN, LOW);
+    led_can_last_ms = 0;
   }
-  digitalWrite(LED_WIFI_PIN, output_mode == OUTPUT_UART ? HIGH : LOW);
-  digitalWrite(LED_USB_PIN, output_mode == OUTPUT_USB ? HIGH : LOW);
+  if (led_usb_last_ms && now_ms - led_usb_last_ms >= LED_PULSE_MS) {
+    digitalWrite(LED_USB_PIN, LOW);
+    led_usb_last_ms = 0;
+  }
+  if (output_mode == OUTPUT_UART) {
+    if (now_ms - led_wifi_last_ms >= LED_WIFI_PERIOD_MS) {
+      led_wifi_last_ms = now_ms;
+      digitalWrite(LED_WIFI_PIN, !digitalRead(LED_WIFI_PIN));
+    }
+  } else {
+    digitalWrite(LED_WIFI_PIN, LOW);
+  }
   digitalWrite(LED_SILENT_PIN, digitalRead(CAN_SILENT_PIN) ? HIGH : LOW);
 
   // Synthetic frame generator for bench testing
@@ -207,6 +225,8 @@ void loop() {
       USB_PORT.write(header, sizeof(header));
       USB_PORT.write(payload, len);
       USB_PORT.write(&crc, 1);
+      digitalWrite(LED_USB_PIN, HIGH);
+      led_usb_last_ms = millis();
     }
   }
 
