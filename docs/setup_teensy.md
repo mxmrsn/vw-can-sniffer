@@ -26,10 +26,12 @@ This project uses the Arduino IDE + Teensyduino and the FlexCAN_T4 library.
 - USB activity LED on `pin 16` (pulses on USB writes).
 - CAN silent indicator LED on `pin 21`.
 - Mode button on `pin 8` (toggles UART vs USB output).
-- Select button on `pin 9` (reserved).
+- Select button on `pin 9` (toggles CAN silent).
 
 When `TEST_MODE` is enabled, a periodic status frame (type `0x02`) is emitted once per second
 with `rx_ok` and `rx_drop` counters to validate the framing and transport.
+
+The Teensy also emits a periodic state frame (type `0x03`) with output mode and silent status.
 
 ## USB Capture Script
 You can capture the USB stream and dump CSV using:

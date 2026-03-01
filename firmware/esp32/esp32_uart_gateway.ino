@@ -33,6 +33,8 @@ static const int UART_TX_PIN = 17;
 static const uint8_t SOF = 0xA5;
 static const uint8_t TYPE_CAN = 0x01;
 static const uint8_t TYPE_STAT = 0x02;
+static const uint8_t TYPE_STATE = 0x03;
+static const uint8_t TYPE_CMD = 0x10;
 
 // ---------- Servers ----------
 WebServer http(80);
@@ -103,6 +105,34 @@ static void handle_stat_payload(const uint8_t *p, uint8_t len) {
   ws.broadcastTXT(out);
 }
 
+static void handle_state_payload(const uint8_t *p, uint8_t len) {
+  if (len < 2) return;
+  uint8_t mode = p[0];
+  uint8_t silent = p[1];
+  char out[128];
+  snprintf(out, sizeof(out), "{\"type\":\"state\",\"mode\":%u,\"silent\":%u}",
+           (unsigned)mode, (unsigned)silent);
+  ws.broadcastTXT(out);
+}
+
+static void send_cmd(uint8_t cmd, uint8_t value) {
+  uint8_t payload[2] = { cmd, value };
+  uint8_t len = 2;
+  uint8_t header[3] = { SOF, len, TYPE_CMD };
+  uint8_t crc = len ^ TYPE_CMD ^ xor_crc(payload, len);
+  UART_PORT.write(header, sizeof(header));
+  UART_PORT.write(payload, len);
+  UART_PORT.write(&crc, 1);
+}
+
+static int parse_value(const char *s) {
+  const char *v = strstr(s, "\"value\"");
+  if (!v) return -1;
+  v = strchr(v, ':');
+  if (!v) return -1;
+  return atoi(v + 1);
+}
+
 static void parser_feed(uint8_t b) {
   stat_bytes++;
   switch (parser.state) {
@@ -137,6 +167,8 @@ static void parser_feed(uint8_t b) {
           handle_can_payload(parser.payload, parser.len);
         } else if (parser.type == TYPE_STAT) {
           handle_stat_payload(parser.payload, parser.len);
+        } else if (parser.type == TYPE_STATE) {
+          handle_state_payload(parser.payload, parser.len);
         }
       } else {
         stat_rx_bad++;
@@ -185,9 +217,21 @@ void setup() {
 
   ws.begin();
   ws.onEvent([](uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
-    (void)num; (void)payload; (void)length;
+    (void)num;
     if (type == WStype_CONNECTED) {
-      // nothing needed
+      return;
+    }
+    if (type == WStype_TEXT) {
+      char buf[128];
+      size_t n = length < sizeof(buf) - 1 ? length : sizeof(buf) - 1;
+      memcpy(buf, payload, n);
+      buf[n] = '\0';
+      int val = parse_value(buf);
+      if (strstr(buf, "set_mode") && val >= 0) {
+        send_cmd(0x01, (uint8_t)val);
+      } else if (strstr(buf, "set_silent") && val >= 0) {
+        send_cmd(0x02, (uint8_t)val);
+      }
     }
   });
 }

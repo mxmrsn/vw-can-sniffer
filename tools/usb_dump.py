@@ -13,6 +13,7 @@ import serial
 SOF = 0xA5
 TYPE_CAN = 0x01
 TYPE_STAT = 0x02
+TYPE_STATE = 0x03
 
 
 def xor_crc(data: bytes) -> int:
@@ -75,6 +76,10 @@ def main():
                 elif msg_type == TYPE_STAT and len(payload) >= 8:
                     rx_ok, rx_drop = struct.unpack_from('<II', payload, 0)
                     print(f"# stat rx_ok={rx_ok} rx_drop={rx_drop}")
+                elif msg_type == TYPE_STATE and len(payload) >= 2:
+                    mode = payload[0]
+                    silent = payload[1]
+                    print(f"# state mode={mode} silent={silent}")
             state = 0
 
 

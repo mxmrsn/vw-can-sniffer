@@ -30,7 +30,7 @@ Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 
 
 ### Output Mode + LEDs
 - Mode button: `pin 8` (toggle UART/Wi‑Fi vs USB)
-- Select button: `pin 9` (reserved)
+- Select button: `pin 9` (toggle CAN silent)
 - LEDs: CAN heartbeat `pin 14`, Wi‑Fi active `pin 15`, USB active `pin 16`, silent indicator `pin 21`
 
 ## Firmware Notes

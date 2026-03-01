@@ -46,6 +46,8 @@ FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
 static const uint8_t SOF  = 0xA5;
 static const uint8_t TYPE_CAN = 0x01;
 static const uint8_t TYPE_STAT = 0x02;
+static const uint8_t TYPE_STATE = 0x03;
+static const uint8_t TYPE_CMD = 0x10;
 
 struct CanFrameLite {
   uint32_t ts_us;
@@ -64,6 +66,17 @@ static volatile uint16_t rb_tail = 0;
 static volatile uint32_t stat_rx_ok = 0;
 static volatile uint32_t stat_rx_drop = 0;
 static uint32_t stat_last_ms = 0;
+static uint32_t state_last_ms = 0;
+
+// ---------- Command Parser ----------
+struct CmdParser {
+  uint8_t state = 0;
+  uint8_t len = 0;
+  uint8_t type = 0;
+  uint8_t idx = 0;
+  uint8_t crc = 0;
+  uint8_t payload[32];
+} cmd_parser;
 
 static inline bool rb_is_full() {
   return ((rb_head + 1) % RB_SIZE) == rb_tail;
@@ -102,6 +115,92 @@ static inline uint32_t encode_can_id(const CAN_message_t &msg) {
     return (0x80000000u | (msg.id & 0x1FFFFFFFu));
   }
   return (msg.id & 0x7FFu);
+}
+
+static void set_output_mode(OutputMode mode) {
+  output_mode = mode;
+  USB_PORT.printf("Output mode: %s\n", output_mode == OUTPUT_UART ? "UART" : "USB");
+}
+
+static void set_silent_mode(bool silent) {
+  digitalWrite(CAN_SILENT_PIN, silent ? HIGH : LOW);
+}
+
+static void send_frame(uint8_t type, const uint8_t *payload, uint8_t len) {
+  uint8_t header[3] = { SOF, len, type };
+  uint8_t crc = len ^ type ^ xor_crc(payload, len);
+
+  if (output_mode == OUTPUT_UART) {
+    UART_PORT.write(header, sizeof(header));
+    UART_PORT.write(payload, len);
+    UART_PORT.write(&crc, 1);
+  } else {
+    USB_PORT.write(header, sizeof(header));
+    USB_PORT.write(payload, len);
+    USB_PORT.write(&crc, 1);
+    digitalWrite(LED_USB_PIN, HIGH);
+    led_usb_last_ms = millis();
+  }
+}
+
+static void handle_cmd(const uint8_t *payload, uint8_t len) {
+  if (len < 2) return;
+  uint8_t cmd = payload[0];
+  uint8_t val = payload[1];
+
+  switch (cmd) {
+    case 0x01: // set output mode
+      if (val <= 1) {
+        set_output_mode(val == 0 ? OUTPUT_UART : OUTPUT_USB);
+      }
+      break;
+    case 0x02: // set silent
+      set_silent_mode(val != 0);
+      break;
+    default:
+      break;
+  }
+}
+
+static void cmd_parser_feed(uint8_t b) {
+  switch (cmd_parser.state) {
+    case 0:
+      if (b == SOF) cmd_parser.state = 1;
+      break;
+    case 1:
+      cmd_parser.len = b;
+      cmd_parser.crc = b;
+      cmd_parser.state = 2;
+      break;
+    case 2:
+      cmd_parser.type = b;
+      cmd_parser.crc ^= b;
+      cmd_parser.idx = 0;
+      if (cmd_parser.len > sizeof(cmd_parser.payload)) {
+        cmd_parser.state = 0;
+      } else if (cmd_parser.len == 0) {
+        cmd_parser.state = 4;
+      } else {
+        cmd_parser.state = 3;
+      }
+      break;
+    case 3:
+      cmd_parser.payload[cmd_parser.idx++] = b;
+      cmd_parser.crc ^= b;
+      if (cmd_parser.idx >= cmd_parser.len) cmd_parser.state = 4;
+      break;
+    case 4:
+      if (cmd_parser.crc == b) {
+        if (cmd_parser.type == TYPE_CMD) {
+          handle_cmd(cmd_parser.payload, cmd_parser.len);
+        }
+      }
+      cmd_parser.state = 0;
+      break;
+    default:
+      cmd_parser.state = 0;
+      break;
+  }
 }
 
 void setup() {
@@ -152,12 +251,11 @@ void loop() {
   bool select_state = digitalRead(BTN_SELECT_PIN);
   if (now_ms - last_btn_ms > 50) {
     if (last_mode_state && !mode_state) {
-      output_mode = (output_mode == OUTPUT_UART) ? OUTPUT_USB : OUTPUT_UART;
+      set_output_mode(output_mode == OUTPUT_UART ? OUTPUT_USB : OUTPUT_UART);
       last_btn_ms = now_ms;
-      USB_PORT.printf("Output mode: %s\n", output_mode == OUTPUT_UART ? "UART" : "USB");
     }
     if (last_select_state && !select_state) {
-      // Reserved for future use
+      set_silent_mode(digitalRead(CAN_SILENT_PIN) == LOW);
       last_btn_ms = now_ms;
     }
   }
@@ -190,24 +288,23 @@ void loop() {
     uint8_t payload[8];
     memcpy(&payload[0], &stat_rx_ok, 4);
     memcpy(&payload[4], &stat_rx_drop, 4);
-
-    uint8_t len = 8;
-    uint8_t header[3] = { SOF, len, TYPE_STAT };
-    uint8_t crc = len ^ TYPE_STAT ^ xor_crc(payload, len);
-
-    if (output_mode == OUTPUT_UART) {
-      UART_PORT.write(header, sizeof(header));
-      UART_PORT.write(payload, len);
-      UART_PORT.write(&crc, 1);
-    } else {
-      USB_PORT.write(header, sizeof(header));
-      USB_PORT.write(payload, len);
-      USB_PORT.write(&crc, 1);
-      digitalWrite(LED_USB_PIN, HIGH);
-      led_usb_last_ms = millis();
-    }
+    send_frame(TYPE_STAT, payload, 8);
   }
 #endif
+
+  // Periodic state frame (always)
+  if (now_ms - state_last_ms >= 1000) {
+    state_last_ms = now_ms;
+    uint8_t payload[2];
+    payload[0] = (uint8_t)output_mode;
+    payload[1] = digitalRead(CAN_SILENT_PIN) ? 1 : 0;
+    send_frame(TYPE_STATE, payload, 2);
+  }
+
+  // Handle incoming commands from ESP32 over UART
+  while (UART_PORT.available()) {
+    cmd_parser_feed((uint8_t)UART_PORT.read());
+  }
 
   // Synthetic frame generator for bench testing
 #if TEST_MODE

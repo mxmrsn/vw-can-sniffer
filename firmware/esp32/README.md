@@ -68,6 +68,11 @@ The dashboard shows two kinds of stats:
 - `Rx ok / CRC bad / Bytes` from the ESP32 UART parser
 - `T rx_ok / T drop` from Teensy status frames (type `0x02`)
 
+## Controls
+The UI can send commands to the Teensy:
+- Toggle output mode (UART/Wi‑Fi vs USB)
+- Toggle CAN silent mode
+
 ## Notes
 - If STA Wi-Fi connection fails, the ESP32 starts an AP:
   - SSID: `vw-can-sniffer`

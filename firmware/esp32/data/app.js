@@ -7,6 +7,8 @@ let statBad = 0;
 let statBytes = 0;
 let tRxOk = 0;
 let tRxDrop = 0;
+let devMode = 0;
+let devSilent = 0;
 let paused = false;
 let filterIds = new Set();
 let onlyFilter = false;
@@ -43,6 +45,10 @@ function render() {
   document.getElementById('stats').textContent =
     `Frames: ${count}  Last ts: ${lastTs}  Rx ok: ${statRx}  CRC bad: ${statBad}  Bytes: ${statBytes}  T rx_ok: ${tRxOk}  T drop: ${tRxDrop}`;
 
+  const modeLabel = devMode === 0 ? 'UART/Wi-Fi' : 'USB';
+  const silentLabel = devSilent ? 'ON' : 'OFF';
+  document.getElementById('devState').textContent = `Device: mode=${modeLabel}  silent=${silentLabel}`;
+
   const perIdBody = document.getElementById('perId');
   const rows = Array.from(perId.entries()).sort((a, b) => b[1].rate - a[1].rate).slice(0, 20);
   perIdBody.innerHTML = rows.map(([id, info]) => (
@@ -75,6 +81,9 @@ function connect() {
           tRxOk = msg.rx_ok || 0;
           tRxDrop = msg.rx_drop || 0;
         }
+      } else if (msg.type === 'state') {
+        devMode = msg.mode || 0;
+        devSilent = msg.silent || 0;
       } else {
         if (paused) return;
 
@@ -108,6 +117,18 @@ connect();
 document.getElementById('pauseBtn').addEventListener('click', () => {
   paused = !paused;
   document.getElementById('pauseBtn').textContent = paused ? 'Resume' : 'Pause';
+});
+
+document.getElementById('modeBtn').addEventListener('click', () => {
+  if (!ws || ws.readyState !== 1) return;
+  const next = devMode === 0 ? 1 : 0;
+  ws.send(JSON.stringify({ cmd: 'set_mode', value: next }));
+});
+
+document.getElementById('silentBtn').addEventListener('click', () => {
+  if (!ws || ws.readyState !== 1) return;
+  const next = devSilent ? 0 : 1;
+  ws.send(JSON.stringify({ cmd: 'set_silent', value: next }));
 });
 
 document.getElementById('filterInput').addEventListener('input', (e) => {

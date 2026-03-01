@@ -35,6 +35,23 @@ CRC   : 8-bit XOR of [LEN, TYPE, PAYLOAD]
 - `rx_ok`: number of CAN frames received
 - `rx_drop`: number of frames dropped due to ring buffer full
 
+### TYPE 0x03 Payload (State)
+```
+[mode(1)][silent(1)]
+```
+
+- `mode`: 0 = UART/Wi‑Fi, 1 = USB
+- `silent`: 0 = normal, 1 = silent
+
+### TYPE 0x10 Payload (Command)
+```
+[cmd(1)][value(1)]
+```
+
+Commands (ESP32 → Teensy):
+- `0x01`: set output mode (value 0=UART/Wi‑Fi, 1=USB)
+- `0x02`: set silent mode (value 0=normal, 1=silent)
+
 ### CRC
 ```
 crc = LEN ^ TYPE ^ payload[0] ^ payload[1] ^ ...
