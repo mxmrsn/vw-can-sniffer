@@ -27,6 +27,14 @@ CRC   : 8-bit XOR of [LEN, TYPE, PAYLOAD]
 - Standard ID: 0x000007FF max
 - Extended ID: set bit31 to 1 and store 29-bit ID in bits 0..28
 
+### TYPE 0x02 Payload (Status)
+```
+[rx_ok(4)][rx_drop(4)]
+```
+
+- `rx_ok`: number of CAN frames received
+- `rx_drop`: number of frames dropped due to ring buffer full
+
 ### CRC
 ```
 crc = LEN ^ TYPE ^ payload[0] ^ payload[1] ^ ...

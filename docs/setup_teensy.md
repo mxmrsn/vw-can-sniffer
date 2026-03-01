@@ -31,6 +31,15 @@ This project uses the Arduino IDE + Teensyduino and the FlexCAN_T4 library.
 When `TEST_MODE` is enabled, a periodic status frame (type `0x02`) is emitted once per second
 with `rx_ok` and `rx_drop` counters to validate the framing and transport.
 
+## USB Capture Script
+You can capture the USB stream and dump CSV using:
+
+```
+python3 tools/usb_dump.py /dev/ttyACM0
+```
+
+Requires `pyserial` (e.g., `pip install pyserial`).
+
 ## Teensy 4.0 UART Pins (Serial1)
 - `TX1 = pin 1`
 - `RX1 = pin 0`

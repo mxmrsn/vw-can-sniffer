@@ -5,6 +5,8 @@ let lastTs = 0;
 let statRx = 0;
 let statBad = 0;
 let statBytes = 0;
+let tRxOk = 0;
+let tRxDrop = 0;
 let paused = false;
 let filterIds = new Set();
 let onlyFilter = false;
@@ -39,7 +41,7 @@ function render() {
     `<tr><td>${f.ts}</td><td>${fmtId(f.id)}</td><td>${f.dlc}</td><td>${dataHtml(f.id, f.bytes)}</td></tr>`
   )).join('');
   document.getElementById('stats').textContent =
-    `Frames: ${count}  Last ts: ${lastTs}  Rx ok: ${statRx}  CRC bad: ${statBad}  Bytes: ${statBytes}`;
+    `Frames: ${count}  Last ts: ${lastTs}  Rx ok: ${statRx}  CRC bad: ${statBad}  Bytes: ${statBytes}  T rx_ok: ${tRxOk}  T drop: ${tRxDrop}`;
 
   const perIdBody = document.getElementById('perId');
   const rows = Array.from(perId.entries()).sort((a, b) => b[1].rate - a[1].rate).slice(0, 20);
@@ -67,6 +69,11 @@ function connect() {
           statRx = msg.rx || 0;
           statBad = msg.bad || 0;
           statBytes = msg.bytes || 0;
+        }
+      } else if (msg.type === 'tstat') {
+        if (!paused) {
+          tRxOk = msg.rx_ok || 0;
+          tRxDrop = msg.rx_drop || 0;
         }
       } else {
         if (paused) return;

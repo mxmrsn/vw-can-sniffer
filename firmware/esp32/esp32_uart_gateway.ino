@@ -32,6 +32,7 @@ static const int UART_TX_PIN = 17;
 // ---------- Protocol ----------
 static const uint8_t SOF = 0xA5;
 static const uint8_t TYPE_CAN = 0x01;
+static const uint8_t TYPE_STAT = 0x02;
 
 // ---------- Servers ----------
 WebServer http(80);
@@ -90,6 +91,18 @@ static void handle_can_payload(const uint8_t *p, uint8_t len) {
   ws.broadcastTXT(out);
 }
 
+static void handle_stat_payload(const uint8_t *p, uint8_t len) {
+  if (len < 8) return;
+  uint32_t rx_ok = 0, rx_drop = 0;
+  memcpy(&rx_ok, p, 4);
+  memcpy(&rx_drop, p + 4, 4);
+
+  char out[128];
+  snprintf(out, sizeof(out), "{\"type\":\"tstat\",\"rx_ok\":%lu,\"rx_drop\":%lu}",
+           (unsigned long)rx_ok, (unsigned long)rx_drop);
+  ws.broadcastTXT(out);
+}
+
 static void parser_feed(uint8_t b) {
   stat_bytes++;
   switch (parser.state) {
@@ -122,6 +135,8 @@ static void parser_feed(uint8_t b) {
       if (parser.crc == b) {
         if (parser.type == TYPE_CAN) {
           handle_can_payload(parser.payload, parser.len);
+        } else if (parser.type == TYPE_STAT) {
+          handle_stat_payload(parser.payload, parser.len);
         }
       } else {
         stat_rx_bad++;
