@@ -273,10 +273,12 @@ document.getElementById('silentBtn').addEventListener('click', () => {
 document.getElementById('filterInput').addEventListener('input', (e) => {
   const raw = e.target.value.toUpperCase();
   filterIds = new Set(raw.split(/[^0-9A-F]+/).filter(Boolean).map(x => x.padStart(8, '0')));
+  render();
 });
 
 document.getElementById('onlyFilter').addEventListener('change', (e) => {
   onlyFilter = e.target.checked;
+  render();
 });
 
 // Per-ID rate calculation
