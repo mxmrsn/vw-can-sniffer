@@ -89,13 +89,16 @@ function dataHtml(id, bytes) {
 function render() {
   const tbody = document.getElementById('frames');
   tbody.innerHTML = frames.filter(f => {
+    const idHex = fmtId(f.id);
+    if (filterIds.size) {
+      const match = filterIds.has(idHex);
+      if (onlyFilter && !match) return false;
+    }
     if (!labelFilter) return true;
-    const idKey = fmtId(f.id);
-    const label = labels.get(idKey) || '';
-    const anyMatch = label.toLowerCase().includes(labelFilter);
-    return anyMatch;
+    const labelText = getLabelText(idHex).toLowerCase();
+    return labelText.includes(labelFilter);
   }).map(f => (
-    `<tr><td>${f.ts}</td><td>${fmtId(f.id)}${labels.get(fmtId(f.id)) ? ' ' + labels.get(fmtId(f.id)) : ''}</td><td>${f.dlc}</td><td>${dataHtml(f.id, f.bytes)}</td></tr>`
+    `<tr><td>${f.ts}</td><td>${fmtId(f.id)}${getLabelText(fmtId(f.id)) ? ' ' + getLabelText(fmtId(f.id)) : ''}</td><td>${f.dlc}</td><td>${dataHtml(f.id, f.bytes)}</td></tr>`
   )).join('');
   document.getElementById('stats').textContent =
     `Frames: ${count}  Last ts: ${lastTs}  Rx ok: ${statRx}  CRC bad: ${statBad}  Bytes: ${statBytes}  T rx_ok: ${tRxOk}  T drop: ${tRxDrop}`;
