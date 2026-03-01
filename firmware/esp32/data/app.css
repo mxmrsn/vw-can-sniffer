@@ -119,6 +119,10 @@ th, td {
   outline: 2px solid #1266d4;
 }
 
+.chart-body.collapsed {
+  display: none;
+}
+
 .file-btn {
   position: relative;
   overflow: hidden;

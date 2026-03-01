@@ -27,7 +27,8 @@
           <strong>Live Plot</strong>
           <button id="toggleChartBtn" class="ghost">Hide</button>
         </div>
-        <div class="plot-controls">
+        <div class="chart-body" id="chartBody">
+          <div class="plot-controls">
           <label>Observed ID<select id="idSelect"><option value="">Auto</option></select></label>
           <label>Byte<select id="byteSelect">
             <option value="0">0</option>
@@ -40,8 +41,9 @@
             <option value="7">7</option>
           </select></label>
           <label>Labeled Signal<select id="labelSelect"><option value="">None</option></select></label>
+          </div>
+          <canvas id="chart" width="560" height="160"></canvas>
         </div>
-        <canvas id="chart" width="560" height="160"></canvas>
       </div>
       <div class="card">
         <div><strong>Recent Frames</strong></div>

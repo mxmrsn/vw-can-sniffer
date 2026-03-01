@@ -101,10 +101,10 @@ let chartVisible = true;
 
 function toggleChart() {
   chartVisible = !chartVisible;
-  const card = document.getElementById('chartCard');
+  const body = document.getElementById('chartBody');
   const btn = document.getElementById('toggleChartBtn');
-  if (card) {
-    card.style.display = chartVisible ? 'block' : 'none';
+  if (body) {
+    body.classList.toggle('collapsed', !chartVisible);
   }
   if (btn) {
     btn.textContent = chartVisible ? 'Hide' : 'Show';
