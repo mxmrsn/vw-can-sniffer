@@ -1,0 +1,12 @@
+# KiCad / PCB backups and caches
+*~
+*.bak
+*backup*
+*.kicad_sch-bak
+*.kicad_pcb-bak
+*.kicad_prl
+fp-info-cache
+.cache/
+
+# Common OS junk
+.DS_Store
