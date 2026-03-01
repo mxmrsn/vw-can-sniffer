@@ -26,14 +26,24 @@
         <div><strong>Live Plot</strong></div>
         <div class="plot-controls">
           <label>Observed ID<select id="idSelect"><option value="">Auto</option></select></label>
+          <label>Byte<select id="byteSelect">
+            <option value="0">0</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+          </select></label>
           <label>Labeled Signal<select id="labelSelect"><option value="">None</option></select></label>
         </div>
         <canvas id="chart" width="560" height="160"></canvas>
       </div>
       <div class="card">
         <div><strong>Recent Frames</strong></div>
-        <table>
-          <thead><tr><th>ts(us)</th><th>id</th><th>dlc</th><th>data</th></tr></thead>
+          <table>
+            <thead><tr><th>ts(us)</th><th>id</th><th>payload</th><th>data</th></tr></thead>
           <tbody id="frames"></tbody>
         </table>
       </div>

@@ -20,6 +20,7 @@ const labels = new Map();
 let labelFilter = '';
 const idSelect = document.getElementById('idSelect');
 const labelSelect = document.getElementById('labelSelect');
+const byteSelect = document.getElementById('byteSelect');
 const observedIds = new Set();
 const chartData = [];
 const chartMaxPoints = 60;
@@ -125,6 +126,7 @@ function render() {
   updateChart();
   const observedChanged = updateObservedIds();
   if (observedChanged) updateIdDropdown();
+  updateLabelDropdown();
 }
 
 function updateObservedIds() {
@@ -204,6 +206,7 @@ function selectLabelTarget(key) {
     chartTarget.lockedByLabel = false;
   }
   clearChartData();
+  setByteSelect(chartTarget.byte);
 }
 
 function getChartSample() {
@@ -457,6 +460,16 @@ if (labelSelect) {
     selectLabelTarget(e.target.value);
     updateLabelDropdown(true);
     if (idSelect) idSelect.value = '';
+  });
+}
+
+if (byteSelect) {
+  byteSelect.addEventListener('change', () => {
+    const val = parseByteSelect();
+    chartTarget.byte = val;
+    chartTarget.lockedByLabel = false;
+    chartTarget.labelKey = '';
+    clearChartData();
   });
 }
 
