@@ -420,6 +420,7 @@ if (idSelect) {
     chartTarget.labelKey = '';
     chartTarget.lockedByLabel = false;
     clearChartData();
+    if (labelSelect) labelSelect.value = '';
   });
 }
 
@@ -427,6 +428,7 @@ if (labelSelect) {
   labelSelect.addEventListener('change', (e) => {
     selectLabelTarget(e.target.value);
     updateLabelDropdown(true);
+    if (idSelect) idSelect.value = '';
   });
 }
 
