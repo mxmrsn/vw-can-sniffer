@@ -81,6 +81,9 @@ Enable synthetic frames for bench testing:
 ## Protocol
 See `docs/uart_protocol.md` for the UART framing spec.
 
+## PCB Docs
+See `pcb-teensy-esp32/teensy-esp32-can-sniffer/docs/README.md` for schematic, layout, and 3D captures.
+
 ## Next Steps
 - ESP32 firmware to host a WebSocket dashboard
 - Basic browser UI for live frame display
