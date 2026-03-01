@@ -34,12 +34,28 @@ function saveLabels() {
   localStorage.setItem('can_labels', JSON.stringify(obj));
 }
 
+function splitLabelKey(key) {
+  const parts = key.split(':');
+  return { id: parts[0], byte: parts[1] || '' };
+}
+
+function getLabelText(idHex) {
+  const general = labels.get(idHex);
+  if (general) return general;
+  for (const [key, val] of labels.entries()) {
+    const { id } = splitLabelKey(key);
+    if (id === idHex) return val;
+  }
+  return '';
+}
+
 function renderLabels() {
   const tbody = document.getElementById('labels');
   const rows = Array.from(labels.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  tbody.innerHTML = rows.map(([id, name]) => (
-    `<tr><td>${id.split(':')[0]}</td><td>${id.split(':')[1] || ''}</td><td>${name}</td><td><button data-id="${id}">X</button></td></tr>`
-  )).join('');
+  tbody.innerHTML = rows.map(([id, name]) => {
+    const { id: keyId, byte } = splitLabelKey(id);
+    return `<tr><td>${keyId}</td><td>${byte}</td><td>${name}</td><td><button data-id="${id}">X</button></td></tr>`;
+  }).join('');
   tbody.querySelectorAll('button').forEach(btn => {
     btn.addEventListener('click', () => {
       labels.delete(btn.dataset.id);
