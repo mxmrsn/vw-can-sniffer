@@ -230,6 +230,34 @@ function updateChart() {
   const width = canvas.width;
   const height = canvas.height;
   ctx.clearRect(0, 0, width, height);
+  // draw grid
+  ctx.strokeStyle = '#e1e1e1';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i <= 4; i++) {
+    const y = (height / 4) * i;
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+  }
+  ctx.stroke();
+  // y-axis and ticks
+  ctx.strokeStyle = '#c0c0c0';
+  ctx.beginPath();
+  ctx.moveTo(35, 0);
+  ctx.lineTo(35, height);
+  ctx.stroke();
+  ctx.font = '10px monospace';
+  ctx.fillStyle = '#5b5b5b';
+  for (let i = 0; i <= 5; i++) {
+    const y = (height / 5) * i;
+    const value = Math.round(255 - (255 / 5) * i);
+    ctx.fillText(value, 0, y + 3);
+    ctx.beginPath();
+    ctx.moveTo(30, y);
+    ctx.lineTo(35, y);
+    ctx.stroke();
+  }
+  // plot data
   ctx.strokeStyle = '#1266d4';
   ctx.lineWidth = 2;
   ctx.beginPath();
