@@ -83,6 +83,23 @@ th, td {
   min-width: 120px;
 }
 
+.plot-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.plot-controls label {
+  font-size: 12px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.plot-controls select {
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 .file-btn {
   position: relative;
   overflow: hidden;

@@ -18,6 +18,10 @@ const lastData = new Map();
 let mockMode = false;
 const labels = new Map();
 let labelFilter = '';
+const observedIds = new Set();
+const chartData = [];
+const chartMaxPoints = 60;
+let chartTarget = { id: null, byte: null };
 const chartData = [];
 const chartMaxPoints = 60;
 
@@ -63,6 +67,7 @@ function renderLabels() {
       labels.delete(btn.dataset.id);
       saveLabels();
       renderLabels();
+      updateDropdowns();
     });
   });
 }
@@ -115,15 +120,56 @@ function render() {
     `<tr><td>${fmtId(id)}${labels.get(fmtId(id)) ? ' ' + labels.get(fmtId(id)) : ''}</td><td>${info.rate.toFixed(1)} Hz</td><td>${info.lastSeenMs} ms</td></tr>`
   )).join('');
   updateChart();
+  updateObservedIds();
+  updateDropdowns();
+}
+
+function updateObservedIds() {
+  observedIds.clear();
+  perId.forEach((_, key) => {
+    observedIds.add(fmtId(key));
+  });
+}
+
+function updateDropdowns() {
+  const idSelect = document.getElementById('idSelect');
+  const labelSelect = document.getElementById('labelSelect');
+  if (idSelect) {
+    const current = chartTarget.id || '';
+    const options = ['<option value=\"\">Auto</option>'];
+    Array.from(observedIds).sort().forEach(id => {
+      options.push(`<option value=\"${id}\"${id === current ? ' selected' : ''}>${id}</option>`);
+    });
+    idSelect.innerHTML = options.join('');
+  }
+  if (labelSelect) {
+    const current = chartTarget.labelKey || '';
+    const options = ['<option value=\"\">None</option>'];
+    Array.from(labels.entries()).sort((a, b) => a[0].localeCompare(b[0])).forEach(([key, name]) => {
+      options.push(`<option value=\"${key}\"${key === current ? ' selected' : ''}>${name} (${splitLabelKey(key).id}${splitLabelKey(key).byte ? ` byte ${splitLabelKey(key).byte}` : ''})</option>`);
+    });
+    labelSelect.innerHTML = options.join('');
+  }
+}
+
+function getChartSample() {
+  const targetId = chartTarget.id;
+  let candidate = null;
+  if (targetId) {
+    candidate = frames.find(f => fmtId(f.id) === targetId);
+  }
+  if (!candidate) candidate = frames[0];
+  if (!candidate || candidate.bytes.length === 0) return null;
+  const index = (chartTarget.byte !== null && chartTarget.byte >= 0) ? chartTarget.byte : 0;
+  return candidate.bytes[index] ?? candidate.bytes[0];
 }
 
 function updateChart() {
   const canvas = document.getElementById('chart');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  const latest = frames[0];
-  if (!latest || latest.bytes.length === 0) return;
-  const value = latest.bytes[0];
+  const value = getChartSample();
+  if (value === null) return;
   const timestamp = Date.now();
   chartData.unshift({ ts: timestamp, value });
   if (chartData.length > chartMaxPoints) chartData.pop();
@@ -212,6 +258,7 @@ document.getElementById('addLabelBtn').addEventListener('click', () => {
   labels.set(key, nameRaw);
   saveLabels();
   renderLabels();
+  updateDropdowns();
 });
 
 document.getElementById('exportLabelsBtn').addEventListener('click', () => {
@@ -307,6 +354,25 @@ document.getElementById('filterInput').addEventListener('input', (e) => {
 document.getElementById('onlyFilter').addEventListener('change', (e) => {
   onlyFilter = e.target.checked;
   render();
+});
+
+document.getElementById('idSelect')?.addEventListener('change', (e) => {
+  const val = e.target.value;
+  chartTarget.id = val || null;
+  chartTarget.byte = null;
+  chartTarget.labelKey = '';
+});
+
+document.getElementById('labelSelect')?.addEventListener('change', (e) => {
+  const key = e.target.value;
+  chartTarget.labelKey = key;
+  if (key) {
+    const { id, byte } = splitLabelKey(key);
+    chartTarget.id = id;
+    chartTarget.byte = byte ? parseInt(byte, 10) : 0;
+  } else {
+    chartTarget.byte = null;
+  }
 });
 
 // Per-ID rate calculation
