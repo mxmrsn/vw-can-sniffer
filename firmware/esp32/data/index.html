@@ -22,8 +22,11 @@
 
   <div class="row">
     <div class="column main">
-      <div class="card">
-        <div><strong>Live Plot</strong></div>
+      <div class="card" id="chartCard">
+        <div class="card-header">
+          <strong>Live Plot</strong>
+          <button id="toggleChartBtn" class="ghost">Hide</button>
+        </div>
         <div class="plot-controls">
           <label>Observed ID<select id="idSelect"><option value="">Auto</option></select></label>
           <label>Byte<select id="byteSelect">

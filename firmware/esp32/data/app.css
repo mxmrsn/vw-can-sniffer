@@ -100,6 +100,25 @@ th, td {
   border-radius: 4px;
 }
 
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.ghost {
+  background: transparent;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.ghost:focus-visible {
+  outline: 2px solid #1266d4;
+}
+
 .file-btn {
   position: relative;
   overflow: hidden;

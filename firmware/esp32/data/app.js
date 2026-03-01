@@ -97,6 +97,20 @@ function dataHtml(id, bytes) {
   return html.trim();
 }
 
+let chartVisible = true;
+
+function toggleChart() {
+  chartVisible = !chartVisible;
+  const card = document.getElementById('chartCard');
+  const btn = document.getElementById('toggleChartBtn');
+  if (card) {
+    card.style.display = chartVisible ? 'block' : 'none';
+  }
+  if (btn) {
+    btn.textContent = chartVisible ? 'Hide' : 'Show';
+  }
+}
+
 function render() {
   const tbody = document.getElementById('frames');
   tbody.innerHTML = frames.filter(f => {
@@ -472,6 +486,9 @@ if (byteSelect) {
     clearChartData();
   });
 }
+
+const toggleBtn = document.getElementById('toggleChartBtn');
+if (toggleBtn) toggleBtn.addEventListener('click', toggleChart);
 
 // Per-ID rate calculation
 setInterval(() => {
