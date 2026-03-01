@@ -18,6 +18,8 @@ const lastData = new Map();
 let mockMode = false;
 const labels = new Map();
 let labelFilter = '';
+const chartData = [];
+const chartMaxPoints = 60;
 
 function loadLabels() {
   try {
@@ -112,6 +114,32 @@ function render() {
   perIdBody.innerHTML = rows.map(([id, info]) => (
     `<tr><td>${fmtId(id)}${labels.get(fmtId(id)) ? ' ' + labels.get(fmtId(id)) : ''}</td><td>${info.rate.toFixed(1)} Hz</td><td>${info.lastSeenMs} ms</td></tr>`
   )).join('');
+  updateChart();
+}
+
+function updateChart() {
+  const canvas = document.getElementById('chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const latest = frames[0];
+  if (!latest || latest.bytes.length === 0) return;
+  const value = latest.bytes[0];
+  const timestamp = Date.now();
+  chartData.unshift({ ts: timestamp, value });
+  if (chartData.length > chartMaxPoints) chartData.pop();
+  const width = canvas.width;
+  const height = canvas.height;
+  ctx.clearRect(0, 0, width, height);
+  ctx.strokeStyle = '#1266d4';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  chartData.forEach((point, idx) => {
+    const x = width - (idx / chartMaxPoints) * width;
+    const y = height - (point.value / 255) * height;
+    if (idx === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
 }
 
 function connect() {
