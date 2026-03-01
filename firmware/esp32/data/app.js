@@ -15,6 +15,7 @@ let onlyFilter = false;
 
 const perId = new Map();
 const lastData = new Map();
+let mockMode = false;
 
 function fmtId(id) {
   return (id >>> 0).toString(16).padStart(8, '0');
@@ -112,6 +113,39 @@ function connect() {
 }
 
 connect();
+
+// Mock mode for local UI preview
+function startMockMode() {
+  if (mockMode) return;
+  mockMode = true;
+  document.getElementById('status').textContent = 'Mock mode (no hardware)';
+  setInterval(() => {
+    if (paused) return;
+    const now = Date.now();
+    const id = 0x100 + (now % 16);
+    const bytes = Array.from({ length: 8 }, (_, i) => (now >> (i * 3)) & 0xFF);
+    const msg = { ts: now, id, dlc: 8, data: bytes.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ') };
+    frames.unshift({ ...msg, bytes });
+    if (frames.length > 25) frames.pop();
+    count++;
+    lastTs = msg.ts;
+
+    const entry = perId.get(id) || { count: 0, rate: 0, lastSeen: now };
+    entry.count++;
+    entry.lastSeen = now;
+    perId.set(id, entry);
+
+    tRxOk += 3;
+    tRxDrop += (now % 7 === 0) ? 1 : 0;
+    statRx += 5;
+    statBytes += 64;
+    render();
+  }, 200);
+}
+
+setTimeout(() => {
+  if (!ws || ws.readyState !== 1) startMockMode();
+}, 1500);
 
 // Controls
 document.getElementById('pauseBtn').addEventListener('click', () => {
