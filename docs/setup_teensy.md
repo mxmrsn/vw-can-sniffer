@@ -21,7 +21,12 @@ This project uses the Arduino IDE + Teensyduino and the FlexCAN_T4 library.
 - Default CAN speed in the sketch is `500000`.
 - Default UART is `Serial1` at `921600`.
 - Enable synthetic frames for bench testing by setting `TEST_MODE` to `1`.
-- Optional heartbeat LED on `A0 / pin 14` (blinks at 0.5s).
+- Heartbeat LED on `A0 / pin 14` (blinks at 0.5s).
+- Wi‑Fi active LED on `pin 15`.
+- USB active LED on `pin 16`.
+- CAN silent indicator LED on `pin 21`.
+- Mode button on `pin 8` (toggles UART vs USB output).
+- Select button on `pin 9` (reserved).
 
 ## Teensy 4.0 UART Pins (Serial1)
 - `TX1 = pin 1`
@@ -73,6 +78,6 @@ Note: `EN` is active‑low; pulling it low resets the ESP32.
 Note: `RST` is also active‑low; pulling it low reboots the ESP32 without cutting power.
 
 ## Optional TJA1051 Silent Mode
-- Teensy `pin 21` → TJA1051 `S`
+- Teensy `pin 20` → TJA1051 `S`
 - `S = LOW` → normal mode
 - `S = HIGH` → silent (listen‑only)

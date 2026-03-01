@@ -26,7 +26,12 @@ Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 
 - Optional: `Teensy pin 5` → `ESP32 RST` (soft reset)
 
 ### CAN Transceiver (Optional Control)
-- Optional: `Teensy pin 21` → TJA1051 `S` (silent/listen‑only control)
+- Optional: `Teensy pin 20` → TJA1051 `S` (silent/listen‑only control)
+
+### Output Mode + LEDs
+- Mode button: `pin 8` (toggle UART/Wi‑Fi vs USB)
+- Select button: `pin 9` (reserved)
+- LEDs: CAN heartbeat `pin 14`, Wi‑Fi active `pin 15`, USB active `pin 16`, silent indicator `pin 21`
 
 ## Firmware Notes
 - Default UART: `Serial1` @ `921600`

@@ -1,5 +1,5 @@
 /*
-  Teensy 4.1 CAN sniffer -> UART streamer
+  Teensy 4.0 CAN sniffer -> UART/USB streamer
   Protocol documented in docs/uart_protocol.md
 
   Dependencies:
@@ -13,22 +13,38 @@
 static const uint32_t UART_BAUD = 921600;
 static const uint32_t CAN_BAUD  = 500000; // typical VW CAN speed; adjust if needed
 
-// External heartbeat LED (Teensy A0 / pin 14)
-#define LED_CAN_PIN 14
-static const uint32_t LED_PERIOD_MS = 500;
-static uint32_t led_last_ms = 0;
-
 // Set to 1 to generate synthetic frames on a timer (bench testing without CAN)
 #define TEST_MODE 0
 #define TEST_RATE_HZ 50
 
-// UART device
+// UART device (to ESP32)
 #define UART_PORT Serial1
+// USB serial device (to PC)
+#define USB_PORT Serial
 
-// Optional CAN transceiver silent mode (Teensy pin 21 -> TJA1051 S)
-#define CAN_SILENT_PIN 21
+// Output mode selection
+enum OutputMode : uint8_t { OUTPUT_UART = 0, OUTPUT_USB = 1 };
+static OutputMode output_mode = OUTPUT_UART;
 
-// CAN device (Teensy 4.1 has CAN1/CAN2/CAN3)
+// CAN transceiver silent mode (Teensy pin 20 -> TJA1051 S)
+#define CAN_SILENT_PIN 20
+
+// External LEDs
+#define LED_CAN_PIN 14     // CAN heartbeat
+#define LED_WIFI_PIN 15    // UART/Wi-Fi active
+#define LED_USB_PIN 16     // USB active
+#define LED_SILENT_PIN 21  // CAN silent indicator
+static const uint32_t LED_PERIOD_MS = 500;
+static uint32_t led_last_ms = 0;
+
+// Buttons (active-low with pullups)
+#define BTN_MODE_PIN 8
+#define BTN_SELECT_PIN 9
+static uint32_t last_btn_ms = 0;
+static bool last_mode_state = true;
+static bool last_select_state = true;
+
+// CAN device (Teensy 4.0 has CAN1/CAN2/CAN3)
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
 
 // ---------- Protocol ----------
@@ -88,13 +104,23 @@ static inline uint32_t encode_can_id(const CAN_message_t &msg) {
 
 void setup() {
   UART_PORT.begin(UART_BAUD);
+  USB_PORT.begin(115200);
   while (!UART_PORT && millis() < 2000) {}
-
-  pinMode(LED_CAN_PIN, OUTPUT);
-  digitalWrite(LED_CAN_PIN, LOW);
 
   pinMode(CAN_SILENT_PIN, OUTPUT);
   digitalWrite(CAN_SILENT_PIN, LOW); // normal mode (LOW = normal, HIGH = silent)
+
+  pinMode(LED_CAN_PIN, OUTPUT);
+  pinMode(LED_WIFI_PIN, OUTPUT);
+  pinMode(LED_USB_PIN, OUTPUT);
+  pinMode(LED_SILENT_PIN, OUTPUT);
+  digitalWrite(LED_CAN_PIN, LOW);
+  digitalWrite(LED_WIFI_PIN, HIGH);
+  digitalWrite(LED_USB_PIN, LOW);
+  digitalWrite(LED_SILENT_PIN, LOW);
+
+  pinMode(BTN_MODE_PIN, INPUT_PULLUP);
+  pinMode(BTN_SELECT_PIN, INPUT_PULLUP);
 
   Can0.begin();
   Can0.setBaudRate(CAN_BAUD);
@@ -112,12 +138,32 @@ void setup() {
 }
 
 void loop() {
-  // Heartbeat LED
   uint32_t now_ms = millis();
+
+  // Mode button (toggle output)
+  bool mode_state = digitalRead(BTN_MODE_PIN);
+  bool select_state = digitalRead(BTN_SELECT_PIN);
+  if (now_ms - last_btn_ms > 50) {
+    if (last_mode_state && !mode_state) {
+      output_mode = (output_mode == OUTPUT_UART) ? OUTPUT_USB : OUTPUT_UART;
+      last_btn_ms = now_ms;
+    }
+    if (last_select_state && !select_state) {
+      // Reserved for future use
+      last_btn_ms = now_ms;
+    }
+  }
+  last_mode_state = mode_state;
+  last_select_state = select_state;
+
+  // LEDs
   if (now_ms - led_last_ms >= LED_PERIOD_MS) {
     led_last_ms = now_ms;
     digitalWrite(LED_CAN_PIN, !digitalRead(LED_CAN_PIN));
   }
+  digitalWrite(LED_WIFI_PIN, output_mode == OUTPUT_UART ? HIGH : LOW);
+  digitalWrite(LED_USB_PIN, output_mode == OUTPUT_USB ? HIGH : LOW);
+  digitalWrite(LED_SILENT_PIN, digitalRead(CAN_SILENT_PIN) ? HIGH : LOW);
 
   // Synthetic frame generator for bench testing
 #if TEST_MODE
@@ -153,9 +199,15 @@ void loop() {
     uint8_t header[3] = { SOF, len, TYPE_CAN };
     uint8_t crc = len ^ TYPE_CAN ^ xor_crc(payload, len);
 
-    UART_PORT.write(header, sizeof(header));
-    UART_PORT.write(payload, len);
-    UART_PORT.write(&crc, 1);
+    if (output_mode == OUTPUT_UART) {
+      UART_PORT.write(header, sizeof(header));
+      UART_PORT.write(payload, len);
+      UART_PORT.write(&crc, 1);
+    } else {
+      USB_PORT.write(header, sizeof(header));
+      USB_PORT.write(payload, len);
+      USB_PORT.write(&crc, 1);
+    }
   }
 
   // Yield to background tasks
