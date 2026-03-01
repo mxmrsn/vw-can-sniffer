@@ -8,6 +8,7 @@
 
 #include <Arduino.h>
 #include <FlexCAN_T4.h>
+#include "pins.h"
 
 // ---------- Config ----------
 static const uint32_t UART_BAUD = 921600;
@@ -26,14 +27,7 @@ static const uint32_t CAN_BAUD  = 500000; // typical VW CAN speed; adjust if nee
 enum OutputMode : uint8_t { OUTPUT_UART = 0, OUTPUT_USB = 1 };
 static OutputMode output_mode = OUTPUT_UART;
 
-// CAN transceiver silent mode (Teensy pin 20 -> TJA1051 S)
-#define CAN_SILENT_PIN 20
-
 // External LEDs
-#define LED_CAN_PIN 14     // CAN activity
-#define LED_WIFI_PIN 15    // UART/Wi-Fi active
-#define LED_USB_PIN 16     // USB activity
-#define LED_SILENT_PIN 21  // CAN silent indicator
 static const uint32_t LED_PULSE_MS = 40;
 static const uint32_t LED_WIFI_PERIOD_MS = 500;
 static uint32_t led_can_last_ms = 0;
@@ -41,8 +35,6 @@ static uint32_t led_usb_last_ms = 0;
 static uint32_t led_wifi_last_ms = 0;
 
 // Buttons (active-low with pullups)
-#define BTN_MODE_PIN 8
-#define BTN_SELECT_PIN 9
 static uint32_t last_btn_ms = 0;
 static bool last_mode_state = true;
 static bool last_select_state = true;
@@ -53,6 +45,7 @@ FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> Can0;
 // ---------- Protocol ----------
 static const uint8_t SOF  = 0xA5;
 static const uint8_t TYPE_CAN = 0x01;
+static const uint8_t TYPE_STAT = 0x02;
 
 struct CanFrameLite {
   uint32_t ts_us;
@@ -67,6 +60,11 @@ static CanFrameLite rb[RB_SIZE];
 static volatile uint16_t rb_head = 0;
 static volatile uint16_t rb_tail = 0;
 
+// ---------- Stats ----------
+static volatile uint32_t stat_rx_ok = 0;
+static volatile uint32_t stat_rx_drop = 0;
+static uint32_t stat_last_ms = 0;
+
 static inline bool rb_is_full() {
   return ((rb_head + 1) % RB_SIZE) == rb_tail;
 }
@@ -78,6 +76,7 @@ static inline bool rb_is_empty() {
 static inline void rb_push(const CanFrameLite &f) {
   if (rb_is_full()) {
     // Drop newest if full (simple policy)
+    stat_rx_drop++;
     return;
   }
   rb[rb_head] = f;
@@ -137,6 +136,7 @@ void setup() {
     f.dlc = msg.len;
     for (uint8_t i = 0; i < msg.len; i++) f.data[i] = msg.buf[i];
     rb_push(f);
+    stat_rx_ok++;
 
     // CAN activity pulse
     digitalWrite(LED_CAN_PIN, HIGH);
@@ -182,6 +182,32 @@ void loop() {
     digitalWrite(LED_WIFI_PIN, LOW);
   }
   digitalWrite(LED_SILENT_PIN, digitalRead(CAN_SILENT_PIN) ? HIGH : LOW);
+
+  // Periodic status frame (TEST_MODE only)
+#if TEST_MODE
+  if (now_ms - stat_last_ms >= 1000) {
+    stat_last_ms = now_ms;
+    uint8_t payload[8];
+    memcpy(&payload[0], &stat_rx_ok, 4);
+    memcpy(&payload[4], &stat_rx_drop, 4);
+
+    uint8_t len = 8;
+    uint8_t header[3] = { SOF, len, TYPE_STAT };
+    uint8_t crc = len ^ TYPE_STAT ^ xor_crc(payload, len);
+
+    if (output_mode == OUTPUT_UART) {
+      UART_PORT.write(header, sizeof(header));
+      UART_PORT.write(payload, len);
+      UART_PORT.write(&crc, 1);
+    } else {
+      USB_PORT.write(header, sizeof(header));
+      USB_PORT.write(payload, len);
+      USB_PORT.write(&crc, 1);
+      digitalWrite(LED_USB_PIN, HIGH);
+      led_usb_last_ms = millis();
+    }
+  }
+#endif
 
   // Synthetic frame generator for bench testing
 #if TEST_MODE
