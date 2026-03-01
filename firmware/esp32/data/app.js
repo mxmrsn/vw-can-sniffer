@@ -17,6 +17,7 @@ const perId = new Map();
 const lastData = new Map();
 let mockMode = false;
 const labels = new Map();
+let labelFilter = '';
 
 function loadLabels() {
   try {
@@ -37,7 +38,7 @@ function renderLabels() {
   const tbody = document.getElementById('labels');
   const rows = Array.from(labels.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   tbody.innerHTML = rows.map(([id, name]) => (
-    `<tr><td>${id}</td><td>${name}</td><td><button data-id="${id}">X</button></td></tr>`
+    `<tr><td>${id.split(':')[0]}</td><td>${id.split(':')[1] || ''}</td><td>${name}</td><td><button data-id="${id}">X</button></td></tr>`
   )).join('');
   tbody.querySelectorAll('button').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -71,7 +72,13 @@ function dataHtml(id, bytes) {
 
 function render() {
   const tbody = document.getElementById('frames');
-  tbody.innerHTML = frames.map(f => (
+  tbody.innerHTML = frames.filter(f => {
+    if (!labelFilter) return true;
+    const idKey = fmtId(f.id);
+    const label = labels.get(idKey) || '';
+    const anyMatch = label.toLowerCase().includes(labelFilter);
+    return anyMatch;
+  }).map(f => (
     `<tr><td>${f.ts}</td><td>${fmtId(f.id)}${labels.get(fmtId(f.id)) ? ' ' + labels.get(fmtId(f.id)) : ''}</td><td>${f.dlc}</td><td>${dataHtml(f.id, f.bytes)}</td></tr>`
   )).join('');
   document.getElementById('stats').textContent =
@@ -150,12 +157,47 @@ loadLabels();
 renderLabels();
 document.getElementById('addLabelBtn').addEventListener('click', () => {
   const idRaw = document.getElementById('labelId').value.trim().toUpperCase();
+  const byteRaw = document.getElementById('labelByte').value.trim();
   const nameRaw = document.getElementById('labelName').value.trim();
   if (!idRaw || !nameRaw) return;
   const id = idRaw.padStart(8, '0');
-  labels.set(id, nameRaw);
+  const key = byteRaw ? `${id}:${byteRaw}` : id;
+  labels.set(key, nameRaw);
   saveLabels();
   renderLabels();
+});
+
+document.getElementById('exportLabelsBtn').addEventListener('click', () => {
+  const obj = {};
+  labels.forEach((v, k) => { obj[k] = v; });
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'can_labels.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('importLabelsInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const obj = JSON.parse(reader.result);
+      labels.clear();
+      Object.keys(obj).forEach(k => labels.set(k, obj[k]));
+      saveLabels();
+      renderLabels();
+    } catch (err) {}
+  };
+  reader.readAsText(file);
+});
+
+document.getElementById('labelSearch').addEventListener('input', (e) => {
+  labelFilter = e.target.value.trim().toLowerCase();
+  render();
 });
 
 // Mock mode for local UI preview
