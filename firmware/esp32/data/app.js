@@ -188,6 +188,10 @@ function updateLabelDropdown(force = false) {
   if (!keys.includes(chartTarget.labelKey)) labelSelect.value = '';
 }
 
+function clearChartData() {
+  chartData.length = 0;
+}
+
 function selectLabelTarget(key) {
   chartTarget.labelKey = key;
   if (key) {
@@ -199,6 +203,7 @@ function selectLabelTarget(key) {
     chartTarget.byte = null;
     chartTarget.lockedByLabel = false;
   }
+  clearChartData();
 }
 
 function getChartSample() {
@@ -414,6 +419,7 @@ if (idSelect) {
     chartTarget.byte = null;
     chartTarget.labelKey = '';
     chartTarget.lockedByLabel = false;
+    clearChartData();
   });
 }
 
