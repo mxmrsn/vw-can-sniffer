@@ -22,8 +22,6 @@ const observedIds = new Set();
 const chartData = [];
 const chartMaxPoints = 60;
 let chartTarget = { id: null, byte: null };
-const chartData = [];
-const chartMaxPoints = 60;
 
 function loadLabels() {
   try {
