@@ -81,6 +81,10 @@ Enable synthetic frames for bench testing:
 ## Protocol
 See `docs/uart_protocol.md` for the UART framing spec.
 
+## USB Capture
+Use `tools/usb_dump.py` to read the framed stream from USB and emit CSV.
+Requires `pyserial`.
+
 ## PCB Docs
 See `pcb-teensy-esp32/teensy-esp32-can-sniffer/docs/README.md` for schematic, layout, and 3D captures.
 

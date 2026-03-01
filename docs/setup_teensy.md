@@ -22,7 +22,7 @@ This project uses the Arduino IDE + Teensyduino and the FlexCAN_T4 library.
 - Default UART is `Serial1` at `921600`.
 - Enable synthetic frames for bench testing by setting `TEST_MODE` to `1`.
 - CAN activity LED on `A0 / pin 14` (short pulse on RX).
-- Wi‑Fi active LED on `pin 15` (on when UART/Wi‑Fi mode selected).
+- Wi‑Fi active LED on `pin 15` (blinks when UART/Wi‑Fi mode selected).
 - USB activity LED on `pin 16` (pulses on USB writes).
 - CAN silent indicator LED on `pin 21`.
 - Mode button on `pin 8` (toggles UART vs USB output).
