@@ -13,3 +13,7 @@ fp-info-cache
 
 # Common OS junk
 .DS_Store
+
+# KiCad local history and lock files
+.history/
+*.lck

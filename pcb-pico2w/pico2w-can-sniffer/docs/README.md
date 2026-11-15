@@ -13,7 +13,8 @@ Teensy 4.0 + XIAO ESP32S3 pair used on [v0.1.0](../../../pcb-teensy-esp32/teensy
 ![Schematic](./schematic.png)
 ![Layout, both copper layers](./pcb-layout.png)
 ![Back copper](./pcb-layout-back.png)
-![3D](./3d-render.png)
+![3D top](./3d-render.png)
+![3D angle](./3d-render-angle.png)
 
 ## What changed from v0.1.0
 - U1 Teensy 4.0 and U2 XIAO ESP32S3 removed; U1 is now the Pico 2 W. The Teensy↔ESP32 UART link is gone.
@@ -23,8 +24,8 @@ Teensy 4.0 + XIAO ESP32S3 pair used on [v0.1.0](../../../pcb-teensy-esp32/teensy
   together without back-feeding the buck. TJA1051 VCC moved to VSYS so the transceiver also works from USB alone.
 - **JP1** solder jumper in series with the 120 Ω terminator R7, **open by default**. Leave it open on the car
   (the bus is already terminated); bridge it only on the bench.
-- Two power sources (see Power below): a protected OBD 12 V feed and a power-only USB-C socket. **S3** is the
-  on/off switch for the OBD-powered buck.
+- Power comes from a protected OBD 12 V feed or the Pico's own micro-USB (see Power below). **S3** is the on/off
+  switch for the OBD-powered buck.
 - **microSD socket (J2)** on SPI1 for standalone logging.
 - OBD supply voltage is measured on GP28 so firmware can tell engine-running from parked.
 - Board is now 93.98 × 40.64 mm (v0.1.0 was 68.58 mm wide): +7.62 mm to keep the CAN/power section out from
@@ -50,23 +51,22 @@ Teensy 4.0 + XIAO ESP32S3 pair used on [v0.1.0](../../../pcb-teensy-esp32/teensy
 | 24 | GP18 | `CRX`                | TJA1051 `RXD` |
 | 34 | GP28 | `OBD_SENSE`          | OBD supply voltage, ADC2. V_obd = V_adc × 5.545 |
 | 36 | —    | `+3V3`               | 3V3 out → TJA1051 VIO, buttons, microSD |
-| 39 | —    | `VSYS`               | 5 V in via D5 (buck) or D9 (USB-C); also TJA1051 VCC |
+| 39 | —    | `VSYS`               | 5 V in via D5 (buck); also TJA1051 VCC |
 
 All other GPIO are unconnected. Matching firmware header: `firmware/pico2w/pins.h`.
 
 ## Power
 ```
 OBD +12V ─ F1 (PTC) ─┬─ D7 ─ VIN ─ AP63205 buck ─ +5V ─ D5 ─┬─ VSYS ─ Pico 3V3 reg ─ +3V3
-                     D6 (TVS)            USB-C VBUS ─ D9 ───┤
-                                         Pico micro-USB ────┘ (Pico on-board diode)
+                     D6 (TVS)            Pico micro-USB ────┘ (Pico on-board diode)
 ```
 - **OBD:** J1 pin 1 → 0.75 A PTC → SMBJ18A clamp → Schottky blocking diode. Harness: OBD pin 16 → +12V,
   pins 4/5 → GND, pin 6 → CAN_H, pin 14 → CAN_L.
 - **Power switch (S3):** shorts the buck enable pin to ground. OBD pin 16 is always live and the board draws
   roughly 50–100 mA while running, so switch off or unplug when parked until firmware sleep exists.
 - **OBD sense:** fused OBD voltage → 100 k / 22 k → GP28. About 12.0–12.8 V parked, 13.5–14.5 V with the engine running.
-- **USB-C (J3):** 5 V power only, with 5.1 k CC pull-downs. No data lines; USB data and firmware loading stay on
-  the Pico's micro-USB. USB power is not switched by S3.
+- **USB:** the Pico's micro-USB powers the board and carries data and firmware loading. It is not switched by S3.
+  The separate USB-C power socket from an earlier pass was removed as redundant.
 - VSYS is about 4.7 V on any source (TJA1051 VCC minimum is 4.5 V).
 - There is no battery input; the earlier 2S LiPo circuit was removed.
 
@@ -80,14 +80,16 @@ from power-on.
 - ERC: 0 errors (remaining warnings are missing third-party libraries, same as v0.1.0).
 - DRC: 0 unconnected, 0 clearance/short/courtyard errors. Remaining: Pico USB-connector silkscreen overhanging the
   board edge (intentional) and the J1 reference over its own pads (cosmetic).
-- `kicad-cli` schematic-parity reports 38 "No corresponding pin found" warnings on auto-named nets
+- `kicad-cli` schematic-parity reports 34 "No corresponding pin found" warnings on auto-named nets
   (`Net-(…)`, `unconnected-(…)`). Pad nets were assigned directly from the schematic netlist; run
   *Tools → Update PCB from Schematic* once in the GUI to refresh pad metadata.
 - The power-input and microSD sections are new and unbuilt.
 - The SD fan-out uses 0.6 mm / 0.3 mm vias; check your fab's minimum before ordering.
 - F1 is specified by rating only (0.75 A hold, ≥30 V, 1812); pick an in-stock part before ordering.
+- 3D models: J1 (Molex Pico-SPOX) and S3 (slide switch) have no model in the installed KiCad library, so they are
+  blank in the 3D view. F1 uses a same-size 1812 capacitor model as a stand-in.
 - Not yet done: fab outputs (gerbers), bring-up on hardware.
 
 ## BOM
 See [`bom.csv`](./bom.csv). Removed vs v0.1.0: Teensy 4.0, XIAO ESP32S3. Added: Pico 2 W (or 2 WH) on two 1×20
-socket strips, the OBD protection parts, USB-C socket, microSD socket, power switch, D5/D9 Schottkys and JP1.
+socket strips, the OBD protection parts, microSD socket, power switch, D5 Schottky and JP1.
