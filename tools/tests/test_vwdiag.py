@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from contextlib import redirect_stdout
 
@@ -16,7 +17,9 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(REPO, "tools"))
 
 from vwdiag import cli, dbc, dtc, obd, vw       # noqa: E402
-from vwdiag.link import Link                    # noqa: E402
+from vwdiag import binlink                      # noqa: E402
+from vwdiag.binlink import BinaryLink           # noqa: E402
+from vwdiag.link import Link, LinkError         # noqa: E402
 from vwdiag.uds import InterfaceRefused, NegativeResponse, NoResponse, UdsClient  # noqa: E402
 
 SIM_DIR = os.path.join(REPO, "hardware", "pico2w", "firmware", "sim")
@@ -99,8 +102,11 @@ class BroadcastDatabase(unittest.TestCase):
 
 
 class AgainstSimulator(unittest.TestCase):
+    LINK = Link          # the same tests run again over the binary protocol below
+    READ_CHUNK = 4096
+
     def setUp(self):
-        self.link = Link.simulator(SIM)
+        self.link = self.LINK.simulator(SIM, read_chunk=self.READ_CHUNK)
         self.addCleanup(self.link.close)
 
     def engine(self):
@@ -109,10 +115,10 @@ class AgainstSimulator(unittest.TestCase):
     def test_listen_only_by_default(self):
         with self.assertRaises(InterfaceRefused):
             self.engine().tester_present()
-        self.assertIn("bus listen-only", self.link.command("status"))
+        self.assertTrue(self.link.status()["silent"])
 
     def test_tester_present_and_session(self):
-        self.link.command("silent off")
+        self.link.set_silent(False)
         self.engine().tester_present()
         self.engine().session(0x03)
         with self.assertRaises(NegativeResponse) as cm:
@@ -120,26 +126,26 @@ class AgainstSimulator(unittest.TestCase):
         self.assertEqual(cm.exception.nrc, 0x12)
 
     def test_multi_frame_read(self):
-        self.link.command("silent off")
+        self.link.set_silent(False)
         self.assertEqual(self.engine().read_did(0xF190), b"WVWZZZAUZJW123456")
         self.assertEqual(vw.text(self.engine().read_did(0xF19E)), "EV_ECM20TFS0205G0906259L")
 
     def test_negative_and_missing(self):
-        self.link.command("silent off")
+        self.link.set_silent(False)
         with self.assertRaises(NegativeResponse) as cm:
             self.engine().read_did(0x1234)
         self.assertEqual(cm.exception.nrc, 0x31)
-        self.link.command("timeout 200")
         with self.assertRaises(NoResponse):
-            UdsClient(self.link, 0x757, 0x7C1).tester_present()
+            UdsClient(self.link, 0x757, 0x7C1, timeout_ms=200).tester_present()
 
     def test_response_pending(self):
-        self.link.command("silent off")
-        self.link.command("timeout 100")   # shorter than the simulated delay: only "pending" keeps it alive
-        self.assertEqual(vw.text(self.engine().read_did(0xF17C)), "TST-01.01.2018")
+        self.link.set_silent(False)
+        # A timeout shorter than the simulated delay: only "pending" keeps the request alive.
+        engine = UdsClient(self.link, 0x7E0, 0x7E8, timeout_ms=100)
+        self.assertEqual(vw.text(engine.read_did(0xF17C)), "TST-01.01.2018")
 
     def test_identify(self):
-        self.link.command("silent off")
+        self.link.set_silent(False)
         info = dict(vw.identify(self.engine()))
         self.assertEqual(info["VIN"], "WVWZZZAUZJW123456")
         self.assertEqual(info["Part number"], "5G0906259L")
@@ -150,7 +156,7 @@ class AgainstSimulator(unittest.TestCase):
     def test_fingerprint_matches_opendbc_format(self):
         # One request for part number, software version and coding, answered run together.
         # The expected bytes are real Golf MK7 values from opendbc's fingerprint list.
-        self.link.command("silent off")
+        self.link.set_silent(False)
         raw = UdsClient(self.link, 0x712, 0x77C).request([0x22, 0xF1, 0x87, 0xF1, 0x89, 0xF1, 0x82])
         self.assertEqual(raw[1:], b"\xf1\x875Q0909144AB\xf1\x891082\xf1\x82\x0521A00642A1")
         engine = vw.fingerprint(self.engine())
@@ -159,7 +165,7 @@ class AgainstSimulator(unittest.TestCase):
             self.engine().read_dids([0x1234, 0x5678])
 
     def test_fault_codes_read_filter_clear(self):
-        self.link.command("silent off")
+        self.link.set_silent(False)
         _, codes = self.engine().read_dtcs()
         self.assertEqual([dtc.sae_code(c) for c, _ in codes], ["P0299", "P130A"])
         _, only_failed = self.engine().read_dtcs(0x01)
@@ -168,7 +174,7 @@ class AgainstSimulator(unittest.TestCase):
         self.assertEqual(self.engine().read_dtcs()[1], [])
 
     def test_obd_live_data(self):
-        self.link.command("silent off")
+        self.link.set_silent(False)
         pids = obd.supported_pids(self.engine())
         self.assertEqual(pids, [0x04, 0x05, 0x0B, 0x0C, 0x0D, 0x0F, 0x10, 0x11, 0x1F, 0x2F, 0x42, 0x46, 0x5C])
         rpm, unit = obd.read_pid(self.engine(), "rpm")
@@ -180,21 +186,22 @@ class AgainstSimulator(unittest.TestCase):
             obd.read_pid(self.engine(), "baro")   # simulated engine does not implement it
 
     def test_monitor_and_counters(self):
-        self.link.command("mon on")
-        frames = self.link.read_lines(0.35)
-        self.link.command("mon off")
+        self.link.set_monitor(True)
+        frames = self.link.read_frames(0.35)
+        self.link.set_monitor(False)
         self.assertTrue(frames)
         self.assertTrue(all(dbc.parse_log_line(f) for f in frames), frames)
-        status = " ".join(self.link.command("status"))
-        self.assertRegex(status, r"rx [1-9]\d* dropped 0 tx 0")
+        status = self.link.status()
+        self.assertGreater(status["rx"], 0)
+        self.assertEqual((status["dropped"], status["tx"], status["monitor"]), (0, 0, False))
 
     def test_broadcast_frames_decode(self):
         # The simulator packs these frames by hand in C; the Python side decodes them
         # from the public database. Agreement checks both.
         db = dbc.Database()
         seen = {}
-        self.link.command("mon on")
-        for line in self.link.read_lines(1.3):
+        self.link.set_monitor(True)
+        for line in self.link.read_frames(1.3):
             frame = dbc.parse_log_line(line)
             if frame and db.lookup(frame[0], frame[1]):
                 seen[db.lookup(frame[0], frame[1]).name] = db.lookup(frame[0], frame[1]).decode(frame[2])
@@ -210,26 +217,110 @@ class AgainstSimulator(unittest.TestCase):
                          [2026, 11, 15, 14, 30, 5])
 
     def test_firmware_scan_command(self):
-        self.link.command("silent off")
+        if self.LINK is not Link:
+            self.skipTest("text console command")
+        self.link.set_silent(False)
         lines = self.link.command("scan")
         self.assertEqual(len(lines), len(vw.ECUS))
         self.assertEqual([l.split()[0] for l in lines if "no answer" in l], ["radar", "camera"])
 
     def test_keepalive_sends_without_reply(self):
-        self.link.command("silent off")
-        self.link.command("keepalive on")
-        before = int(re.search(r"tx (\d+)", " ".join(self.link.command("status"))).group(1))
-        self.link.read_lines(2.3)
-        after = int(re.search(r"tx (\d+)", " ".join(self.link.command("status"))).group(1))
-        self.assertGreaterEqual(after - before, 1)
+        self.link.set_silent(False)
+        self.link.set_keepalive(True)
+        before = self.link.status()["tx"]
+        self.link.read_frames(2.3)
+        self.assertGreaterEqual(self.link.status()["tx"] - before, 1)
         self.engine().tester_present()   # the link still works afterwards
 
 
+class BinaryAgainstSimulator(AgainstSimulator):
+    """Everything above again, over the packet protocol an app will use."""
+    LINK = BinaryLink
+
+    def test_hello(self):
+        self.assertEqual(self.link.info["version"], 1)
+        self.assertEqual(self.link.info["max_payload"], binlink.MAX_PAYLOAD)
+        self.assertTrue(self.link.info["name"].startswith("vw-diag"))
+
+    def test_per_request_timeout(self):
+        self.link.set_silent(False)
+        with self.assertRaises(NoResponse):
+            UdsClient(self.link, 0x757, 0x7C1, timeout_ms=50).tester_present()   # no radar fitted
+        self.engine().tester_present()
+
+    def test_bad_requests_are_answered(self):
+        self.assertEqual(self.link._exchange(0x55)[0], binlink.UNKNOWN_CMD)
+        self.assertEqual(self.link._exchange(binlink.CMD_SET_SILENT, [7])[0], binlink.BAD_ARGS)
+        self.assertEqual(self.link._exchange(binlink.CMD_UDS, [1, 2, 3])[0], binlink.BAD_ARGS)
+
+    def test_damaged_packets_are_dropped_and_counted(self):
+        packet = bytearray(binlink.encode([9, binlink.CMD_STATUS]))
+        packet[2] ^= 0x10                                  # a flipped bit
+        self.link._write_bytes(bytes(packet))
+        self.assertEqual(self.link.status()["bad_packets"], 1)
+        self.link._write_bytes(b"\x33\x44\x00")            # a truncated packet
+        self.assertEqual(self.link.status()["bad_packets"], 2)
+
+    def test_monitoring_does_not_disturb_requests(self):
+        self.link.set_silent(False)
+        self.link.set_monitor(True)
+        for _ in range(20):
+            self.assertEqual(self.engine().read_did(0xF190), b"WVWZZZAUZJW123456")
+        frames = self.link.read_frames(0.3)
+        self.link.set_monitor(False)
+        self.assertTrue(any(f.startswith("7E8 ") for f in frames))    # our own exchange was seen too
+        self.assertTrue(any(f.startswith("3C0 ") for f in frames))
+
+    def test_exit_returns_to_text_and_reentry_works(self):
+        self.link._leave()
+        self.link._write("mode m\n")
+        deadline = time.monotonic() + 3
+        while self.link._read_line(deadline) != "$":
+            pass
+        self.assertIn("bus listen-only", Link.command(self.link, "status"))
+        self.link._enter()
+        # A second program finds the console still in binary mode (the first one died without leaving).
+        self.link._enter()
+        self.assertTrue(self.link.status()["silent"])
+
+
+class BinarySmallChunks(BinaryAgainstSimulator):
+    """As a BLE connection delivers it: a few bytes at a time."""
+    READ_CHUNK = 7
+
+
+class Framing(unittest.TestCase):
+    def test_crc_reference_value(self):
+        self.assertEqual(binlink.crc16(b"123456789"), 0x29B1)
+
+    def test_round_trips(self):
+        for n in (1, 2, 252, 253, 254, 255, 256, 508, 509, 4160):
+            for payload in (bytes(n), bytes([0xFF]) * n, bytes((i * 31 + 7) & 0xFF for i in range(n))):
+                packet = binlink.encode(payload)
+                self.assertEqual(packet.count(0), 1)
+                self.assertEqual(packet[-1], 0)
+                self.assertEqual(binlink.decode(packet[:-1]), payload)
+
+    def test_damage_is_detected(self):
+        packet = bytearray(binlink.encode(b"\x01\x02\x00\x03")[:-1])
+        packet[1] ^= 1
+        self.assertIsNone(binlink.decode(bytes(packet)))
+        self.assertIsNone(binlink.decode(b"\x05\x11"))
+
+    def test_wire_bytes_are_pinned(self):
+        # The two examples in hardware/pico2w/docs/link_protocol.md.
+        self.assertEqual(binlink.encode([1, 1]).hex(), "0501013e1f00")
+        read_vin = bytes([2, 5]) + bytes.fromhex("e0070000e80700000000") + bytes.fromhex("22f190")
+        self.assertEqual(binlink.encode(read_vin).hex(), "050205e0070103e8070101010622f190ad1200")
+
+
 class CommandLine(unittest.TestCase):
+    MODE = ["--sim"]
+
     def run_cli(self, *argv):
         out = io.StringIO()
         with redirect_stdout(out):
-            cli.main(["--sim"] + list(argv))
+            cli.main(self.MODE + list(argv))
         return out.getvalue()
 
     def test_transmit_guard(self):
@@ -269,6 +360,10 @@ class CommandLine(unittest.TestCase):
         self.assertEqual(rows[0], "time_s,rpm_rpm,coolant_C,baro_kPa")
         self.assertEqual(len(rows), 4)
         self.assertTrue(rows[1].endswith(",90,"))   # unsupported value logs as an empty cell
+
+
+class CommandLineBinary(CommandLine):
+    MODE = ["--sim", "--binary"]
 
 
 if __name__ == "__main__":

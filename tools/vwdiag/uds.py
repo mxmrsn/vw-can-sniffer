@@ -1,4 +1,4 @@
-"""UDS (ISO 14229) requests through the interface's "x" command."""
+"""UDS (ISO 14229) requests through the interface, over either kind of link."""
 
 NRC_NAMES = {
     0x10: "general reject", 0x11: "service not supported", 0x12: "sub-function not supported",
@@ -30,24 +30,12 @@ class InterfaceRefused(UdsError):
 
 
 class UdsClient:
-    def __init__(self, link, request_id, response_id):
-        self.link, self.request_id, self.response_id = link, request_id, response_id
+    def __init__(self, link, request_id, response_id, timeout_ms=None):
+        self.link, self.request_id, self.response_id, self.timeout_ms = link, request_id, response_id, timeout_ms
 
     def request(self, payload):
         """Send a request, return the positive response bytes (starting with SID + 0x40)."""
-        hexs = " ".join("%02X" % b for b in payload)
-        lines = self.link.command("x %X %X %s" % (self.request_id, self.response_id, hexs))
-        if not lines:
-            raise UdsError("empty reply from the interface")
-        reply = lines[-1]
-        if reply.startswith("+"):
-            return bytes(int(tok, 16) for tok in reply[1:].split())
-        words = reply[1:].split()
-        if words[:1] == ["nrc"]:
-            raise NegativeResponse(int(words[1], 16))
-        if words[:1] == ["timeout"]:
-            raise NoResponse("no response from %X" % self.response_id)
-        raise InterfaceRefused(reply[1:].strip())
+        return self.link.uds_request(self.request_id, self.response_id, payload, self.timeout_ms)
 
     # ---- services
     def tester_present(self):

@@ -12,14 +12,18 @@ Paths in this file are relative to this folder (`hardware/pico2w/firmware/`) unl
 |---|---|
 | `src/isotp.c`, `src/uds.c` | Transport and diagnostic layers, platform independent |
 | `src/app.c` | Console and commands, platform independent |
+| `src/frame.c`, `src/proto.c` | Binary packet protocol for apps (USB now, BLE later); see `../docs/link_protocol.md` |
 | `src/can_port.c`, `src/main.c` | Pico-only: can2040 glue and platform hooks |
 | `sim/` | Host build of the same core against simulated VW control modules |
-| `tests/` | Host tests for the transport and diagnostic layers |
+| `tests/` | Host tests for the transport, diagnostic and packet framing layers |
 
 ## Status
 - Transport and diagnostic layers: 54 host checks against a simulated ECU (`make -C tests`), sanitizers on.
-- Console, commands and the tool protocol: tested end to end through the simulator by the Python suite in
-  `tools/tests` (repo root) (19 tests).
+- Packet framing: 73 host checks in the same run.
+- Console, commands and both tool protocols (text and binary): tested end to end through the simulator by the
+  Python suite in `tools/tests` (repo root), 74 tests. The binary protocol is also run with the byte stream
+  delivered 7 bytes at a time, as a BLE connection would.
+- All of the above and the Pico build run on every push (`.github/workflows/ci.yml`).
 - Pico build: compiles cleanly (Pico SDK 2.2.0, Arm GNU toolchain 13.3). **Not yet run on hardware.**
 - Nothing has been tried on a car. `../docs/bringup_plan.md` is the ordered test plan for when hardware arrives.
 
@@ -67,8 +71,10 @@ Open the Pico's USB serial port (any baud rate) and type `help`.
 | `raw <hex bytes>` | Send any UDS request and print the response |
 | `x <req> <resp> <hex bytes>` | One request to any address; replies `+ <hex>` or `- <reason>` |
 | `mode m` / `mode h` | Machine mode for programs (no echo, each reply ends with `$`), or human mode |
+| `mode b` | Binary packet protocol for apps; see `../docs/link_protocol.md` |
 
-The Python tools in `tools/vwdiag` (repo root) use machine mode and the `x` command.
+The Python tools in `tools/vwdiag` (repo root) use machine mode and the `x` command, or the binary protocol
+with `--binary`.
 
 ## Safety on the car
 - The board powers up listen-only and refuses to transmit until you type `silent off`.

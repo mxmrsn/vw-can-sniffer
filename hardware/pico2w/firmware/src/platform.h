@@ -3,6 +3,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 enum plat_led { PLAT_LED_CAN, PLAT_LED_WIFI, PLAT_LED_USB, PLAT_LED_SILENT };
@@ -11,3 +12,4 @@ uint32_t plat_now_ms(void);
 int plat_getchar(void);                 // next console byte, or -1 if none waiting
 void plat_led(enum plat_led led, bool on);
 void plat_idle(void);                   // called while waiting; may sleep briefly
+void plat_write(const uint8_t *data, size_t len); // raw bytes to the console, no newline translation

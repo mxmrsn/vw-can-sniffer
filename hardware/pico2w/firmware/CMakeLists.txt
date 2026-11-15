@@ -23,7 +23,9 @@ add_executable(vw_diag
     src/main.c
     src/app.c
     src/can_port.c
+    src/frame.c
     src/isotp.c
+    src/proto.c
     src/uds.c
     ${can2040_SOURCE_DIR}/src/can2040.c)
 

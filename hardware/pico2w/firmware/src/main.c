@@ -30,6 +30,12 @@ int plat_getchar(void)
     return ch == PICO_ERROR_TIMEOUT ? -1 : ch;
 }
 
+void plat_write(const uint8_t *data, size_t len)
+{
+    stdio_put_string((const char *)data, (int)len, false, false);
+    stdio_flush();
+}
+
 void plat_led(enum plat_led led, bool on)
 {
     gpio_put(led_pins[led], on);

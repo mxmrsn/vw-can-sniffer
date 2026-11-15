@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  host:
+    name: Host tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Firmware unit tests (sanitizers on)
+        run: make -C hardware/pico2w/firmware/tests
+      - name: Build the simulator
+        run: make -C hardware/pico2w/firmware/sim
+      - name: Tool tests against the simulator
+        run: python3 -m unittest discover -s tools/tests -v
+
+  firmware:
+    name: Pico 2 W firmware build
+    runs-on: ubuntu-latest
+    env:
+      PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the Arm toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+      - name: Fetch the Pico SDK
+        run: |
+          git clone --depth 1 --branch 2.2.0 https://github.com/raspberrypi/pico-sdk.git "$PICO_SDK_PATH"
+          git -C "$PICO_SDK_PATH" submodule update --init --depth 1 lib/tinyusb
+      - name: Build
+        working-directory: hardware/pico2w/firmware
+        run: |
+          cmake -B build
+          cmake --build build -j
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vw_diag-uf2
+          path: hardware/pico2w/firmware/build/vw_diag.uf2

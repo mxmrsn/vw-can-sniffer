@@ -27,7 +27,9 @@ With one board plugged in, `--port` can be omitted.
 The board powers up listen-only. Commands that transmit refuse to run without `--transmit`.
 
 ## What is implemented
-- **UDS** (`uds.py`): requests through the firmware's `x` command, negative responses, timeouts.
+- **Two ways to talk to the interface**: the text console (`link.py`, the default) and the binary packet
+  protocol an app will use (`binlink.py`, pass `--binary`), described in `hardware/pico2w/docs/link_protocol.md`.
+- **UDS** (`uds.py`): requests over either link, negative responses, timeouts.
 - **OBD-II live data** (`obd.py`): 15 standard service-01 values with their standard formulas, supported-PID
   discovery, VIN.
 - **VW specifics** (`vw.py`): control module addresses and the identification DIDs.

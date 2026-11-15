@@ -27,6 +27,12 @@ int plat_getchar(void)
     return n == 1 ? c : -1;
 }
 
+void plat_write(const uint8_t *data, size_t len)
+{
+    fwrite(data, 1, len, stdout);
+    fflush(stdout);
+}
+
 void plat_led(enum plat_led led, bool on)
 {
     (void)led;

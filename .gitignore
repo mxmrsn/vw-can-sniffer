@@ -21,6 +21,7 @@ fp-info-cache
 # Firmware build outputs
 hardware/pico2w/firmware/build/
 hardware/pico2w/firmware/tests/test_isotp_uds
+hardware/pico2w/firmware/tests/test_frame
 *.dSYM/
 
 # Host simulator and Python caches

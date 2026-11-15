@@ -6,6 +6,8 @@
 //     command's output ends with a line containing only "$". The "x" command is
 //     the workhorse: it sends one UDS request and prints "+ <hex>" for a positive
 //     response or "- <reason>" for anything else.
+//   - from an app: send "mode b". The console answers "binary mode" and from
+//     then on speaks only the packet protocol in proto.h, until it is told to exit.
 
 #include "app.h"
 
@@ -17,6 +19,7 @@
 #include "can_port.h"
 #include "isotp.h"
 #include "platform.h"
+#include "proto.h"
 #include "uds.h"
 #include "vw_ecus.h"
 
@@ -26,7 +29,7 @@
 static struct isotp_link link;
 static struct uds_client uds;
 static struct ecu_address target = { "engine", 0x7E0, 0x7E8, "" };
-static bool monitor, machine, keepalive;
+static bool monitor, machine, keepalive, binary;
 static uint32_t led_off_at, keepalive_at;
 static uint32_t timeout_ms = 1000;
 
@@ -71,7 +74,9 @@ static void pump(void *ctx)
         any = true;
         plat_led(PLAT_LED_CAN, true);
         led_off_at = plat_now_ms() + 20;
-        if (monitor)
+        if (monitor && binary)
+            proto_send_can_event(&f, plat_now_ms());
+        else if (monitor)
             print_frame(&f);
         isotp_on_frame(&link, &f);
     }
@@ -94,6 +99,49 @@ static void set_target(const char *name, uint32_t request_id, uint32_t response_
     isotp_init(&link, request_id, response_id, request_id > 0x7FF, send_frame, now_ms, NULL);
     uds_init(&uds, &link, pump, NULL);
     uds.p2_ms = timeout_ms;
+}
+
+void app_set_silent(bool on)
+{
+    can_port_set_silent(on);
+    plat_led(PLAT_LED_SILENT, can_port_is_silent());
+}
+
+void app_set_monitor(bool on)
+{
+    monitor = on;
+}
+
+void app_set_keepalive(bool on)
+{
+    keepalive = on;
+    keepalive_at = plat_now_ms() + KEEPALIVE_PERIOD_MS;
+}
+
+uint8_t app_flags(void)
+{
+    return (uint8_t)((can_port_is_silent() ? PROTO_FLAG_SILENT : 0) | (monitor ? PROTO_FLAG_MONITOR : 0) |
+                     (keepalive ? PROTO_FLAG_KEEPALIVE : 0));
+}
+
+void app_leave_binary(void)
+{
+    binary = false;
+    machine = false;
+    line_len = 0;
+}
+
+int app_uds_request(uint32_t request_id, uint32_t response_id, uint32_t request_timeout_ms,
+                    const uint8_t *req, size_t req_len,
+                    uint8_t *resp, size_t resp_cap, size_t *resp_len, int *detail)
+{
+    if (request_id != target.request_id || response_id != target.response_id)
+        set_target("custom", request_id, response_id, "");
+    uds.p2_ms = request_timeout_ms ? request_timeout_ms : timeout_ms;
+    int rc = uds_request(&uds, req, req_len, resp, resp_cap, resp_len);
+    uds.p2_ms = timeout_ms;
+    *detail = rc == UDS_ERR_NEGATIVE ? uds.last_nrc : rc == UDS_ERR_TRANSPORT ? uds.last_tp_error : 0;
+    return rc;
 }
 
 static void print_target(void)
@@ -155,7 +203,8 @@ static void cmd_help(void)
            "  raw <hex bytes>     send any UDS request to the target\n"
            "  timeout <ms>        response timeout (default 1000)\n"
            "  x <req> <resp> <hex bytes>   one request, machine-readable reply\n"
-           "  mode m|h            machine mode (no echo, \"$\" ends each reply) or human\n");
+           "  mode m|h            machine mode (no echo, \"$\" ends each reply) or human\n"
+           "  mode b              binary packet protocol, for apps\n");
 }
 
 static void cmd_status(void)
@@ -272,19 +321,21 @@ static void handle_line(char *text)
         cmd_help();
     } else if (!strcmp(cmd, "status")) {
         cmd_status();
+    } else if (!strcmp(cmd, "mode") && rest && rest[0] == 'b') {
+        proto_init();
+        binary = true;
+        printf("binary mode\n");
     } else if (!strcmp(cmd, "mode") && rest) {
         machine = rest[0] == 'm';
         printf(machine ? "machine mode\n" : "human mode\n");
     } else if (!strcmp(cmd, "silent") && rest) {
-        can_port_set_silent(strcmp(rest, "off") != 0);
-        plat_led(PLAT_LED_SILENT, can_port_is_silent());
+        app_set_silent(strcmp(rest, "off") != 0);
         printf(can_port_is_silent() ? "listen-only\n" : "transmit-enabled\n");
     } else if (!strcmp(cmd, "mon") && rest) {
-        monitor = !strcmp(rest, "on");
+        app_set_monitor(!strcmp(rest, "on"));
         printf(monitor ? "monitor on\n" : "monitor off\n");
     } else if (!strcmp(cmd, "keepalive") && rest) {
-        keepalive = !strcmp(rest, "on");
-        keepalive_at = plat_now_ms() + KEEPALIVE_PERIOD_MS;
+        app_set_keepalive(!strcmp(rest, "on"));
         printf(keepalive ? "keepalive on\n" : "keepalive off\n");
     } else if (!strcmp(cmd, "timeout") && rest) {
         unsigned long v = strtoul(rest, NULL, 10);
@@ -377,6 +428,10 @@ void app_poll(void)
 
     int ch;
     while ((ch = plat_getchar()) >= 0) {
+        if (binary) {
+            proto_rx_byte((uint8_t)ch);
+            continue;
+        }
         if (ch == '\r' || ch == '\n') {
             if (!line_len)
                 continue;
@@ -385,7 +440,8 @@ void app_poll(void)
             line[line_len] = 0;
             line_len = 0;
             handle_line(line);
-            prompt();
+            if (!binary)
+                prompt();
         } else if ((ch == 8 || ch == 127) && line_len) {
             line_len--;
             if (!machine)

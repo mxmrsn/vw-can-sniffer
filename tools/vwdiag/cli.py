@@ -16,6 +16,7 @@ import time
 from . import dbc
 from . import dtc as dtcfmt
 from . import obd, vw
+from .binlink import BinaryLink
 from .link import Link, LinkError
 from .uds import NegativeResponse, NoResponse, UdsClient, UdsError
 
@@ -24,6 +25,7 @@ SIM_BINARY = os.path.join(REPO, "hardware", "pico2w", "firmware", "sim", "vw_dia
 
 
 def open_link(args):
+    Link = BinaryLink if args.binary else globals()["Link"]
     if args.sim:
         if not os.path.exists(SIM_BINARY):
             sys.exit("simulator not built: run  make -C hardware/pico2w/firmware/sim")
@@ -48,21 +50,25 @@ def enable_transmit(link, args):
     """The board powers up listen-only. Commands that send need --transmit."""
     if not args.transmit:
         sys.exit("this command transmits on the CAN bus; add --transmit to allow it")
-    link.command("silent off")
+    link.set_silent(False)
 
 
 # ---------------------------------------------------------------- commands
 def cmd_status(link, args):
-    print("\n".join(link.command("status")))
+    s = link.status()
+    print("bus %s" % ("listen-only" if s["silent"] else "transmit-enabled"))
+    print("rx %(rx)d dropped %(dropped)d tx %(tx)d errors %(errors)d" % s)
+    print("keepalive %s, monitor %s" % ("on" if s["keepalive"] else "off", "on" if s["monitor"] else "off"))
+    if getattr(link, "info", None):
+        print("%(name)s, protocol %(version)d" % link.info)
 
 
 def cmd_scan(link, args):
     enable_transmit(link, args)
-    link.command("timeout 300")
     present = []
     for name, (req, resp, desc) in vw.ECUS.items():
         try:
-            UdsClient(link, req, resp).tester_present()
+            UdsClient(link, req, resp, timeout_ms=300).tester_present()
             state = "present"
         except NegativeResponse:
             state = "present (refused TesterPresent)"
@@ -71,7 +77,6 @@ def cmd_scan(link, args):
         if state != "no answer":
             present.append(name)
         print("%-8s %03X -> %03X  %-28s %s" % (name, req, resp, desc, state))
-    link.command("timeout 1000")
     return present
 
 
@@ -186,9 +191,9 @@ def decode_lines(lines, summary):
 
 
 def cmd_monitor(link, args):
-    link.command("mon on")
-    lines = link.read_lines(args.seconds)
-    link.command("mon off")
+    link.set_monitor(True)
+    lines = link.read_frames(args.seconds)
+    link.set_monitor(False)
     if args.out:
         with open(args.out, "w") as f:
             f.write("\n".join(lines) + "\n")
@@ -209,6 +214,7 @@ def build_parser():
     p = argparse.ArgumentParser(prog="vwdiag", description="VW diagnostic interface tools")
     p.add_argument("--port", help="USB serial port of the board")
     p.add_argument("--sim", action="store_true", help="use the host simulator instead of a board")
+    p.add_argument("--binary", action="store_true", help="use the binary packet protocol (what an app uses)")
     p.add_argument("--transmit", action="store_true", help="allow sending on the CAN bus")
     sub = p.add_subparsers(dest="command", required=True)
 
