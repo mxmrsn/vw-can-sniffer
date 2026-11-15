@@ -1,0 +1,31 @@
+CONFIG_IDF_TARGET="esp32s3"
+
+# The XIAO has no USB-UART bridge: the console is the chip's own USB Serial/JTAG
+# peripheral, on the module's USB-C socket.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+# 8 MB flash, no OTA. NimBLE plus FatFs does not fit the default 1 MB app partition.
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# app_poll() runs in the main task and prints from there.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+
+# plat_idle() gives up the processor for one tick, so the tick has to be short
+# for the console and the poll list to stay responsive.
+CONFIG_FREERTOS_HZ=1000
+
+# Bluetooth LE only, NimBLE, peripheral role only.
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_BT_NIMBLE_ROLE_CENTRAL=n
+CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
+CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
+CONFIG_BT_NIMBLE_ATT_PREFERRED_MTU=247
+# LE Secure Connections only: legacy pairing is off, so a phone cannot negotiate
+# the weaker exchange.
+CONFIG_BT_NIMBLE_SM_SC=y
+CONFIG_BT_NIMBLE_SM_LEGACY=n
+CONFIG_BT_NIMBLE_SM_SC_ONLY=1
+CONFIG_BT_NIMBLE_NVS_PERSIST=y
+CONFIG_BT_NIMBLE_SVC_GAP_DEVICE_NAME="VW Diag"

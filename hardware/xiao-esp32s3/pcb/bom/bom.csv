@@ -1,0 +1,34 @@
+Refs,Qty,Value,Description,Manufacturer,MPN,DigiKey PN,DigiKey stock (2026-11-15),Unit price USD (qty 1),Notes
+--,4,Socket strip,"Socket 1x7 2.54mm, on the board for the module",Sullins,PPTC071LFBN-RC,S7036-ND,,,Not on schematic. Two per board; order spares. Or solder the module flat
+--,4,Pin header,"Header 1x7 2.54mm, soldered to the module",Sullins,PRPC007SAAN-RC,S1011EC-07-ND,,,Not on schematic. The XIAO ships without headers
+"C1,C3",2,100n,Cap cer 0.1uF 50V X7R 0805,Samsung Electro-Mechanics,CL21B104KBCNNNC,1276-1003-1-ND,"3,797,498",0.10,
+C2,1,47u,Cap cer 47uF 6.3V X5R 0805,Samsung Electro-Mechanics,CL21A476MQCLRNC,1276-2420-1-ND,"6,613",0.53,6.3 V part on the ~5 V VSYS rail; 10 V versions were all out of stock
+"C4,C5",2,22u,Cap cer 22uF 16V X5R 0805,Samsung Electro-Mechanics,CL21A226KOQNNNE,1276-6526-1-ND,"95,660",0.42,Buck output
+C6,1,10u,Cap cer 10uF 50V X5R 0805,Cal-Chip Electronics,GMC21X5R106K50NT,4713-GMC21X5R106K50NTCT-ND,"15,332",1.76,Buck input; 50 V for OBD transients. Only in-stock 50 V option
+C7,1,100p,Cap cer 100pF 50V C0G 0805,Samsung Electro-Mechanics,CL21C101JBANNNC,1276-1014-1-ND,"127,138",0.10,
+C8,1,15p,Cap cer 15pF 50V C0G 0805,YAGEO,CC0805JRNPO9BN150,311-1101-1-ND,"31,676",,
+C9,1,100n,Cap cer 0.1uF 50V X7R 0603,YAGEO,CC0603KRX7R9BB104,311-1344-1-ND,"3,118,948",,
+C10,1,4.7u,Cap cer 4.7uF 16V X5R 0603,YAGEO,CC0603KRX5R7BB475,311-1785-1-ND,"125,573",,
+C11,1,47p,Cap cer 47pF 50V C0G 0603,Samsung Electro-Mechanics,CL10C470JB8NNNC,1276-1037-1-ND,"1,223,201",,Feed-forward capacitor
+D1,1,LED green,LED green 0603,Lite-On,LTST-C191KGKT,160-1446-1-ND,"2,222,101",,CAN activity
+D2,1,LED blue,LED blue 0603,Lite-On,LTST-C191TBKT,160-1647-1-ND,"276,079",,Wi-Fi; will be dim on 330R at 3.3 V
+D5,1,MBR120VLSFT1G,Schottky 20V 1A SOD-123FL,onsemi,MBR120VLSFT1G,MBR120VLSFT1GOSCT-ND,"105,067",0.61,
+D6,1,SMBJ18A,TVS 18V 29.2Vc unidirectional SMB,Littelfuse,SMBJ18A,SMBJ18ALFCT-ND,"26,211",,
+D7,1,MBR140SFT1G,Schottky 40V 1A SOD-123FL,onsemi,MBR140SFT1G,MBR140SFT1GOSCT-ND,"49,072",0.60,
+F1,1,PTC 0.75A 33V,PTC resettable fuse 33V 750mA 1812,Littelfuse,1812L075/33DR,F3355CT-ND,"18,996",,
+J1,1,Pico-SPOX 4-pin,Header 4 pos 1.5mm vertical SMD,Molex,0874370473,WM3969CT-ND,"18,264",0.94,Mating housing and crimps not included
+J2,1,DM3AT-SF-PEJM5,microSD push-push socket,Hirose,DM3AT-SF-PEJM5,HR1964CT-ND,"72,391",3.55,
+L1,1,6.8u,Inductor 6.8uH 1.45A 4x4x1.8mm WE-LQS 4020,Wurth Elektronik,74404042068,732-5507-1-ND,88,1.16,Low stock. Check the land pattern against the footprint before ordering
+R1,1,10k,Res 10k 1% 1/10W 0603,Vishay Dale,CRCW060310K0FKEA,541-10.0KHCT-ND,"2,848,541",,
+R2,1,100k,Res 100k 1% 1/10W 0603,Vishay Dale,CRCW0603100KFKEA,541-100KHCT-ND,,,Holds the transceiver in listen-only until firmware drives CAN_SILENT low
+"R3,R4",2,330,Res 330R 1% 1/10W 0603,Vishay Dale,CRCW0603330RFKEA,541-330HCT-ND,"313,586",,
+R7,1,120,Res 120R 1% 1/10W 0603,YAGEO,RC0603FR-07120RL,311-120HRCT-ND,"4,590",0.10,
+"R9,R11",2,100k,Res 100k 1% 1/10W 0603,Vishay Dale,CRCW0603100KFKEA,541-100KHCT-ND,"2,913,990",,
+R12,1,22k,Res 22k 1% 1/10W 0603,Vishay Dale,CRCW060322K0FKEA,541-22.0KHCT-ND,"282,701",,
+R15,1,158k,Res 158k 1% 1/10W 0603,Vishay Dale,CRCW0603158KFKEA,541-158KHCT-ND,"20,675",,"Feedback divider, top"
+R16,1,30.1k,Res 30.1k 1% 1/10W 0603,Vishay Dale,CRCW060330K1FKEA,541-30.1KHCT-ND,"90,123",,"Feedback divider, bottom"
+S1,1,PTS645SM43SMTR92 LFS,Tactile switch 6x6mm SMD,C&K,PTS645SM43SMTR92 LFS,CKN9112CT-ND,"127,640",,
+S3,1,JS102011SAQN,Slide switch SPDT right-angle SMD,C&K,JS102011SAQN,401-1999-1-ND,"52,303",0.90,
+U1,1,XIAO ESP32-S3,Seeed XIAO ESP32-S3 module (not Sense),Seeed Studio,113991114,1597-113991114-ND,,,Not verified against a distributor; check stock and the part number before ordering
+U3,1,AP63301WU,Buck regulator adjustable 3A TSOT-26,Diodes Incorporated,AP63301WU-7,31-AP63301WU-7CT-ND,156,0.96,"Low stock. Automotive AP63301QWU-7 (31-AP63301QWU-7CT-ND, 815 in stock) is a drop-in"
+U4,1,TJA1051T/3,CAN transceiver SO-8 with VIO,NXP,"TJA1051T/3,118",568-8684-1-ND,"12,998",,

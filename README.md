@@ -7,7 +7,8 @@ data. The longer-term aim is an iOS app with custom dashboards talking to a low-
 ## Layout
 | Path | What it is |
 |---|---|
-| [`hardware/pico2w/`](hardware/pico2w/README.md) | **Current board (v0.2.0):** Raspberry Pi Pico 2 W carrier, its firmware and bring-up plan |
+| [`hardware/pico2w/`](hardware/pico2w/README.md) | **Board v0.2.0 (tag `v0.2.0`):** Raspberry Pi Pico 2 W carrier, its firmware and bring-up plan |
+| [`hardware/xiao-esp32s3/`](hardware/xiao-esp32s3/README.md) | **In progress (v0.3.0):** Seeed XIAO ESP32-S3 carrier, because the Pico 2 W is hard to buy |
 | [`hardware/teensy-esp32/`](hardware/teensy-esp32/README.md) | Original board (v0.1.0, tag `v0.1.0`): Teensy 4.0 + ESP32, its firmware and tools |
 | [`tools/vwdiag/`](tools/vwdiag/README.md) | Host tools: scan, identification, fault codes, live data, logging, frame decoding |
 | [`tools/tests/`](tools/tests) | End-to-end tests for the tools, run against the firmware simulator |
@@ -17,9 +18,14 @@ Each board folder holds everything specific to that board: `pcb/` (KiCad project
 and `docs/`.
 
 ## Status
-- **v0.2.0 board:** designed, checked by ERC/DRC and ready to order. Not yet built.
-- **Firmware:** CAN, ISO-TP and UDS with a USB console. Builds for the Pico 2 W; not yet run on hardware.
-- **Tools:** working and tested against a simulated car. Nothing has been tried on the real car.
+- **v0.2.0 board (Pico 2 W):** designed, checked by ERC/DRC and ready to order. Not yet built.
+- **v0.3.0 board (XIAO ESP32-S3):** schematic complete and checked; fifteen connections still to route before
+  it can be fabricated.
+- **Firmware:** CAN, ISO-TP, UDS, a USB console, a framed binary protocol over USB and Bluetooth LE, and logging
+  to a microSD card. The application core is shared by both boards. Builds for the Pico 2 W and the XIAO
+  ESP32-S3; **never run on hardware.**
+- **Tools:** working and tested against a simulated car, over the text console, the binary protocol and a
+  Bluetooth stand-in. Nothing has been tried on the real car.
 
 ## Quick start (no hardware needed)
 ```bash
@@ -33,6 +39,8 @@ python3 -m vwdiag --sim --transmit scan
 make -C hardware/pico2w/firmware/tests
 python3 -m unittest discover -s tools/tests
 ```
+
+Both run on every push, along with firmware builds for every supported board ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 ## Other
 - `tools/md_to_pdf.sh` regenerates the PDF copy that sits next to each Markdown write-up.

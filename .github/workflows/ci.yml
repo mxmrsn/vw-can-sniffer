@@ -55,3 +55,21 @@ jobs:
         with:
           name: vw_diag-uf2
           path: hardware/pico2w/firmware/vw_diag.uf2
+
+  esp32:
+    name: XIAO ESP32-S3 firmware build
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        shell: bash
+        working-directory: hardware/xiao-esp32s3/firmware
+        run: |
+          . $IDF_PATH/export.sh
+          idf.py set-target esp32s3
+          idf.py build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vw_diag-esp32s3-bin
+          path: hardware/xiao-esp32s3/firmware/build/vw_diag.bin
