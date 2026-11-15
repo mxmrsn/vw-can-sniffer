@@ -60,8 +60,8 @@ All other GPIO are unconnected. Matching firmware header: [`../../firmware/pins.
 OBD +12V ─ F1 (PTC) ─┬─ D7 ─ VIN ─ AP63301 buck ─ +5V ─ D5 ─┬─ VSYS ─ Pico 3V3 reg ─ +3V3
                      D6 (TVS)            Pico micro-USB ────┘ (Pico on-board diode)
 ```
-- **OBD:** J1 pin 1 → 0.75 A PTC → SMBJ18A clamp → Schottky blocking diode. Harness: OBD pin 16 → +12V,
-  pins 4/5 → GND, pin 6 → CAN_H, pin 14 → CAN_L.
+- **OBD:** J1 pin 1 → 0.75 A PTC → SMBJ18A clamp → Schottky blocking diode. Harness: J1 pin 1 = +12V
+  (OBD pin 16), pin 2 = CAN_L (OBD 14), pin 3 = CAN_H (OBD 6), pin 4 = GND (OBD 4 and 5).
 - **Power switch (S3):** shorts the buck enable pin to ground. OBD pin 16 is always live and the board draws
   roughly 50–100 mA while running, so switch off or unplug when parked until firmware sleep exists.
 - **OBD sense:** fused OBD voltage → 100 k / 22 k → GP28. About 12.0–12.8 V parked, 13.5–14.5 V with the engine running.
@@ -99,6 +99,8 @@ from power-on.
   stock seen on 2026-11-15.
 - [`../bom/digikey-cart-1-board.csv`](../bom/digikey-cart-1-board.csv): the in-stock lines in DigiKey's cart-upload
   format, quantities for one board.
+- [`../bom/prototype-kit.csv`](../bom/prototype-kit.csv): everything else needed to build and test one
+  prototype that is not soldered to the board: OBD plug, harness parts, cables, bench equipment, PCB fabrication.
 - [`../fab/`](../fab/): gerbers and drill files (also zipped) and a placement file.
 
 Every line was in stock at DigiKey on 2026-11-15. Three have thin stock:
@@ -107,4 +109,8 @@ Every line was in stock at DigiKey on 2026-11-15. Three have thin stock:
 - **U3, AP63301WU-7:** 156 in stock. The automotive AP63301QWU-7 (815 in stock) is a drop-in.
 - **L1, 74404042068:** 88 in stock.
 
-Stock moves quickly; re-check before ordering. The mating plug and crimps for the J1 harness are not in the BOM.
+Stock moves quickly; re-check before ordering.
+
+The J1 mating plug and crimp contacts are in the BOM and the cart file. The OBD plug and the other off-board
+items in `prototype-kit.csv` are mostly generic parts suggested for Amazon; Amazon refuses automated access, so
+those lines are search terms, not checked listings. The rows marked as checked were seen at the named seller.

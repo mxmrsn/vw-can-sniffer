@@ -33,3 +33,5 @@ U3,1,AP63301WU,Buck regulator adjustable 3A TSOT-26,Diodes Incorporated,AP63301W
 U4,1,TJA1051T/3,CAN transceiver SO-8 with VIO,NXP,"TJA1051T/3,118",568-8684-1-ND,"12,998",,
 --,2,Socket strip,"Socket 1x20 2.54mm, on the board for the Pico",Sullins,PPTC201LFBN-RC,S7018-ND,"17,802",1.14,Not on schematic
 --,2,Pin header,"Header 1x20 2.54mm, soldered to the Pico",Sullins,PRPC020SAAN-RC,35-PRPC020SAAN-RC-ND,"64,801",0.38,Not on schematic; the Olimex Pico has no headers
+--,2,Pico-SPOX 4-pin plug,"Receptacle housing 4 pos 1.5mm, mates with J1 (harness side)",Molex,0874390400,WM2088-ND,"45,653",0.22,Not on schematic. One is needed; the second is a spare
+--,10,Pico-SPOX crimp,Socket contact tin 24-26 AWG for the J1 plug,Molex,0874210000,WM9234CT-ND,"584,694",0.10,"Not on schematic. Four are needed; the rest are spares for crimping practice. Needs a small crimp tool, see prototype-kit.csv"
