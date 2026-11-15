@@ -7766,6 +7766,30 @@
 				)
 			)
 		)
+		(property "DigiKey" "541-10.0KHCT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Vishay Dale" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CRCW060310K0FKEA" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "08151ab1-9e3b-40b0-9e8a-bda66c1fa7d6")
 		)
@@ -7796,7 +7820,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "LED"
+		(property "Value" "LED green"
 			(at 26.67 84.1374 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7837,6 +7861,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "160-1446-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Lite-On" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "LTST-C191KGKT" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -7980,6 +8028,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "1276-6526-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CL21A226KOQNNNE" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -8261,6 +8333,30 @@
 				)
 			)
 		)
+		(property "DigiKey" "1276-1014-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CL21C101JBANNNC" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "00936e57-d9ce-40a0-8c41-9b98cbef7c7a")
 		)
@@ -8334,6 +8430,30 @@
 				)
 			)
 		)
+		(property "DigiKey" "541-330HCT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Vishay Dale" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CRCW0603330RFKEA" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "a5b07597-aaf2-4d30-a20c-d253408ca408")
 		)
@@ -8405,6 +8525,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "541-330HCT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Vishay Dale" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CRCW0603330RFKEA" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -8506,7 +8650,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "LED"
+		(property "Value" "LED blue"
 			(at 38.1 86.6774 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8547,6 +8691,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "160-1647-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Lite-On" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "LTST-C191TBKT" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -8621,6 +8789,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "568-8684-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "NXP" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "TJA1051T/3,118" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -8784,6 +8976,30 @@
 				)
 			)
 		)
+		(property "DigiKey" "1276-6526-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CL21A226KOQNNNE" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "3caee954-c34c-40eb-8115-221fcadd053e")
 		)
@@ -8857,6 +9073,30 @@
 				)
 			)
 		)
+		(property "DigiKey" "1276-2420-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CL21A476MQCLRNC" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "7b632187-709a-4f50-a022-2126eb70248a")
 		)
@@ -8927,6 +9167,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "1276-1003-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CL21B104KBCNNNC" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -9205,6 +9469,30 @@
 				)
 			)
 		)
+		(property "DigiKey" "732-5506-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Wurth Elektronik" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "74404042047" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "700440bd-a236-489b-8d24-dc92b508821d")
 		)
@@ -9376,6 +9664,14 @@
 				(justify left)
 			)
 		)
+		(property "DigiKey" "CKN9112CT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "8d86946b-00a8-4004-9315-052c3cf96405")
 		)
@@ -9524,6 +9820,30 @@
 				)
 			)
 		)
+		(property "DigiKey" "311-1101-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "YAGEO" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CC0805JRNPO9BN150" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "11c2e6dc-9bd9-48ca-a545-d2276d31afe3")
 		)
@@ -9554,7 +9874,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "LED"
+		(property "Value" "LED red"
 			(at 59.69 101.9174 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9595,6 +9915,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "160-1447-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Lite-On" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "LTST-C191KRKT" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -9696,7 +10040,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "LED"
+		(property "Value" "LED yellow"
 			(at 49.53 89.2174 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9737,6 +10081,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "160-1448-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Lite-On" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "LTST-C191KSKT" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -9810,6 +10178,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "WM3969CT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Molex" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "0874370473" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -9887,6 +10279,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "AP63205WU-7DICT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Diodes Incorporated" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "AP63205WU-7" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -10211,6 +10627,14 @@
 				(justify left)
 			)
 		)
+		(property "DigiKey" "CKN9112CT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "0befa073-0d2a-4e5f-bf62-de8570b06139")
 		)
@@ -10288,6 +10712,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "311-120HRCT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "YAGEO" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "RC0603FR-07120RL" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -10778,6 +11226,30 @@
 				)
 			)
 		)
+		(property "DigiKey" "541-10.0KHCT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Vishay Dale" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CRCW060310K0FKEA" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "8bd4503d-c065-4aac-8502-8df77b309520")
 		)
@@ -10851,6 +11323,30 @@
 				)
 			)
 		)
+		(property "DigiKey" "541-330HCT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Vishay Dale" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CRCW0603330RFKEA" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "820aca54-30a5-4ebc-92a9-140d1824c77d")
 		)
@@ -10922,6 +11418,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "4713-GMC21X5R106K50NTCT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Cal-Chip Electronics" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "GMC21X5R106K50NT" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -11204,6 +11724,30 @@
 				)
 			)
 		)
+		(property "DigiKey" "541-330HCT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Vishay Dale" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CRCW0603330RFKEA" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "2ed150b3-0a78-4786-95dd-9b666379f911")
 		)
@@ -11272,6 +11816,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "1276-1003-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CL21B104KBCNNNC" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -11347,7 +11915,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "Raspberry Pi"
+		(property "Manufacturer" "Olimex"
 			(at 128.27 60.96 0)
 			(hide yes)
 			(show_name no)
@@ -11367,6 +11935,22 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "1188-RP2350-PICO2-W-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "RP2350-PICO2-W" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -12266,6 +12850,14 @@
 				)
 			)
 		)
+		(property "DigiKey" "MBR120VLSFT1GOSCT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "ace49b87-4639-5b48-9da3-e0464ae56992")
 		)
@@ -12913,7 +13505,7 @@
 				)
 			)
 		)
-		(property "Value" "PTC 0.75A 30V"
+		(property "Value" "PTC 0.75A 33V"
 			(at 312.42 47.625 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12954,6 +13546,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "F3355CT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Littelfuse" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "1812L075/33DR" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -13100,6 +13716,22 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "SMBJ18ALFCT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Littelfuse" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -13254,6 +13886,30 @@
 				)
 			)
 		)
+		(property "DigiKey" "541-100KHCT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Vishay Dale" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CRCW0603100KFKEA" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "da70f5cb-c277-5237-bf51-54e3566bcde4")
 		)
@@ -13335,6 +13991,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "541-22.0KHCT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Vishay Dale" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CRCW060322K0FKEA" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -13521,6 +14201,30 @@
 				)
 			)
 		)
+		(property "DigiKey" "311-1344-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "YAGEO" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CC0603KRX7R9BB104" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "f2575c2f-6a33-598f-b6e6-e1818def8112")
 		)
@@ -13703,6 +14407,14 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "MBR140SFT1GOSCT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -13979,6 +14691,30 @@
 				)
 			)
 		)
+		(property "DigiKey" "541-100KHCT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Vishay Dale" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CRCW0603100KFKEA" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(pin "1"
 			(uuid "5022f918-ab4d-5f16-9a8e-714a8d8f3988")
 		)
@@ -14101,6 +14837,22 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "401-1999-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "C&K" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -14331,6 +15083,14 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "HR1964CT-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -14792,6 +15552,30 @@
 				(font
 					(size 1.27 1.27)
 				)
+			)
+		)
+		(property "DigiKey" "311-1785-1-ND" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "YAGEO" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CC0603KRX5R7BB475" (at 0 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
 			)
 		)
 		(pin "1"

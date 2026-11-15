@@ -90,6 +90,19 @@ from power-on.
   placeholder box whose heights are assumed, not from the datasheet. F1 uses a same-size 1812 capacitor model as a stand-in.
 - Not yet done: fab outputs (gerbers), bring-up on hardware.
 
-## BOM
-See [`bom.csv`](./bom.csv). Removed vs v0.1.0: Teensy 4.0, XIAO ESP32S3. Added: Pico 2 W (or 2 WH) on two 1×20
-socket strips, the OBD protection parts, microSD socket, power switch, D5 Schottky and JP1.
+## BOM and fab files
+- [`../bom/bom.csv`](../bom/bom.csv): purchase BOM with manufacturer and DigiKey part numbers, and the DigiKey
+  stock seen on 2026-11-15.
+- [`../bom/digikey-cart-1-board.csv`](../bom/digikey-cart-1-board.csv): the in-stock lines in DigiKey's cart-upload
+  format, quantities for one board.
+- [`../fab/`](../fab/): gerbers and drill files (also zipped) and a placement file.
+
+Two lines need attention before ordering:
+- **U3, AP63205WU-7 (5 V regulator): out of stock at DigiKey** on 2026-11-15, as was the automotive version
+  AP63205QWU-7. No pin-compatible fixed-5 V part was in stock there. Either buy this one part from another
+  distributor, or change the board to the adjustable AP63301WU-7 (same package and pinout, needs a two-resistor
+  feedback divider; 156 in stock).
+- **U1, Pico 2 W:** Raspberry Pi's own listing (SC1633) showed 0 in stock. The BOM uses the Olimex-sold Pico 2 W
+  (RP2350-PICO2-W), which had only 2 in stock and comes without headers, so pin headers are added.
+
+Stock moves quickly; re-check before ordering. The mating plug and crimps for the J1 harness are not in the BOM.

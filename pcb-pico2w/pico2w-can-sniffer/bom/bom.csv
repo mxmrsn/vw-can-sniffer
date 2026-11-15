@@ -1,0 +1,32 @@
+Refs,Qty,Value,Description,Manufacturer,MPN,DigiKey PN,DigiKey stock (2026-11-15),Unit price USD (qty 1),Notes
+"C1,C3",2,100n,Cap cer 0.1uF 50V X7R 0805,Samsung Electro-Mechanics,CL21B104KBCNNNC,1276-1003-1-ND,"3,797,498",0.10,
+C2,1,47u,Cap cer 47uF 6.3V X5R 0805,Samsung Electro-Mechanics,CL21A476MQCLRNC,1276-2420-1-ND,"6,613",0.53,6.3 V part on the ~5 V VSYS rail; 10 V versions were all out of stock
+"C4,C5",2,22u,Cap cer 22uF 16V X5R 0805,Samsung Electro-Mechanics,CL21A226KOQNNNE,1276-6526-1-ND,"95,660",0.42,Buck output
+C6,1,10u,Cap cer 10uF 50V X5R 0805,Cal-Chip Electronics,GMC21X5R106K50NT,4713-GMC21X5R106K50NTCT-ND,"15,332",1.76,Buck input; 50 V for OBD transients. Only in-stock 50 V option
+C7,1,100p,Cap cer 100pF 50V C0G 0805,Samsung Electro-Mechanics,CL21C101JBANNNC,1276-1014-1-ND,"127,138",0.10,
+C8,1,15p,Cap cer 15pF 50V C0G 0805,YAGEO,CC0805JRNPO9BN150,311-1101-1-ND,"31,676",,
+C9,1,100n,Cap cer 0.1uF 50V X7R 0603,YAGEO,CC0603KRX7R9BB104,311-1344-1-ND,"3,118,948",,
+C10,1,4.7u,Cap cer 4.7uF 16V X5R 0603,YAGEO,CC0603KRX5R7BB475,311-1785-1-ND,"125,573",,
+D1,1,LED green,LED green 0603,Lite-On,LTST-C191KGKT,160-1446-1-ND,"2,222,101",,CAN activity
+D2,1,LED blue,LED blue 0603,Lite-On,LTST-C191TBKT,160-1647-1-ND,"276,079",,Wi-Fi; will be dim on 330R at 3.3 V
+D3,1,LED yellow,LED yellow 0603,Lite-On,LTST-C191KSKT,160-1448-1-ND,"724,486",0.16,USB
+D4,1,LED red,LED red 0603,Lite-On,LTST-C191KRKT,160-1447-1-ND,"1,314,623",0.15,Silent mode
+D5,1,MBR120VLSFT1G,Schottky 20V 1A SOD-123FL,onsemi,MBR120VLSFT1G,MBR120VLSFT1GOSCT-ND,"105,067",0.61,
+D6,1,SMBJ18A,TVS 18V 29.2Vc unidirectional SMB,Littelfuse,SMBJ18A,SMBJ18ALFCT-ND,"26,211",,
+D7,1,MBR140SFT1G,Schottky 40V 1A SOD-123FL,onsemi,MBR140SFT1G,MBR140SFT1GOSCT-ND,"49,072",0.60,
+F1,1,PTC 0.75A 33V,PTC resettable fuse 33V 750mA 1812,Littelfuse,1812L075/33DR,F3355CT-ND,"18,996",,
+J1,1,Pico-SPOX 4-pin,Header 4 pos 1.5mm vertical SMD,Molex,0874370473,WM3969CT-ND,"18,264",0.94,Mating housing and crimps not included
+J2,1,DM3AT-SF-PEJM5,microSD push-push socket,Hirose,DM3AT-SF-PEJM5,HR1964CT-ND,"72,391",3.55,
+L1,1,4.7u,Inductor 4.7uH 1.7A 4x4x1.8mm WE-LQS 4020,Wurth Elektronik,74404042047,732-5506-1-ND,"3,241",1.16,Check the land pattern against the footprint before ordering
+"R1,R2",2,10k,Res 10k 1% 1/10W 0603,Vishay Dale,CRCW060310K0FKEA,541-10.0KHCT-ND,"2,848,541",,
+"R3,R4,R5,R6",4,330,Res 330R 1% 1/10W 0603,Vishay Dale,CRCW0603330RFKEA,541-330HCT-ND,"313,586",,
+R7,1,120,Res 120R 1% 1/10W 0603,YAGEO,RC0603FR-07120RL,311-120HRCT-ND,"4,590",0.10,
+"R9,R11",2,100k,Res 100k 1% 1/10W 0603,Vishay Dale,CRCW0603100KFKEA,541-100KHCT-ND,"2,913,990",,
+R12,1,22k,Res 22k 1% 1/10W 0603,Vishay Dale,CRCW060322K0FKEA,541-22.0KHCT-ND,"282,701",,
+"S1,S2",2,PTS645SM43SMTR92 LFS,Tactile switch 6x6mm SMD,C&K,PTS645SM43SMTR92 LFS,CKN9112CT-ND,"127,640",,
+S3,1,JS102011SAQN,Slide switch SPDT right-angle SMD,C&K,JS102011SAQN,401-1999-1-ND,"52,303",0.90,
+U1,1,Pico 2 W,"Raspberry Pi Pico 2 W (RP2350), sold by Olimex, no headers",Olimex,RP2350-PICO2-W,1188-RP2350-PICO2-W-ND,2,10.09,"Only 2 in stock. Raspberry Pi's own listing (SC1633, 2648-SC1633CT-ND) showed 0"
+U3,1,AP63205WU,Buck regulator 5V 2A TSOT-26,Diodes Incorporated,AP63205WU-7,AP63205WU-7DICT-ND,0,0.89,NOT IN STOCK at DigiKey. Automotive AP63205QWU-7 also 0. See README
+U4,1,TJA1051T/3,CAN transceiver SO-8 with VIO,NXP,"TJA1051T/3,118",568-8684-1-ND,"12,998",,
+--,2,Socket strip,"Socket 1x20 2.54mm, on the board for the Pico",Sullins,PPTC201LFBN-RC,S7018-ND,"17,802",1.14,Not on schematic
+--,2,Pin header,"Header 1x20 2.54mm, soldered to the Pico",Sullins,PRPC020SAAN-RC,35-PRPC020SAAN-RC-ND,"64,801",0.38,Not on schematic; the Olimex Pico has no headers
