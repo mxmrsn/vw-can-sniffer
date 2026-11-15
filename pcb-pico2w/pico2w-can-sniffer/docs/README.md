@@ -86,8 +86,8 @@ from power-on.
 - The power-input and microSD sections are new and unbuilt.
 - The SD fan-out uses 0.6 mm / 0.3 mm vias; check your fab's minimum before ordering.
 - F1 is specified by rating only (0.75 A hold, ≥30 V, 1812); pick an in-stock part before ordering.
-- 3D models: J1 uses the Molex STEP file in [`../3dmodels/`](../3dmodels/README.md). S3 (slide switch) has no model
-  yet and is blank in the 3D view. F1 uses a same-size 1812 capacitor model as a stand-in.
+- 3D models: J1 uses the Molex STEP file in [`../3dmodels/`](../3dmodels/README.md). S3 (slide switch) uses a
+  placeholder box whose heights are assumed, not from the datasheet. F1 uses a same-size 1812 capacitor model as a stand-in.
 - Not yet done: fab outputs (gerbers), bring-up on hardware.
 
 ## BOM
