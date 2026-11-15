@@ -19,7 +19,7 @@ from vwdiag import cli, dbc, dtc, obd, vw       # noqa: E402
 from vwdiag.link import Link                    # noqa: E402
 from vwdiag.uds import InterfaceRefused, NegativeResponse, NoResponse, UdsClient  # noqa: E402
 
-SIM_DIR = os.path.join(REPO, "firmware", "pico2w", "sim")
+SIM_DIR = os.path.join(REPO, "hardware", "pico2w", "firmware", "sim")
 SIM = os.path.join(SIM_DIR, "vw_diag_sim")
 
 
@@ -51,7 +51,7 @@ class Decoders(unittest.TestCase):
         self.assertEqual(d["oil"]([0]), -40)
 
     def test_ecu_table_matches_firmware(self):
-        with open(os.path.join(REPO, "firmware", "pico2w", "src", "vw_ecus.h")) as f:
+        with open(os.path.join(REPO, "hardware", "pico2w", "firmware", "src", "vw_ecus.h")) as f:
             header = f.read()
         rows = re.findall(r'\{\s*"(\w+)",\s*0x([0-9A-Fa-f]+),\s*0x([0-9A-Fa-f]+),', header)
         firmware = {name: (int(a, 16), int(b, 16)) for name, a, b in rows}

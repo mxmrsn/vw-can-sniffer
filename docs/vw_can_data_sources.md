@@ -67,7 +67,7 @@ The DBC file decodes the frames modules send continuously on the car's internal 
 
 **The big unknown:** these frames live on the powertrain and comfort buses. The OBD port is on the diagnostic bus
 behind the gateway, which normally passes diagnostic requests and little else. It is quite possible that none of
-these frames appear at the OBD port. Stage 5 of `docs/bringup_plan.md` is where that gets answered. If they do not
+these frames appear at the OBD port. Stage 5 of `hardware/pico2w/docs/bringup_plan.md` is where that gets answered. If they do not
 appear, seeing them needs a tap at the gateway connector, which is how openpilot does it, and that is a different
 hardware connection from the OBD plug.
 

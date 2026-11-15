@@ -20,13 +20,13 @@ from .link import Link, LinkError
 from .uds import NegativeResponse, NoResponse, UdsClient, UdsError
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SIM_BINARY = os.path.join(REPO, "firmware", "pico2w", "sim", "vw_diag_sim")
+SIM_BINARY = os.path.join(REPO, "hardware", "pico2w", "firmware", "sim", "vw_diag_sim")
 
 
 def open_link(args):
     if args.sim:
         if not os.path.exists(SIM_BINARY):
-            sys.exit("simulator not built: run  make -C firmware/pico2w/sim")
+            sys.exit("simulator not built: run  make -C hardware/pico2w/firmware/sim")
         return Link.simulator(SIM_BINARY)
     port = args.port
     if not port:

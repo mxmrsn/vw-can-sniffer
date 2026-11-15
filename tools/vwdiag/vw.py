@@ -4,7 +4,7 @@ Sources and confidence are written up in docs/vw_can_data_sources.md. In short:
 engine and transmission use the legislated OBD addresses; airbag, steering, radar
 and camera, and the part-number / software-version / coding identifiers, match
 what comma.ai's opendbc uses on Golf MK7 cars; the rest is unconfirmed. Nothing
-has been checked on this car yet. firmware/pico2w/src/vw_ecus.h holds the same
+has been checked on this car yet. hardware/pico2w/firmware/src/vw_ecus.h holds the same
 address table; a test keeps the two in step.
 """
 from .uds import NegativeResponse, NoResponse

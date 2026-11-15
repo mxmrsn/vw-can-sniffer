@@ -1,134 +1,38 @@
 # VW CAN Sniffer
 
-Hardware-agnostic CAN bus sniffer focused on MK7.5 VW GTI, starting with Teensy 4.0 and a UART stream protocol suitable for an ESP32 Wi‑Fi dashboard.
+A home-built diagnostic interface for an MK7.5 VW GTI: hardware that plugs into the OBD-II port, firmware that
+speaks the car's diagnostic protocol, and host tools for scanning modules, reading fault codes and logging live
+data. The longer-term aim is an iOS app with custom dashboards talking to a low-profile dongle.
 
-## Scope
-- Teensy 4.0 CAN capture
-- UART framing protocol for streaming frames to a Wi‑Fi module
-- Future STM32H7 custom board
+## Layout
+| Path | What it is |
+|---|---|
+| [`hardware/pico2w/`](hardware/pico2w/README.md) | **Current board (v0.2.0):** Raspberry Pi Pico 2 W carrier, its firmware and bring-up plan |
+| [`hardware/teensy-esp32/`](hardware/teensy-esp32/README.md) | Original board (v0.1.0, tag `v0.1.0`): Teensy 4.0 + ESP32, its firmware and tools |
+| [`tools/vwdiag/`](tools/vwdiag/README.md) | Host tools: scan, identification, fault codes, live data, logging, frame decoding |
+| [`tools/tests/`](tools/tests) | End-to-end tests for the tools, run against the firmware simulator |
+| [`docs/`](docs/vw_can_data_sources.md) | Project-wide notes; currently where the VW-specific data came from |
 
-## Current Contents
-- `firmware/teensy/teensy_uart_streamer.ino`
-- `firmware/teensy/teensy_can_simulator.ino`
-- `docs/uart_protocol.md`
-- `firmware/esp32/esp32_uart_gateway.ino`
+Each board folder holds everything specific to that board: `pcb/` (KiCad project, BOM, fab files), `firmware/`
+and `docs/`.
 
-## Hardware (Initial Setup)
-- Teensy 4.0
-- CAN transceiver (TJA1051T/3 recommended)
-- ESP32 module (UART bridge for Wi‑Fi)
+## Status
+- **v0.2.0 board:** designed, checked by ERC/DRC and ready to order. Not yet built.
+- **Firmware:** CAN, ISO-TP and UDS with a USB console. Builds for the Pico 2 W; not yet run on hardware.
+- **Tools:** working and tested against a simulated car. Nothing has been tried on the real car.
 
-### Basic Wiring (Teensy ↔ ESP32)
-- `Teensy TX` → `ESP32 RX`
-- `Teensy RX` ← `ESP32 TX`
-- `GND` ↔ `GND`
-- Optional: `Teensy pin 4` → `ESP32 EN` (reset control)
-- Optional: `Teensy pin 5` → `ESP32 RST` (soft reset)
-
-### CAN Transceiver (Optional Control)
-- Optional: `Teensy pin 20` → TJA1051 `S` (silent/listen‑only control)
-
-### Output Mode + LEDs
-- Mode button: `pin 8` (toggle UART/Wi‑Fi vs USB)
-- Select button: `pin 9` (toggle CAN silent)
-- LEDs: CAN heartbeat `pin 14`, Wi‑Fi active `pin 15`, USB active `pin 16`, silent indicator `pin 21`
-
-## Firmware Notes
-- Default UART: `Serial1` @ `921600`
-- Default CAN speed: `500000`
-- CAN IDs encode extended frames with bit31 set
-
-## System Block Diagram
-```
-                 CANH/CANL
-   ┌──────────────────────────────────────────┐
-   │              Bench / Vehicle             │
-   └──────────────────────────────────────────┘
-                    │
-                    │
-              ┌──────────┐        UART (3.3V)
-              │ TJA1051  │<-------------------------┐
-              └──────────┘                          │
-                    │ TXD/RXD                       │
-                    │                               │
-            ┌────────────────┐                      │
-            │ Teensy 4.0     │                      │
-            │ CAN1 (pins 22/23)                     │
-            │ UART -> ESP32  │----------------------┘
-            └────────────────┘
-                       │ Wi-Fi
-                       │
-                 ┌──────────┐
-                 │  ESP32   │
-                 │ Web UI   │
-                 └──────────┘
-                       │
-                       │ HTTP/WS
-                       ▼
-                 ┌──────────┐
-                 │ Browser  │
-                 └──────────┘
+## Quick start (no hardware needed)
+```bash
+make -C hardware/pico2w/firmware/sim
+cd tools
+python3 -m vwdiag --sim --transmit scan
 ```
 
-## Wiring Overview (ASCII)
-```
-Teensy 4.0                          TJA1051T/3                 CAN Bus
------------                          ----------                 -------
-CTX1 (pin 22) ---------------------> TXD
-CRX1 (pin 23) <--------------------- RXD
-pin 20 ----------------------------> S (silent)
-3V3 -------------------------------> VIO
-5V  -------------------------------> VCC
-GND -------------------------------> GND ---------------------- GND
-                                   CANH ---------------------- CANH
-                                   CANL ---------------------- CANL
-
-Teensy 4.0                          ESP32 (UART)               Wi-Fi
------------                          -----------               -----
-TX1 (pin 1) ----------------------> RX
-RX1 (pin 0) <---------------------- TX
-GND ------------------------------> GND                         ~~~
-
-LEDs / Buttons (Teensy 4.0)
-LED CAN (pin 14), LED Wi-Fi (pin 15), LED USB (pin 16), LED Silent (pin 21)
-Mode button (pin 8), Select button (pin 9)
+## Tests
+```bash
+make -C hardware/pico2w/firmware/tests
+python3 -m unittest discover -s tools/tests
 ```
 
-### Test Mode
-Enable synthetic frames for bench testing:
-
-```
-#define TEST_MODE 1
-#define TEST_RATE_HZ 50
-```
-
-## Protocol
-See `docs/uart_protocol.md` for the UART framing spec.
-
-## USB Capture
-Use `tools/usb_dump.py` to read the framed stream from USB and emit CSV.
-Requires `pyserial`.
-
-## PCB Versions
-| Version | Board | Docs |
-|---|---|---|
-| v0.1.0 (tag `v0.1.0`) | Teensy 4.0 + XIAO ESP32S3 carrier | `pcb-teensy-esp32/teensy-esp32-can-sniffer/docs/README.md` |
-| v0.2.0 | Raspberry Pi Pico 2 W (RP2350 + Wi-Fi/BLE) carrier | `pcb-pico2w/pico2w-can-sniffer/docs/README.md` |
-
-The wiring, pin numbers and firmware above describe v0.1.0. Firmware for v0.2.0 is in `firmware/pico2w/`
-(CAN, ISO-TP and UDS with a USB serial console; see its README).
-
-## v0.2.0 software
-- `firmware/pico2w/`: Pico 2 W firmware, plus a host simulator with invented VW control modules.
-- `tools/vwdiag/`: Python command-line tools (scan, identification, fault codes, live data, CSV logging).
-- `docs/bringup_plan.md`: what to test, in order, when the hardware arrives.
-- `docs/vw_can_data_sources.md`: where the VW-specific data came from and how far to trust it.
-
-## Next Steps
-- ESP32 firmware to host a WebSocket dashboard
-- Basic browser UI for live frame display
-- STM32H7 hardware plan
-
-## PlatformIO (ESP32)
-If you prefer automation, PlatformIO can build and upload the ESP32 firmware and SPIFFS assets.
-See `platformio.ini` and `tools/upload_spiffs.sh`.
+## Other
+- `tools/md_to_pdf.sh` regenerates the PDF copy that sits next to each Markdown write-up.

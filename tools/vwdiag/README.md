@@ -47,4 +47,4 @@ transport work together. It does not prove anything about the car:
 - VW-specific measuring values (beyond standard OBD) and VW's own fault-code numbers are not implemented.
 - Coding, adaptations and security access are not implemented.
 
-`docs/bringup_plan.md` lists the on-car tests that settle the unconfirmed items.
+`hardware/pico2w/docs/bringup_plan.md` lists the on-car tests that settle the unconfirmed items.

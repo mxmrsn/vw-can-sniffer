@@ -37,7 +37,7 @@ class Link:
 
     @classmethod
     def simulator(cls, binary):
-        """Start the host simulator (firmware/pico2w/sim/vw_diag_sim)."""
+        """Start the host simulator (hardware/pico2w/firmware/sim/vw_diag_sim)."""
         proc = subprocess.Popen([binary], stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=0)
         link = cls(proc.stdout.fileno(), proc.stdin.fileno(), proc)
         link._enter_machine_mode()
