@@ -6379,7 +6379,7 @@
 		)
 		(uuid "9f2a9626-582c-4ece-ab31-b7de43b15e93")
 	)
-	(text "12V-5V 2A SWITCHING REGULATOR"
+	(text "12V-5V SWITCHING REGULATOR (AP63301, adjustable: 0.8 V x (1 + 158k/30.1k) = 5.0 V)"
 		(exclude_from_sim no)
 		(at 204.47 128.27 0)
 		(effects
@@ -6475,12 +6475,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "59783cdf-5203-45e6-b319-153240157332")
-	)
-	(junction
-		(at 256.54 135.89)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "601b951e-bb5f-4298-800d-d3e847d8de2d")
 	)
 	(junction
 		(at 41.91 40.64)
@@ -6724,7 +6718,7 @@
 	)
 	(polyline
 		(pts
-			(xy 280.67 124.46) (xy 280.67 161.29)
+			(xy 293.37 124.46) (xy 293.37 161.29)
 		)
 		(stroke
 			(width 0)
@@ -6974,7 +6968,7 @@
 	)
 	(polyline
 		(pts
-			(xy 280.67 161.29) (xy 201.93 161.29)
+			(xy 293.37 161.29) (xy 201.93 161.29)
 		)
 		(stroke
 			(width 0)
@@ -7124,16 +7118,6 @@
 	)
 	(wire
 		(pts
-			(xy 256.54 146.05) (xy 256.54 135.89)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b7fe0180-00f9-4df2-a8da-508fbe120e9a")
-	)
-	(wire
-		(pts
 			(xy 22.86 97.79) (xy 22.86 95.25)
 		)
 		(stroke
@@ -7204,7 +7188,7 @@
 	)
 	(polyline
 		(pts
-			(xy 201.93 124.46) (xy 280.67 124.46)
+			(xy 201.93 124.46) (xy 293.37 124.46)
 		)
 		(stroke
 			(width 0)
@@ -7451,16 +7435,6 @@
 			(type default)
 		)
 		(uuid "eb381851-3869-4e33-bb19-cccad44e2df9")
-	)
-	(wire
-		(pts
-			(xy 238.76 146.05) (xy 256.54 146.05)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "eed9aca6-dc21-4748-b2d8-51957b5d0519")
 	)
 	(wire
 		(pts
@@ -9427,7 +9401,7 @@
 				)
 			)
 		)
-		(property "Value" "4.7u"
+		(property "Value" "6.8u"
 			(at 252.73 133.35 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9469,7 +9443,7 @@
 				)
 			)
 		)
-		(property "DigiKey" "732-5506-1-ND" (at 0 0 0)
+		(property "DigiKey" "732-5507-1-ND" (at 0 0 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9485,7 +9459,7 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" "74404042047" (at 0 0 0)
+		(property "MPN" "74404042068" (at 0 0 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10239,7 +10213,7 @@
 				)
 			)
 		)
-		(property "Value" "AP63205WU"
+		(property "Value" "AP63301WU"
 			(at 228.6 135.89 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10260,7 +10234,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://www.diodes.com/assets/Datasheets/AP63200-AP63201-AP63203-AP63205.pdf"
+		(property "Datasheet" "https://www.diodes.com/assets/Datasheets/AP63300-AP63301.pdf"
 			(at 228.6 143.51 0)
 			(hide yes)
 			(show_name no)
@@ -10281,7 +10255,7 @@
 				)
 			)
 		)
-		(property "DigiKey" "AP63205WU-7DICT-ND" (at 0 0 0)
+		(property "DigiKey" "31-AP63301WU-7CT-ND" (at 0 0 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10297,7 +10271,7 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" "AP63205WU-7" (at 0 0 0)
+		(property "MPN" "AP63301WU-7" (at 0 0 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15653,5 +15627,477 @@
 		(pin "1"
 			(uuid "a71762ae-fb27-599a-b459-6d6a7d525a38")
 		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 284.48 140.97 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "78cab7ee-1db0-40cc-ac20-303cf1e73c09")
+		(property "Reference" "R15"
+			(at 286.38 139.7 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "158k"
+			(at 286.38 142.24 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
+			(at 284.48 140.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 284.48 140.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 284.48 140.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "DigiKey" "541-158KHCT-ND" (at 27.94 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Vishay Dale" (at 27.94 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CRCW0603158KFKEA" (at 27.94 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "7c34f11e-d505-4bf6-a3eb-625ce500b9a5")
+		)
+		(pin "2"
+			(uuid "c7d7e838-feab-45b5-941b-3b7bede83321")
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 284.48 151.13 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "949264d1-2f42-4f04-ac1d-fab13fcf0f1f")
+		(property "Reference" "R16"
+			(at 286.38 149.86 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "30.1k"
+			(at 286.38 152.4 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
+			(at 284.48 151.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 284.48 151.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 284.48 151.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "DigiKey" "541-30.1KHCT-ND" (at 27.94 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Vishay Dale" (at 27.94 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CRCW060330K1FKEA" (at 27.94 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "4840dfa7-58fb-4988-a91e-b21ce64f89c9")
+		)
+		(pin "2"
+			(uuid "c90f52cb-c843-4aa3-8fc2-b369ee5e1c96")
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 284.48 154.94 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "cb412ab0-5139-46a4-b20d-f87e2fea67ee")
+		(property "Reference" "#PWR047"
+			(at 284.48 158.75 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 284.48 160.02 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 284.48 154.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 284.48 154.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 284.48 154.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "2232e6a0-ce1c-4b47-ae39-9b372a69c6c7")
+		)
+	)
+	(symbol
+		(lib_id "Device:C")
+		(at 278.13 140.97 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "ad4cf33a-493f-4c8b-beea-d8abdc583e0f")
+		(property "Reference" "C11"
+			(at 279.4 138.43 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "47p"
+			(at 279.4 142.875 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
+			(at 278.13 140.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 278.13 140.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 278.13 140.97 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "DigiKey" "1276-1037-1-ND" (at 26.67 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Samsung Electro-Mechanics" (at 26.67 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CL10C470JB8NNNC" (at 26.67 0 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "af278e37-17ba-4ba0-8b8f-844bc945b3d7")
+		)
+		(pin "2"
+			(uuid "c57264c1-8480-4152-80e6-bc2619ad1e9a")
+		)
+	)
+	(wire
+		(pts
+			(xy 238.76 146.05) (xy 243.84 146.05)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ac154af1-56d9-4f3c-afa4-af6f825a0b95")
+	)
+	(label "FB"
+		(at 243.84 146.05 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "6fba35ad-3e62-4416-bd8d-5f9529cf82fa")
+	)
+	(wire
+		(pts
+			(xy 270.51 135.89) (xy 278.13 135.89)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2c3fa740-48f6-4562-88dd-aeeb1b74f435")
+	)
+	(wire
+		(pts
+			(xy 278.13 135.89) (xy 284.48 135.89)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a192b298-d82b-4311-87f6-e9ce66b0a739")
+	)
+	(junction
+		(at 278.13 135.89)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "0674452e-02ff-402f-b44a-f688328cd579")
+	)
+	(wire
+		(pts
+			(xy 284.48 135.89) (xy 284.48 137.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ca885d42-c672-4904-8455-82e772fdc244")
+	)
+	(wire
+		(pts
+			(xy 278.13 135.89) (xy 278.13 137.16)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "91da362b-dd41-4f7b-984c-d47978838a60")
+	)
+	(wire
+		(pts
+			(xy 284.48 144.78) (xy 284.48 147.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "80fef875-2c5c-4454-8877-f1b37e35e302")
+	)
+	(wire
+		(pts
+			(xy 278.13 144.78) (xy 279.4 144.78)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0d2a45eb-cecc-40ff-b0e9-3cc0bcc6781c")
+	)
+	(wire
+		(pts
+			(xy 279.4 144.78) (xy 284.48 144.78)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9792ec1a-0ea5-45f3-b7b4-045379278757")
+	)
+	(junction
+		(at 284.48 144.78)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b8d5d2a6-0195-47f5-bdef-7cc052fe6405")
+	)
+	(label "FB"
+		(at 279.4 144.78 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "3b230205-a634-41e1-bd7a-fc29dc2856af")
 	)
 )

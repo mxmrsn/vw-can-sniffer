@@ -57,7 +57,7 @@ All other GPIO are unconnected. Matching firmware header: `firmware/pico2w/pins.
 
 ## Power
 ```
-OBD +12V ─ F1 (PTC) ─┬─ D7 ─ VIN ─ AP63205 buck ─ +5V ─ D5 ─┬─ VSYS ─ Pico 3V3 reg ─ +3V3
+OBD +12V ─ F1 (PTC) ─┬─ D7 ─ VIN ─ AP63301 buck ─ +5V ─ D5 ─┬─ VSYS ─ Pico 3V3 reg ─ +3V3
                      D6 (TVS)            Pico micro-USB ────┘ (Pico on-board diode)
 ```
 - **OBD:** J1 pin 1 → 0.75 A PTC → SMBJ18A clamp → Schottky blocking diode. Harness: OBD pin 16 → +12V,
@@ -67,6 +67,10 @@ OBD +12V ─ F1 (PTC) ─┬─ D7 ─ VIN ─ AP63205 buck ─ +5V ─ D5 ─�
 - **OBD sense:** fused OBD voltage → 100 k / 22 k → GP28. About 12.0–12.8 V parked, 13.5–14.5 V with the engine running.
 - **USB:** the Pico's micro-USB powers the board and carries data and firmware loading. It is not switched by S3.
   The separate USB-C power socket from an earlier pass was removed as redundant.
+- **Regulator:** AP63301WU-7, adjustable, set to 5.0 V by R15/R16 (158 k / 30.1 k) with a 47 pF feed-forward
+  capacitor and a 6.8 µH inductor, per the datasheet's 5 V table. It replaced the fixed-5 V AP63205, which was out of
+  stock. The AP63301 runs fixed-frequency PWM at all loads, so it draws a few mA more at light load than the
+  AP63205 did; the pin-compatible AP63300 (PFM) is the lower-idle-current option when it is available.
 - VSYS is about 4.7 V on any source (TJA1051 VCC minimum is 4.5 V).
 - There is no battery input; the earlier 2S LiPo circuit was removed.
 
@@ -83,7 +87,7 @@ from power-on.
 - `kicad-cli` schematic-parity reports 34 "No corresponding pin found" warnings on auto-named nets
   (`Net-(…)`, `unconnected-(…)`). Pad nets were assigned directly from the schematic netlist; run
   *Tools → Update PCB from Schematic* once in the GUI to refresh pad metadata.
-- The power-input and microSD sections are new and unbuilt.
+- The power-input and microSD sections and the regulator's feedback divider are new and unbuilt.
 - The SD fan-out uses 0.6 mm / 0.3 mm vias; check your fab's minimum before ordering.
 - F1 is specified by rating only (0.75 A hold, ≥30 V, 1812); pick an in-stock part before ordering.
 - 3D models: J1 uses the Molex STEP file in [`../3dmodels/`](../3dmodels/README.md). S3 (slide switch) uses a
@@ -97,12 +101,10 @@ from power-on.
   format, quantities for one board.
 - [`../fab/`](../fab/): gerbers and drill files (also zipped) and a placement file.
 
-Two lines need attention before ordering:
-- **U3, AP63205WU-7 (5 V regulator): out of stock at DigiKey** on 2026-11-15, as was the automotive version
-  AP63205QWU-7. No pin-compatible fixed-5 V part was in stock there. Either buy this one part from another
-  distributor, or change the board to the adjustable AP63301WU-7 (same package and pinout, needs a two-resistor
-  feedback divider; 156 in stock).
-- **U1, Pico 2 W:** Raspberry Pi's own listing (SC1633) showed 0 in stock. The BOM uses the Olimex-sold Pico 2 W
+Every line was in stock at DigiKey on 2026-11-15. Three have thin stock:
+- **U1, Pico 2 W:** Raspberry Pi's own listing (SC1633) showed 0. The BOM uses the Olimex-sold Pico 2 W
   (RP2350-PICO2-W), which had only 2 in stock and comes without headers, so pin headers are added.
+- **U3, AP63301WU-7:** 156 in stock. The automotive AP63301QWU-7 (815 in stock) is a drop-in.
+- **L1, 74404042068:** 88 in stock.
 
 Stock moves quickly; re-check before ordering. The mating plug and crimps for the J1 harness are not in the BOM.
