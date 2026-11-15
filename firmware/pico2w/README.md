@@ -5,12 +5,30 @@ Bench firmware for PCB v0.2.0 (`pcb-pico2w/`). It talks to VW control modules ov
 
 This is the first step toward the iOS-driven interface: Bluetooth, logging and sleep are not here yet.
 
+## Layout
+| Path | What it is |
+|---|---|
+| `src/isotp.c`, `src/uds.c` | Transport and diagnostic layers, platform independent |
+| `src/app.c` | Console and commands, platform independent |
+| `src/can_port.c`, `src/main.c` | Pico-only: can2040 glue and platform hooks |
+| `sim/` | Host build of the same core against simulated VW control modules |
+| `tests/` | Host tests for the transport and diagnostic layers |
+
 ## Status
-- `src/isotp.c`, `src/uds.c`: transport and diagnostic layers. Covered by host tests against a simulated ECU
-  (`make -C tests`, 54 checks, built with address and undefined-behaviour sanitizers).
-- `src/can_port.c`, `src/main.c`: can2040 glue and the console. They build cleanly for the Pico 2 W
-  (Pico SDK 2.2.0, Arm GNU toolchain 13.3) but have **not been run on hardware**.
-- Nothing has been tried on a car.
+- Transport and diagnostic layers: 54 host checks against a simulated ECU (`make -C tests`), sanitizers on.
+- Console, commands and the tool protocol: tested end to end through the simulator by the Python suite in
+  `tools/tests` (19 tests).
+- Pico build: compiles cleanly (Pico SDK 2.2.0, Arm GNU toolchain 13.3). **Not yet run on hardware.**
+- Nothing has been tried on a car. `docs/bringup_plan.md` is the ordered test plan for when hardware arrives.
+
+## Simulator
+```bash
+make -C sim
+./sim/vw_diag_sim        # same console as the board, on stdin/stdout
+```
+Six invented control modules (engine, transmission, ABS, cluster, gateway, steering; the airbag module is
+deliberately missing) answer identification, fault-code and OBD live-data requests, including multi-frame and
+"response pending" replies. The data is made up for testing and says nothing about the real car.
 
 ## Build
 Needs the Pico SDK (2.1 or newer, with the `lib/tinyusb` submodule) and the Arm GNU toolchain.
@@ -35,12 +53,19 @@ Open the Pico's USB serial port (any baud rate) and type `help`.
 | `silent on` / `silent off` | Listen-only (default at power-up) or allow transmitting |
 | `mon on` / `mon off` | Print every received CAN frame |
 | `ecus`, `ecu <name>`, `ecu <req> <resp>` | List or select the target control module |
+| `scan` | TesterPresent to every known module |
 | `tp` | TesterPresent: quickest check that a module answers |
+| `keepalive on` / `off` | Send TesterPresent every 2 s to hold a diagnostic session |
+| `timeout <ms>` | Response timeout |
 | `session <hex>` | DiagnosticSessionControl (`01` default, `03` extended) |
 | `vin` | Read the VIN (DID F190) |
 | `did <hex>` | ReadDataByIdentifier |
 | `dtc [mask]` | Read fault codes as raw 3-byte codes with status |
 | `raw <hex bytes>` | Send any UDS request and print the response |
+| `x <req> <resp> <hex bytes>` | One request to any address; replies `+ <hex>` or `- <reason>` |
+| `mode m` / `mode h` | Machine mode for programs (no echo, each reply ends with `$`), or human mode |
+
+The Python tools in `tools/vwdiag` use machine mode and the `x` command.
 
 ## Safety on the car
 - The board powers up listen-only and refuses to transmit until you type `silent off`.

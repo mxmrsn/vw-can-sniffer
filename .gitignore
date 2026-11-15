@@ -22,3 +22,8 @@ fp-info-cache
 firmware/pico2w/build/
 firmware/pico2w/tests/test_isotp_uds
 *.dSYM/
+
+# Host simulator and Python caches
+firmware/pico2w/sim/vw_diag_sim
+__pycache__/
+*.pyc

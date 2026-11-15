@@ -21,6 +21,7 @@ FetchContent_MakeAvailable(can2040)   # no CMake project inside; this only downl
 
 add_executable(vw_diag
     src/main.c
+    src/app.c
     src/can_port.c
     src/isotp.c
     src/uds.c
