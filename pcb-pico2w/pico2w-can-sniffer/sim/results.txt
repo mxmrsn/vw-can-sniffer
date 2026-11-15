@@ -1,0 +1,27 @@
+  Vin  Iload  L uH |  duty   Vout ripple mV | IL p-p  IL pk IL min IL rms | notes
+  9.0   0.05   6.8 |  0.55  4.984       7.0 |   0.65   0.38  -0.28   0.20 | reverse current (forced PWM)
+  9.0   0.30   6.8 |  0.56  4.990       6.9 |   0.65   0.62  -0.03   0.35 | reverse current (forced PWM)
+  9.0   0.50   6.8 |  0.56  4.980       6.9 |   0.65   0.82   0.17   0.53 | 
+  9.0   1.00   6.8 |  0.57  4.990       6.9 |   0.64   1.32   0.68   1.02 | 
+ 12.0   0.05   6.8 |  0.42  4.987       9.1 |   0.86   0.48  -0.38   0.25 | reverse current (forced PWM)
+ 12.0   0.30   6.8 |  0.42  4.978       9.2 |   0.86   0.73  -0.13   0.39 | reverse current (forced PWM)
+ 12.0   0.50   6.8 |  0.42  4.977       9.2 |   0.86   0.93   0.07   0.56 | 
+ 12.0   1.00   6.8 |  0.43  4.990       9.2 |   0.86   1.43   0.57   1.03 | 
+ 14.4   0.05   6.8 |  0.35  4.978      10.3 |   0.96   0.53  -0.43   0.28 | reverse current (forced PWM)
+ 14.4   0.30   6.8 |  0.35  4.976      10.3 |   0.96   0.78  -0.18   0.41 | reverse current (forced PWM)
+ 14.4   0.50   6.8 |  0.35  4.981      10.2 |   0.96   0.98   0.02   0.57 | 
+ 14.4   1.00   6.8 |  0.36  4.977      10.4 |   0.97   1.48   0.52   1.04 | 
+ 29.0   0.05   6.8 |  0.17  4.958      13.2 |   1.21   0.66  -0.55   0.35 | reverse current (forced PWM)
+ 29.0   0.30   6.8 |  0.17  4.994      13.1 |   1.22   0.91  -0.31   0.46 | reverse current (forced PWM)
+ 29.0   0.50   6.8 |  0.17  4.965      13.3 |   1.22   1.11  -0.11   0.61 | reverse current (forced PWM)
+ 29.0   1.00   6.8 |  0.18  4.964      13.4 |   1.23   1.62   0.38   1.06 | 
+
+Inductor at -20% tolerance (5.44 uH), worst ripple case Vin=29 V:
+  Iload 0.50 A: IL p-p 1.53 A, peak 1.27 A, Vout ripple 16.4 mV
+  Iload 1.00 A: IL p-p 1.54 A, peak 1.78 A, Vout ripple 16.6 mV
+
+Worst peak inductor current at nominal L: 1.62 A (inductor Isat 2.0 A, IC peak limit >= 4.1 A)
+
+Set-point from the feedback divider (no simulation needed):
+  nominal 4.999 V, worst case 4.867 to 5.135 V (VFB 792-808 mV, 1% resistors)
+  feed-forward zero 1/(2*pi*R15*C11) = 21.4 kHz
