@@ -17,10 +17,7 @@ include(FetchContent)
 FetchContent_Declare(can2040
     GIT_REPOSITORY https://github.com/KevinOConnor/can2040.git
     GIT_TAG v1.7.0)
-FetchContent_GetProperties(can2040)
-if(NOT can2040_POPULATED)
-    FetchContent_Populate(can2040)
-endif()
+FetchContent_MakeAvailable(can2040)   # no CMake project inside; this only downloads it
 
 add_executable(vw_diag
     src/main.c

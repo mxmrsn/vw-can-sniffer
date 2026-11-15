@@ -8,18 +8,21 @@ This is the first step toward the iOS-driven interface: Bluetooth, logging and s
 ## Status
 - `src/isotp.c`, `src/uds.c`: transport and diagnostic layers. Covered by host tests against a simulated ECU
   (`make -C tests`, 54 checks, built with address and undefined-behaviour sanitizers).
-- `src/can_port.c`, `src/main.c`: can2040 glue and the console. **Not yet compiled for the Pico or run on
-  hardware**; they have only been syntax-checked against stand-in SDK headers.
+- `src/can_port.c`, `src/main.c`: can2040 glue and the console. They build cleanly for the Pico 2 W
+  (Pico SDK 2.2.0, Arm GNU toolchain 13.3) but have **not been run on hardware**.
 - Nothing has been tried on a car.
 
 ## Build
-Needs the Pico SDK (2.1 or newer) and the ARM GCC toolchain.
+Needs the Pico SDK (2.1 or newer, with the `lib/tinyusb` submodule) and the Arm GNU toolchain.
 
 ```bash
-export PICO_SDK_PATH=/path/to/pico-sdk
+export PICO_SDK_PATH=~/pico/pico-sdk
+export PICO_TOOLCHAIN_PATH=~/pico/arm-gnu-toolchain-13.3.rel1-darwin-arm64-arm-none-eabi
 cmake -B build -G "Unix Makefiles"
 cmake --build build
 ```
+
+The first configure also downloads and builds `picotool`.
 
 Copy `build/vw_diag.uf2` to the Pico in BOOTSEL mode. CMake downloads can2040 v1.7.0 during configure.
 
