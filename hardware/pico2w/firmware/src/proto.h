@@ -9,9 +9,11 @@
 // Multi-byte numbers are little-endian.
 #pragma once
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
+#include "frame.h"
 #include "isotp.h"
 
 #define PROTO_VERSION 1
@@ -19,7 +21,7 @@
 
 enum proto_command {
     PROTO_CMD_HELLO = 0x01,         // -> [version][max payload u16][name...]
-    PROTO_CMD_STATUS = 0x02,        // -> [flags][rx u32][dropped u32][tx u32][errors u32][bad packets u32]
+    PROTO_CMD_STATUS = 0x02,        // -> [flags][rx u32][dropped u32][tx u32][errors u32][bad packets u32][events dropped u32]
     PROTO_CMD_SET_SILENT = 0x03,    // [0|1]
     PROTO_CMD_SET_MONITOR = 0x04,   // [0|1]
     PROTO_CMD_UDS = 0x05,           // [req id u32][resp id u32][timeout ms u16, 0 = default][request...] -> [response...]
@@ -50,6 +52,26 @@ enum proto_status {
 
 enum { PROTO_FLAG_SILENT = 1, PROTO_FLAG_MONITOR = 2, PROTO_FLAG_KEEPALIVE = 4, PROTO_FLAG_LOGGING = 8 };
 
-void proto_init(void);
-void proto_rx_byte(uint8_t byte);
+// One link that speaks the protocol: the USB console in binary mode, or Bluetooth LE.
+// Requests are answered on the link they came in on. Each link has its own
+// monitor switch, so a phone can watch the bus without flooding USB or the reverse.
+//
+// write() sends one whole encoded packet. It may refuse (return false), e.g.
+// when a Bluetooth link is too slow to keep up; events are then counted as dropped.
+typedef bool (*proto_write_fn)(const uint8_t *data, size_t len, bool is_event);
+
+struct proto_port {
+    struct frame_decoder decoder;
+    proto_write_fn write;
+    bool monitor;
+    uint32_t bad_packets;
+    uint32_t events_dropped;
+};
+
+void proto_port_init(struct proto_port *port, proto_write_fn write); // also resets a port
+void proto_attach(struct proto_port *port);                         // start sending it events
+void proto_detach(struct proto_port *port);
+void proto_rx_byte(struct proto_port *port, uint8_t byte);
+
+// Send a received CAN frame to every attached link that has monitoring on.
 void proto_send_can_event(const struct can_frame *f, uint32_t time_ms);

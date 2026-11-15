@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "ble_link.h"
 #include "can_port.h"
 #include "isotp.h"
 #include "logger.h"
@@ -45,6 +46,7 @@ static struct isotp_link link;
 static struct uds_client uds;
 static struct ecu_address target = { "engine", 0x7E0, 0x7E8, "" };
 static bool monitor, machine, keepalive, binary;
+static struct proto_port usb_port, ble_port;
 static uint32_t led_off_at, keepalive_at;
 static uint32_t timeout_ms = 1000;
 
@@ -93,13 +95,13 @@ static void pump(void *ctx)
         plat_led(PLAT_LED_CAN, true);
         led_off_at = plat_now_ms() + 20;
         logger_can(&f, plat_now_ms(), false);
-        if (monitor && binary)
-            proto_send_can_event(&f, plat_now_ms());
-        else if (monitor)
+        proto_send_can_event(&f, plat_now_ms());
+        if (monitor && !binary)
             print_frame(&f);
         isotp_on_frame(&link, &f);
     }
     isotp_poll(&link);
+    plat_ble_poll();
     if (logger_active()) {
         struct can_stats s;
         can_port_get_stats(&s);
@@ -192,8 +194,24 @@ void app_poll_clear(void)
     poll_count = 0;
 }
 
+static bool usb_write(const uint8_t *data, size_t len, bool is_event)
+{
+    (void)is_event;
+    plat_write(data, len);
+    return true;
+}
+
+static bool ble_write(const uint8_t *data, size_t len, bool is_event)
+{
+    bool ok = ble_link_write(data, len, is_event);
+    if (ok)
+        plat_ble_kick();
+    return ok;
+}
+
 void app_leave_binary(void)
 {
+    proto_detach(&usb_port);
     binary = false;
     machine = false;
     line_len = 0;
@@ -278,6 +296,8 @@ static void cmd_help(void)
            "  time <unix seconds> tell the interface the time, for log files\n"
            "  poll <req> <resp> <ms> <hex bytes>   repeat a request on a timer\n"
            "  poll list | poll clear\n"
+           "  ble                 Bluetooth state, name and pairing passkey\n"
+           "  ble pair | forget   allow a new phone to pair for 2 minutes, or forget all phones\n"
            "  mode b              binary packet protocol, for apps\n");
 }
 
@@ -317,6 +337,36 @@ static void cmd_log(char *rest)
     logger_get_stats(&s);
     printf("log %s %s frames %lu bytes %lu lost %lu\n", s.active ? "on" : "off", s.name[0] ? s.name : "-",
            (unsigned long)s.records, (unsigned long)s.bytes, (unsigned long)s.lost);
+}
+
+static void cmd_ble(char *rest)
+{
+    if (rest && !strcmp(rest, "pair")) {
+        printf(plat_ble_open_pairing() ? "pairing open for 2 minutes\n" : "- Bluetooth is not available\n");
+        return;
+    }
+    if (rest && !strcmp(rest, "forget")) {
+        printf(plat_ble_forget() ? "all paired phones forgotten\n" : "- Bluetooth is not available\n");
+        return;
+    }
+    if (rest) {
+        printf("- usage: ble, ble pair, ble forget\n");
+        return;
+    }
+    const struct ble_link_info *b = &ble_info;
+    if (!b->available) {
+        printf("ble not available\n");
+        return;
+    }
+    printf("ble %s %s%s\n", b->name, b->address, b->emulated ? " (simulator: TCP stand-in, no pairing)" : "");
+    if (!b->emulated)
+        printf("passkey %06lu, pairing %s\n", (unsigned long)b->passkey, b->pairing_open ? "open" : "closed");
+    printf("%s, mtu %u, connections %lu\n",
+           b->subscribed ? "phone connected" : b->connected ? "phone connected, notifications off" : "no phone",
+           b->mtu, (unsigned long)b->connections);
+    printf("rx %lu tx %lu bytes, rx overflow %lu, packets refused %lu, events dropped %lu\n",
+           (unsigned long)b->rx_bytes, (unsigned long)b->tx_bytes, (unsigned long)b->rx_overflow,
+           (unsigned long)b->tx_refused, (unsigned long)ble_port.events_dropped);
 }
 
 static void cmd_poll(char *rest)
@@ -452,7 +502,8 @@ static void handle_line(char *text)
     } else if (!strcmp(cmd, "status")) {
         cmd_status();
     } else if (!strcmp(cmd, "mode") && rest && rest[0] == 'b') {
-        proto_init();
+        proto_port_init(&usb_port, usb_write);
+        proto_attach(&usb_port);
         binary = true;
         printf("binary mode\n");
     } else if (!strcmp(cmd, "mode") && rest) {
@@ -523,6 +574,8 @@ static void handle_line(char *text)
         do_request(rest);
     } else if (!strcmp(cmd, "x")) {
         cmd_x(rest);
+    } else if (!strcmp(cmd, "ble")) {
+        cmd_ble(rest);
     } else if (!strcmp(cmd, "log")) {
         cmd_log(rest);
     } else if (!strcmp(cmd, "poll")) {
@@ -575,6 +628,8 @@ void app_init(void)
     plat_led(PLAT_LED_SILENT, true);
     plat_led(PLAT_LED_USB, true);
     set_target(VW_ECUS[0].name, VW_ECUS[0].request_id, VW_ECUS[0].response_id, VW_ECUS[0].description);
+    proto_port_init(&ble_port, ble_write);
+    proto_attach(&ble_port);
     run_boot_script();
 }
 
@@ -604,10 +659,16 @@ void app_poll(void)
         break;
     }
 
+    // Bluetooth: the link carries packets from its first byte, no text mode.
+    if (ble_link_session_changed())
+        proto_port_init(&ble_port, ble_write);
+    for (uint8_t b; ble_link_rx_pop(&b);)
+        proto_rx_byte(&ble_port, b);
+
     int ch;
     while ((ch = plat_getchar()) >= 0) {
         if (binary) {
-            proto_rx_byte((uint8_t)ch);
+            proto_rx_byte(&usb_port, (uint8_t)ch);
             continue;
         }
         if (ch == '\r' || ch == '\n') {

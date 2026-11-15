@@ -6,15 +6,16 @@
 #include "can_port.h"
 #include "frame.h"
 #include "logger.h"
-#include "platform.h"
 #include "uds.h"
 
 #define HEADER 3 // seq, command, status
 
-static struct frame_decoder decoder;
+#define MAX_PORTS 2
+
 static uint8_t out[HEADER + ISOTP_MAX_PAYLOAD];
 static uint8_t encoded[FRAME_ENCODED_MAX(sizeof(out))];
-static uint32_t bad_packets;
+static struct proto_port *ports[MAX_PORTS];
+static struct proto_port *current; // the link whose request is being handled
 
 static void put_u32(uint8_t *p, uint32_t v)
 {
@@ -33,7 +34,7 @@ static void transmit(const uint8_t *payload, size_t len)
 {
     size_t n = frame_encode(payload, len, encoded, sizeof(encoded));
     if (n)
-        plat_write(encoded, n);
+        current->write(encoded, n, false);
 }
 
 static void respond(uint8_t status, size_t data_len)
@@ -42,9 +43,33 @@ static void respond(uint8_t status, size_t data_len)
     transmit(out, HEADER + data_len);
 }
 
-void proto_init(void)
+void proto_port_init(struct proto_port *port, proto_write_fn write)
 {
-    frame_decoder_init(&decoder);
+    frame_decoder_init(&port->decoder);
+    port->write = write;
+    port->monitor = false;
+    port->bad_packets = 0;
+    port->events_dropped = 0;
+}
+
+void proto_attach(struct proto_port *port)
+{
+    for (int i = 0; i < MAX_PORTS; i++)
+        if (ports[i] == port)
+            return;
+    for (int i = 0; i < MAX_PORTS; i++) {
+        if (!ports[i]) {
+            ports[i] = port;
+            return;
+        }
+    }
+}
+
+void proto_detach(struct proto_port *port)
+{
+    for (int i = 0; i < MAX_PORTS; i++)
+        if (ports[i] == port)
+            ports[i] = NULL;
 }
 
 void proto_send_can_event(const struct can_frame *f, uint32_t time_ms)
@@ -58,13 +83,21 @@ void proto_send_can_event(const struct can_frame *f, uint32_t time_ms)
     put_u32(evt + 6, f->id | (f->ext ? 0x80000000u : 0));
     evt[10] = dlc;
     memcpy(evt + 11, f->data, dlc);
-    size_t n = frame_encode(evt, 11 + dlc, enc, sizeof(enc));
-    if (n)
-        plat_write(enc, n);
+    size_t n = 0;
+    for (int i = 0; i < MAX_PORTS; i++) {
+        struct proto_port *p = ports[i];
+        if (!p || !p->monitor)
+            continue;
+        if (!n)
+            n = frame_encode(evt, 11 + dlc, enc, sizeof(enc));
+        if (!p->write(enc, n, true))
+            p->events_dropped++;
+    }
 }
 
-static void handle(const uint8_t *in, size_t len)
+static void handle(struct proto_port *port, const uint8_t *in, size_t len)
 {
+    current = port;
     if (len < 2 || in[0] == 0)
         return; // too short to answer, or uses the sequence number reserved for events
     uint8_t cmd = in[1];
@@ -86,13 +119,14 @@ static void handle(const uint8_t *in, size_t len)
     case PROTO_CMD_STATUS: {
         struct can_stats s;
         can_port_get_stats(&s);
-        data[0] = app_flags();
+        data[0] = (uint8_t)((app_flags() & ~PROTO_FLAG_MONITOR) | (port->monitor ? PROTO_FLAG_MONITOR : 0));
         put_u32(data + 1, s.rx);
         put_u32(data + 5, s.rx_dropped);
         put_u32(data + 9, s.tx);
         put_u32(data + 13, s.errors);
-        put_u32(data + 17, bad_packets);
-        respond(PROTO_OK, 21);
+        put_u32(data + 17, port->bad_packets);
+        put_u32(data + 21, port->events_dropped);
+        respond(PROTO_OK, 25);
         break;
     }
 
@@ -106,7 +140,7 @@ static void handle(const uint8_t *in, size_t len)
         if (cmd == PROTO_CMD_SET_SILENT)
             app_set_silent(args[0]);
         else if (cmd == PROTO_CMD_SET_MONITOR)
-            app_set_monitor(args[0]);
+            port->monitor = args[0];
         else
             app_set_keepalive(args[0]);
         respond(PROTO_OK, 0);
@@ -212,12 +246,12 @@ static void handle(const uint8_t *in, size_t len)
     }
 }
 
-void proto_rx_byte(uint8_t byte)
+void proto_rx_byte(struct proto_port *port, uint8_t byte)
 {
     const uint8_t *payload;
-    int n = frame_decoder_push(&decoder, byte, &payload);
+    int n = frame_decoder_push(&port->decoder, byte, &payload);
     if (n > 0)
-        handle(payload, (size_t)n);
+        handle(port, payload, (size_t)n);
     else if (n < 0)
-        bad_packets++;
+        port->bad_packets++;
 }

@@ -13,3 +13,10 @@ int plat_getchar(void);                 // next console byte, or -1 if none wait
 void plat_led(enum plat_led led, bool on);
 void plat_idle(void);                   // called while waiting; may sleep briefly
 void plat_write(const uint8_t *data, size_t len); // raw bytes to the console, no newline translation
+
+// Bluetooth LE (see ble_link.h). The Pico runs the stack in the background; the
+// simulator emulates it over TCP. Both report their state in ble_info.
+void plat_ble_poll(void);         // called often from the main loop
+void plat_ble_kick(void);         // packets were queued: start sending them
+bool plat_ble_open_pairing(void); // allow a new phone to pair for a while
+bool plat_ble_forget(void);       // delete every bonded phone

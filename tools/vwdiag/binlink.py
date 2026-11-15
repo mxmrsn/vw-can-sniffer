@@ -5,7 +5,10 @@ of hardware/pico2w/docs/link_protocol.md: COBS framing, CRC-16, numbered
 requests. It tolerates the byte stream arriving in pieces of any size, which is
 what a BLE connection does to it.
 """
+import os
+import socket
 import struct
+import subprocess
 import time
 
 from .link import Link, LinkError
@@ -119,7 +122,7 @@ class BinaryLink(Link):
             stamp, can_id, dlc = struct.unpack_from("<IIB", payload, 2)
             self._frames.append((stamp, can_id & 0x1FFFFFFF, bool(can_id >> 31), payload[11:11 + dlc]))
 
-    def _exchange(self, cmd, args=b"", timeout=3.0):
+    def _exchange(self, cmd, args=b"", timeout=15.0):
         self._seq = self._seq % 255 + 1
         self._write_bytes(encode(bytes([self._seq, cmd]) + bytes(args)))
         deadline = time.monotonic() + timeout
@@ -131,7 +134,7 @@ class BinaryLink(Link):
                 return p[2], p[3:]
             # anything else is a stale reply to an earlier request: ignore it
 
-    def _call(self, cmd, args=b"", timeout=3.0):
+    def _call(self, cmd, args=b"", timeout=15.0):
         status, data = self._exchange(cmd, args, timeout)
         if status != OK:
             raise LinkError("interface refused command 0x%02X: %s" % (cmd, STATUS_NAMES[status] if status < len(STATUS_NAMES) else status))
@@ -150,10 +153,13 @@ class BinaryLink(Link):
     def set_keepalive(self, on):
         self._call(CMD_SET_KEEPALIVE, [int(bool(on))])
 
-    def status(self):
-        flags, rx, dropped, tx, errors, bad = struct.unpack("<B5I", self._call(CMD_STATUS)[:21])
+    def status(self, timeout=15.0):
+        data = self._call(CMD_STATUS, timeout=timeout)
+        flags, rx, dropped, tx, errors, bad = struct.unpack_from("<B5I", data)
+        events_dropped = struct.unpack_from("<I", data, 21)[0] if len(data) >= 25 else 0
         return {"silent": bool(flags & 1), "monitor": bool(flags & 2), "keepalive": bool(flags & 4),
-                "logging": bool(flags & 8), "rx": rx, "dropped": dropped, "tx": tx, "errors": errors, "bad_packets": bad}
+                "logging": bool(flags & 8), "rx": rx, "dropped": dropped, "tx": tx, "errors": errors, "bad_packets": bad,
+                "events_dropped": events_dropped}
 
     def uds_request(self, request_id, response_id, payload, timeout_ms=None):
         args = struct.pack("<IIH", request_id, response_id, timeout_ms or 0) + bytes(payload)
@@ -212,3 +218,70 @@ class BinaryLink(Link):
                 raise
         frames, self._frames = self._frames, []
         return [frame_text(can_id, ext, data) for _, can_id, ext, data in frames]
+
+
+class BleSimLink(BinaryLink):
+    """The simulator's stand-in for Bluetooth LE: a TCP connection carrying the
+    packets exactly as the Nordic UART Service would, with an imitated MTU and
+    throughput. There is no text mode on this link; packets flow from the start.
+    """
+
+    def __init__(self, sock, proc=None):
+        super().__init__(sock.fileno(), sock.fileno(), proc)
+        self._sock = sock
+
+    @classmethod
+    def simulator(cls, binary, read_chunk=4096, mtu=185, rate=20000, port=None):
+        if port is None:
+            probe = socket.socket()
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+            probe.close()
+        env = dict(os.environ, VWDIAG_BLE_PORT=str(port), VWDIAG_BLE_MTU=str(mtu), VWDIAG_BLE_RATE=str(rate))
+        proc = subprocess.Popen([binary], stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=0, env=env)
+        link = cls.connect("127.0.0.1", port, proc=proc)
+        link.read_chunk = read_chunk
+        return link
+
+    @classmethod
+    def connect(cls, host, port, proc=None, timeout=3.0):
+        """Connect to a simulator that is already running with VWDIAG_BLE_PORT set."""
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                sock = socket.create_connection((host, port), timeout=1.0)
+                break
+            except OSError:
+                if time.monotonic() > deadline:
+                    if proc:
+                        proc.kill()
+                    raise LinkError("no simulator listening on %s:%d" % (host, port))
+                time.sleep(0.05)
+        sock.setblocking(False)
+        link = cls(sock, proc)
+        link._enter()
+        return link
+
+    def _enter(self):
+        reply = self._call(CMD_HELLO)
+        version, max_payload = struct.unpack_from("<BH", reply)
+        self.info = {"version": version, "max_payload": max_payload, "name": reply[3:].decode("ascii", "replace")}
+
+    def _leave(self):
+        pass
+
+    def console(self, text):
+        """Type a line into the simulator's USB console (which stays in text mode)."""
+        self._proc.stdin.write(text.encode() + b"\n")
+
+    def close(self):
+        if self._sock:
+            self._sock.close()
+            self._sock = None
+        if self._proc:
+            self._proc.kill()
+            self._proc.wait()
+            self._proc.stdin.close()
+            self._proc.stdout.close()
+            self._proc = None
+        self._rfd = self._wfd = None

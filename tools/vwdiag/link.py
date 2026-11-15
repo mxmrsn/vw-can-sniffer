@@ -152,8 +152,8 @@ class Link:
     def set_keepalive(self, on):
         self.command("keepalive on" if on else "keepalive off")
 
-    def status(self):
-        text = " ".join(self.command("status"))
+    def status(self, timeout=15.0):
+        text = " ".join(self.command("status", timeout=timeout))
         m = re.search(r"rx (\d+) dropped (\d+) tx (\d+) errors (\d+)", text)
         if not m:
             raise LinkError("could not read the interface status")

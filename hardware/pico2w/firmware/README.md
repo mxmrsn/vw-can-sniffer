@@ -14,6 +14,8 @@ Paths in this file are relative to this folder (`hardware/pico2w/firmware/`) unl
 | `src/app.c` | Console and commands, platform independent |
 | `src/logger.c` | Logging to a file, platform independent; see `../docs/logging.md` |
 | `src/storage_pico.c`, `sim/storage_host.c` | microSD card on the board; a folder in the simulator |
+| `src/ble_link.c`, `src/ble_pico.c` | Bluetooth LE: buffers, and BTstack on the CYW43439 |
+| `src/vw_diag.gatt`, `src/btstack_config.h` | Bluetooth service definition and stack configuration |
 | `src/frame.c`, `src/proto.c` | Binary packet protocol for apps (USB now, BLE later); see `../docs/link_protocol.md` |
 | `src/can_port.c`, `src/main.c` | Pico-only: can2040 glue and platform hooks |
 | `sim/` | Host build of the same core against simulated VW control modules |
@@ -21,10 +23,11 @@ Paths in this file are relative to this folder (`hardware/pico2w/firmware/`) unl
 
 ## Status
 - Transport and diagnostic layers: 54 host checks against a simulated ECU (`make -C tests`), sanitizers on.
-- Packet framing: 73 host checks, logger: 21 host checks with a fake card, in the same run.
+- Packet framing: 73 host checks, logger: 21, Bluetooth buffers: 886, in the same run.
 - Console, commands and both tool protocols (text and binary): tested end to end through the simulator by the
-  Python suite in `tools/tests` (repo root), 88 tests, including logging to a folder that stands in for the
-  card. The binary protocol is also run with the byte stream
+  Python suite in `tools/tests` (repo root), 105 tests. Everything runs over the text console, the binary
+  protocol and a TCP stand-in for Bluetooth that imitates an iPhone's packet size and speed.
+- Bluetooth LE: compiles and is covered by the stand-in, but **has never run on a radio or talked to a phone.** The binary protocol is also run with the byte stream
   delivered 7 bytes at a time, as a BLE connection would.
 - All of the above and the Pico build run on every push (`.github/workflows/ci.yml`).
 - Pico build: compiles cleanly (Pico SDK 2.2.0, Arm GNU toolchain 13.3). **Not yet run on hardware.**
@@ -53,7 +56,20 @@ cmake --build build
 The first configure also downloads and builds `picotool`.
 
 Copy `build/vw_diag.uf2` to the Pico in BOOTSEL mode. CMake downloads can2040 v1.7.0 (GPL-3.0) and the
-microSD driver no-OS-FatFS-SD-SDIO-SPI-RPi-Pico v3.6.2 (Apache-2.0) during configure.
+microSD driver no-OS-FatFS-SD-SDIO-SPI-RPi-Pico v3.6.2 (Apache-2.0) during configure. Bluetooth needs the
+`btstack` and `cyw43-driver` submodules of the Pico SDK:
+
+```bash
+git -C $PICO_SDK_PATH submodule update --init --depth 1 lib/btstack lib/cyw43-driver
+```
+
+The carrier takes any of the four official Pico boards; pass `-DPICO_BOARD=` to build for another:
+
+| Board | Builds | Bluetooth |
+|---|---|---|
+| `pico2_w` (default) | yes | yes |
+| `pico_w` | yes | yes |
+| `pico2`, `pico` | yes | no: compiled out, `ble` reports "not available" |
 
 ## Console
 At power-up the board first runs any commands in `AUTORUN.TXT` on the microSD card (see `../docs/logging.md`).
@@ -81,6 +97,8 @@ Open the Pico's USB serial port (any baud rate) and type `help`.
 | `time <unix seconds>` | Tell the board the time, for log timestamps |
 | `poll <req> <resp> <ms> <hex>` | Repeat a short request on a timer (up to 8); `poll list`, `poll clear` |
 | `mode m` / `mode h` | Machine mode for programs (no echo, each reply ends with `$`), or human mode |
+| `ble` | Bluetooth state, name and pairing passkey |
+| `ble pair` / `ble forget` | Allow a new phone to pair for 2 minutes, or forget every paired phone |
 | `mode b` | Binary packet protocol for apps; see `../docs/link_protocol.md` |
 
 The Python tools in `tools/vwdiag` (repo root) use machine mode and the `x` command, or the binary protocol

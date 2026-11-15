@@ -12,6 +12,8 @@
 
 #define CAN_BITRATE 500000
 
+void ble_pico_init(void); // ble_pico.c
+
 static const uint led_pins[] = {
     [PLAT_LED_CAN] = LED_CAN_PIN,
     [PLAT_LED_WIFI] = LED_WIFI_PIN,
@@ -52,6 +54,7 @@ int main(void)
         gpio_init(led_pins[i]);
         gpio_set_dir(led_pins[i], GPIO_OUT);
     }
+    ble_pico_init();
     can_port_init(CAN_BITRATE);
     app_init();
     for (;;)

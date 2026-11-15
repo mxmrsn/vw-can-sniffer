@@ -75,6 +75,11 @@ Power-path checks with a current-limited bench supply. Do these before plugging 
 | 4.6 | Read GP28 with 12.0 V on J1 | ADC reads 12.0 V ÷ 5.545 ≈ 2.16 V |
 | 4.7 | microSD: FAT32 card in, `log on`, wait 10 s, `log off`; copy the file to a computer and run `vwdiag logread` on it | A `LOG00001.VWL` that reads cleanly; Wi-Fi LED on while logging |
 | 4.8 | Pull the card while logging | Logging stops and the LED goes off; `log on` works again after reinserting |
+| 4.8a | `ble` on the console | A name, address and six-digit passkey; "no phone" |
+| 4.8b | Pair from an iPhone with a BLE tool (nRF Connect, LightBlue): it should ask for the passkey | Pairing succeeds with the right passkey, is refused with a wrong one |
+| 4.8c | Subscribe to 6E400003 and write a HELLO packet (`05 01 01 3E 1F 00`) to 6E400002 | The interface answers; `ble` shows the phone connected and the MTU |
+| 4.8d | `python3 -m vwdiag --sim-ble` equivalents through the phone, then walk out of range mid-request | The link drops cleanly; reconnecting works without a reset |
+| 4.8e | Power-cycle, then reconnect from the same phone without pairing again | It connects (the bond is kept in flash); a second, unpaired phone is refused until `ble pair` |
 | 4.9 | Put the `AUTORUN.TXT` example from `logging.md` (without `silent off` and the `poll` lines) on the card and power up from 12 V only | A new log starts by itself |
 
 ## Stage 5: on the car, listening only

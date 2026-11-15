@@ -40,13 +40,18 @@ jobs:
       - name: Fetch the Pico SDK
         run: |
           git clone --depth 1 --branch 2.2.0 https://github.com/raspberrypi/pico-sdk.git "$PICO_SDK_PATH"
-          git -C "$PICO_SDK_PATH" submodule update --init --depth 1 lib/tinyusb
-      - name: Build
+          git -C "$PICO_SDK_PATH" submodule update --init --depth 1 lib/tinyusb lib/btstack lib/cyw43-driver
+      - name: Build for every supported Pico board
         working-directory: hardware/pico2w/firmware
         run: |
-          cmake -B build
-          cmake --build build -j
+          for board in pico2_w pico_w pico2 pico; do
+            echo "::group::$board"
+            cmake -B "build-$board" -DPICO_BOARD="$board"
+            cmake --build "build-$board" -j
+            echo "::endgroup::"
+          done
+          cp "build-pico2_w/vw_diag.uf2" .
       - uses: actions/upload-artifact@v4
         with:
           name: vw_diag-uf2
-          path: hardware/pico2w/firmware/build/vw_diag.uf2
+          path: hardware/pico2w/firmware/vw_diag.uf2

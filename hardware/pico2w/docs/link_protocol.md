@@ -4,8 +4,9 @@ How a program or phone app talks to the interface. It is a small binary packet p
 bytes work over the USB serial port today and over Bluetooth LE once the radio is brought up. The firmware side is
 `firmware/src/frame.c` and `proto.c`; the Python side is `tools/vwdiag/binlink.py`.
 
-Status: implemented and tested over USB serial framing against the host simulator, including delivery in 7-byte
-pieces to imitate BLE. Not yet run on a board, and the BLE service itself is not written.
+Status: implemented over both links. Tested against the host simulator, including delivery in 7-byte pieces and
+through a TCP stand-in that imitates an iPhone's notification size and throughput. **Not yet run on a board**, so
+the Bluetooth service has never been exercised against real hardware or a real phone.
 
 The text console (`help`, `mode m`) is unchanged and remains the easiest thing to use by hand.
 
@@ -66,7 +67,7 @@ one request at a time and answers each one exactly once.
 | Code | Name | Arguments | Data in an OK response |
 |---|---|---|---|
 | 01 | HELLO | none | protocol version (u8, currently 1), largest payload (u16), then the firmware name as ASCII |
-| 02 | STATUS | none | flags (u8), then five u32 counters: frames received, receive drops, frames sent, bus errors, damaged packets |
+| 02 | STATUS | none | flags (u8), then six u32 counters: frames received, receive drops, frames sent, bus errors, damaged packets, events dropped |
 | 03 | SET_SILENT | `00` or `01` | none. 01 = listen-only, the power-up state |
 | 04 | SET_MONITOR | `00` or `01` | none. While on, every received CAN frame is sent as an event |
 | 05 | UDS | request ID (u32), response ID (u32), timeout in ms (u16, 0 = default 1000), request bytes | the positive response bytes, starting with the service ID + 0x40 |
@@ -79,7 +80,9 @@ one request at a time and answers each one exactly once.
 | 0D | LOG_MARK | text, up to 200 bytes | none. BAD_ARGS when not logging |
 | 7F | EXIT | none | none, then the console is back in text mode |
 
-Flags in `STATUS`: bit 0 listen-only, bit 1 monitor on, bit 2 keepalive on, bit 3 logging. Logging and the
+Flags in `STATUS`: bit 0 listen-only, bit 1 monitor on, bit 2 keepalive on, bit 3 logging. Monitoring, the
+damaged-packet count and the dropped-event count belong to the link asking, not to the interface: USB and a phone
+can be connected at once, and each sees only its own. Everything else is shared. Logging and the
 poll list are described in `logging.md`.
 
 For `UDS`, IDs above 0x7FF are sent as 29-bit. The interface handles segmentation, flow control and "response
@@ -106,8 +109,9 @@ The response payload is `02 85 00 62 F1 90` followed by the 17 characters of the
 
 The smallest packet, `HELLO` as request number 1, is `05 01 01 3E 1F 00` on the wire.
 
-## Bluetooth LE plan
-Not implemented yet. The intended design, so the app side can be written against it:
+## Bluetooth LE
+Implemented in `firmware/src/ble_pico.c` (BTstack on the Pico 2 W's CYW43439) and `src/ble_link.c`. Never run on
+hardware.
 
 - **Service**: the Nordic UART Service layout, which iOS's CoreBluetooth and most BLE tools already understand.
 
@@ -119,12 +123,31 @@ Not implemented yet. The intended design, so the app side can be written against
 
 - The two characteristics are one byte stream in each direction, carrying exactly the packets above. A write or
   notification holds whatever fits in the negotiated size (20 bytes at worst, around 180 to 240 with iOS), and
-  the framing reassembles it.
+  the framing reassembles it. There is no text mode on Bluetooth: packets flow from the first byte.
+- **Advertising**: the name is `VW-Diag-XXXX`, ending in the last two bytes of the Bluetooth address, with the
+  service UUID in the advertisement.
 - **Throughput**: BLE on iOS moves very roughly 2 to 10 kB/s. Diagnostic requests fit comfortably. A full
-  500 kbit/s bus monitor does not (a busy bus is over 30 kB/s as events), so over BLE monitoring will need
-  ID filters or will drop frames, and full captures belong on the microSD card. That filtering command is not
-  designed yet.
-- **Access control**: anyone in radio range of an unpaired dongle could send diagnostic requests to the car.
-  The BLE build should require bonding with a passkey, and should keep powering up listen-only.
-- **Firmware work needed**: add the `cyw43-driver` and `btstack` parts of the Pico SDK, a GATT server exposing
-  the service, and a second byte source and sink next to the USB console. `proto.c` does not change.
+  500 kbit/s bus monitor does not (a busy bus is over 30 kB/s as events), so monitoring over Bluetooth drops
+  frames; full captures belong on the microSD card. Queued events are capped at 2 kB, so what a phone receives
+  is recent rather than minutes stale, and a reply is never stuck behind a long backlog. Dropped events are
+  counted and reported by `STATUS`. An ID filter command is still to be designed.
+- **Access control**: anyone in radio range could otherwise send diagnostic requests to the car, so both
+  characteristics require an authenticated, bonded LE Secure Connections link with a 16-byte key. An unpaired
+  phone can see the service but can neither write nor subscribe. Pairing uses a six-digit passkey that is fixed
+  per board (derived from its unique chip ID) and shown by the console's `ble` command. New phones may pair only
+  during a two-minute window: after power-up, after the MODE button is pressed, or after `ble pair`. Bonded
+  phones reconnect at any time; `ble forget` erases them. The interface still powers up listen-only.
+- **Still to do on hardware**: everything. Pairing from an iPhone, the negotiated MTU, throughput, range, and
+  behaviour when the phone walks away mid-request are all unverified.
+
+### Testing it without hardware
+The simulator can stand in for the radio: it serves the same packets over TCP on localhost, with an imitated
+notification size and throughput, so an app can be developed against it.
+
+```bash
+python3 -m vwdiag --sim-ble status                      # the tools, through the stand-in
+VWDIAG_BLE_PORT=5555 hardware/pico2w/firmware/sim/vw_diag_sim   # for an app to connect to
+```
+
+`VWDIAG_BLE_MTU` (default 185, as iOS negotiates) and `VWDIAG_BLE_RATE` (default 20000 bytes a second) set what
+is imitated. A connected client counts as paired and subscribed; there is no pairing step in the stand-in.

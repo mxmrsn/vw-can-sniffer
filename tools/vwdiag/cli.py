@@ -16,7 +16,7 @@ import time
 from . import dbc
 from . import dtc as dtcfmt
 from . import logfile, obd, vw
-from .binlink import BinaryLink
+from .binlink import BinaryLink, BleSimLink
 from .link import Link, LinkError
 from .uds import NegativeResponse, NoResponse, UdsClient, UdsError
 
@@ -26,6 +26,10 @@ SIM_BINARY = os.path.join(REPO, "hardware", "pico2w", "firmware", "sim", "vw_dia
 
 def open_link(args):
     Link = BinaryLink if args.binary else globals()["Link"]
+    if args.sim_ble:
+        if not os.path.exists(SIM_BINARY):
+            sys.exit("simulator not built: run  make -C hardware/pico2w/firmware/sim")
+        return BleSimLink.simulator(SIM_BINARY)
     if args.sim:
         if not os.path.exists(SIM_BINARY):
             sys.exit("simulator not built: run  make -C hardware/pico2w/firmware/sim")
@@ -290,6 +294,7 @@ def build_parser():
     p.add_argument("--port", help="USB serial port of the board")
     p.add_argument("--sim", action="store_true", help="use the host simulator instead of a board")
     p.add_argument("--binary", action="store_true", help="use the binary packet protocol (what an app uses)")
+    p.add_argument("--sim-ble", action="store_true", help="use the simulator through its Bluetooth stand-in")
     p.add_argument("--transmit", action="store_true", help="allow sending on the CAN bus")
     sub = p.add_subparsers(dest="command", required=True)
 

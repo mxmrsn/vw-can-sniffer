@@ -5,6 +5,8 @@
 #   -> build/vw_diag.uf2, copy to the Pico in BOOTSEL mode
 cmake_minimum_required(VERSION 3.18)
 
+# The carrier takes any official Pico: pico2_w (default), pico2, pico_w or pico.
+# Only the W boards have Bluetooth.
 set(PICO_BOARD pico2_w CACHE STRING "Board type")
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
@@ -29,6 +31,7 @@ FetchContent_MakeAvailable(sdfat)
 add_executable(vw_diag
     src/main.c
     src/app.c
+    src/ble_link.c
     src/can_port.c
     src/frame.c
     src/isotp.c
@@ -38,9 +41,22 @@ add_executable(vw_diag
     src/uds.c
     ${can2040_SOURCE_DIR}/src/can2040.c)
 
-target_include_directories(vw_diag PRIVATE ${can2040_SOURCE_DIR}/src)
+target_include_directories(vw_diag PRIVATE ${can2040_SOURCE_DIR}/src ${CMAKE_CURRENT_LIST_DIR}/src)
+
+# Bluetooth LE: BTstack on the CYW43439, running in the background. The GATT
+# database is generated from src/vw_diag.gatt. Boards without a radio (pico, pico2)
+# build without it.
+if (PICO_CYW43_SUPPORTED)
+    target_sources(vw_diag PRIVATE src/ble_pico.c)
+    pico_btstack_make_gatt_header(vw_diag PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src/vw_diag.gatt)
+    target_link_libraries(vw_diag pico_btstack_ble pico_btstack_cyw43 pico_cyw43_arch_none)
+else()
+    target_sources(vw_diag PRIVATE src/ble_none.c)
+endif()
 target_compile_options(vw_diag PRIVATE -Wall -Wextra)
-target_link_libraries(vw_diag no-OS-FatFS-SD-SDIO-SPI-RPi-Pico pico_stdlib cmsis_core hardware_pio hardware_irq hardware_clocks)
+target_link_libraries(vw_diag no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
+    pico_unique_id
+    pico_stdlib cmsis_core hardware_pio hardware_irq hardware_clocks)
 
 # Console on the Pico's USB port, not on the UART pins.
 pico_enable_stdio_usb(vw_diag 1)

@@ -1,0 +1,19 @@
+// GATT database for the VW diagnostic interface (compiled by BTstack's compile_gatt.py).
+//
+// The data service has the Nordic UART Service layout, so CoreBluetooth and
+// generic BLE tools recognise it. Both characteristics need an authenticated,
+// LE Secure Connections link with a 16-byte key: an unpaired phone can see the
+// service but cannot send a request or receive anything.
+
+PRIMARY_SERVICE, GAP_SERVICE
+CHARACTERISTIC, GAP_DEVICE_NAME, READ, "VW Diag"
+
+PRIMARY_SERVICE, GATT_SERVICE
+CHARACTERISTIC, GATT_DATABASE_HASH, READ,
+
+// Nordic UART Service
+PRIMARY_SERVICE, 6E400001-B5A3-F393-E0A9-E50E24DCCA9E
+// RX: the phone writes packets here
+CHARACTERISTIC, 6E400002-B5A3-F393-E0A9-E50E24DCCA9E, DYNAMIC | WRITE | WRITE_WITHOUT_RESPONSE | WRITE_AUTHENTICATED_SC | ENCRYPTION_KEY_SIZE_16,
+// TX: the interface sends packets as notifications (subscribing needs the same security)
+CHARACTERISTIC, 6E400003-B5A3-F393-E0A9-E50E24DCCA9E, DYNAMIC | NOTIFY | WRITE_AUTHENTICATED_SC | ENCRYPTION_KEY_SIZE_16,

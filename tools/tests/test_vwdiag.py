@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.join(REPO, "tools"))
 
 from vwdiag import cli, dbc, dtc, logfile, obd, vw   # noqa: E402
 from vwdiag import binlink                      # noqa: E402
-from vwdiag.binlink import BinaryLink           # noqa: E402
+from vwdiag.binlink import BinaryLink, BleSimLink   # noqa: E402
 from vwdiag.link import Link, LinkError         # noqa: E402
 from vwdiag.uds import InterfaceRefused, NegativeResponse, NoResponse, UdsClient  # noqa: E402
 
@@ -417,6 +417,63 @@ class BinaryAgainstSimulator(AgainstSimulator):
 class BinarySmallChunks(BinaryAgainstSimulator):
     """As a BLE connection delivers it: a few bytes at a time."""
     READ_CHUNK = 7
+
+
+class BleAgainstSimulator(AgainstSimulator):
+    """Everything in AgainstSimulator again, through the simulator's Bluetooth stand-in
+    (182-byte notifications at 20 kB/s, as from an iPhone)."""
+    LINK = BleSimLink
+
+    def test_usb_console_and_phone_at_the_same_time(self):
+        self.link.set_silent(False)
+        self.link.console("mode m")
+        self.link.console("vin")
+        self.assertEqual(self.engine().read_did(0xF190), b"WVWZZZAUZJW123456")
+        out = b""
+        deadline = time.monotonic() + 3
+        while b"WVWZZZAUZJW123456" not in out and time.monotonic() < deadline:
+            out += self.link._proc.stdout.read1(4096) if hasattr(self.link._proc.stdout, "read1") else os.read(self.link._proc.stdout.fileno(), 4096)
+        self.assertIn(b"F190: WVWZZZAUZJW123456", out)
+
+    def test_monitor_belongs_to_the_link(self):
+        self.link.set_monitor(True)
+        self.assertTrue(self.link.status()["monitor"])
+        self.link.console("status")   # the text console's own monitor stays off
+        self.link.set_monitor(False)
+
+
+class BleSlowLink(unittest.TestCase):
+    """A link far too slow for the bus traffic: events are dropped, answers are not."""
+
+    def test_responses_survive_an_event_flood(self):
+        link = BleSimLink.simulator(SIM, mtu=23, rate=300)   # far slower than the bus traffic
+        self.addCleanup(link.close)
+        link.set_silent(False)
+        link.set_monitor(True)
+        engine = UdsClient(link, 0x7E0, 0x7E8)
+        for _ in range(3):
+            self.assertEqual(engine.read_did(0xF19E)[:5], b"EV_EC")   # 27-byte multi-frame answer
+        link.read_frames(3.0)
+        for _ in range(3):
+            self.assertEqual(engine.read_did(0xF19E)[:5], b"EV_EC")     # still answered while flooded
+        link.set_monitor(False)
+        # The queue drains slowly at this speed, which is the point: a reply is
+        # never queued behind more than BLE_TX_EVENT_BACKLOG bytes of events.
+        self.assertGreater(link.status()["events_dropped"], 0)
+
+    def test_reconnect_starts_clean(self):
+        link = BleSimLink.simulator(SIM)
+        self.addCleanup(link.close)
+        port = link._sock.getpeername()[1]
+        link.set_monitor(True)
+        link._write_bytes(b"\x05\x01")       # half a packet, then the phone goes away
+        link._sock.close()
+        link._sock = None
+        again = BleSimLink.connect("127.0.0.1", port)
+        self.addCleanup(again.close)
+        status = again.status()
+        self.assertFalse(status["monitor"])
+        self.assertEqual(status["bad_packets"], 0)
 
 
 class Framing(unittest.TestCase):

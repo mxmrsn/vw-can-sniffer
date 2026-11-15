@@ -23,6 +23,7 @@ hardware/pico2w/firmware/build/
 hardware/pico2w/firmware/tests/test_isotp_uds
 hardware/pico2w/firmware/tests/test_frame
 hardware/pico2w/firmware/tests/test_logger
+hardware/pico2w/firmware/tests/test_ble_link
 *.dSYM/
 
 # Host simulator and Python caches

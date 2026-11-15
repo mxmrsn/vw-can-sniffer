@@ -6,6 +6,7 @@ Python 3.9 or newer.
 ```bash
 cd tools
 python3 -m vwdiag --sim --transmit scan                 # against the simulator
+python3 -m vwdiag --sim-ble status                      # through its Bluetooth stand-in
 python3 -m vwdiag --port /dev/cu.usbmodem1101 status    # against a board
 ```
 
@@ -30,8 +31,9 @@ With one board plugged in, `--port` can be omitted.
 The board powers up listen-only. Commands that transmit refuse to run without `--transmit`.
 
 ## What is implemented
-- **Two ways to talk to the interface**: the text console (`link.py`, the default) and the binary packet
-  protocol an app will use (`binlink.py`, pass `--binary`), described in `hardware/pico2w/docs/link_protocol.md`.
+- **Three ways to talk to the interface**: the text console (`link.py`, the default), the binary packet protocol
+  an app uses (`binlink.py`, pass `--binary`), and that same protocol over the simulator's Bluetooth stand-in
+  (`BleSimLink`, pass `--sim-ble`). All described in `hardware/pico2w/docs/link_protocol.md`.
 - **UDS** (`uds.py`): requests over either link, negative responses, timeouts.
 - **OBD-II live data** (`obd.py`): 15 standard service-01 values with their standard formulas, supported-PID
   discovery, VIN.
