@@ -83,6 +83,7 @@ The board stays in listen-only for this whole stage, so it cannot disturb the ca
 | 5.1 | Ignition off, plug into the OBD port, S3 on | Board powers; `status` shows `listen-only` |
 | 5.2 | `vwdiag monitor --seconds 10 --out idle.log`, ignition off | Record what appears (possibly nothing) |
 | 5.3 | Same with ignition on, engine off | Record; `errors` stays 0 |
+| 5.3a | `vwdiag decode idle.log --summary` on each capture | Shows which known messages appear, and lists IDs not in the database |
 | 5.4 | Read GP28 with engine off, then running | About 12.0–12.8 V off, 13.5–14.5 V running |
 
 5.2 and 5.3 answer the open question of how much traffic the gateway lets through to the OBD port.
@@ -93,7 +94,7 @@ First time the board transmits on the car. Ignition on, engine off, car stationa
 | # | Test | Pass condition |
 |---|---|---|
 | 6.1 | `vwdiag --transmit scan` | Engine answers at least. Note which modules answer: this confirms or corrects the address table |
-| 6.2 | `vwdiag --transmit info engine` | VIN matches the car; part number and software version are plausible |
+| 6.2 | `vwdiag --transmit info engine` | VIN matches the car; part number looks like `5G0906259x` or similar, software version is 4 digits |
 | 6.3 | `vwdiag --transmit pids` | A list of supported live values |
 | 6.4 | `vwdiag --transmit live rpm coolant voltage --count 20` | Engine off: rpm 0, coolant near ambient, voltage about 12 V |
 | 6.5 | `vwdiag --transmit dtc engine` | A list (possibly empty); compare with another scan tool if one is available |

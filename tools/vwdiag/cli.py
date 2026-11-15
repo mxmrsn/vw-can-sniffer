@@ -13,6 +13,7 @@ import os
 import sys
 import time
 
+from . import dbc
 from . import dtc as dtcfmt
 from . import obd, vw
 from .link import Link, LinkError
@@ -162,16 +163,46 @@ def cmd_raw(link, args):
     print(" ".join("%02X" % b for b in resp))
 
 
+def decode_lines(lines, summary):
+    """Decode monitor lines with the VW MQB database. Returns text lines."""
+    db = dbc.Database()
+    out, latest, unknown = [], {}, {}
+    for line in lines:
+        frame = dbc.parse_log_line(line)
+        if not frame:
+            continue
+        text = dbc.describe(db, *frame, only_nonzero=summary)
+        if text is None:
+            unknown[frame[0]] = unknown.get(frame[0], 0) + 1
+        elif summary:
+            latest[frame[0]] = text
+        else:
+            out.append("%s  %s" % (line.strip(), text))
+    if summary:
+        out += ["%03X %s" % (can_id, latest[can_id]) for can_id in sorted(latest)]
+    if unknown:
+        out.append("not in the database: " + ", ".join("%03X x%d" % kv for kv in sorted(unknown.items())))
+    return out
+
+
 def cmd_monitor(link, args):
     link.command("mon on")
     lines = link.read_lines(args.seconds)
     link.command("mon off")
-    out = open(args.out, "w") if args.out else sys.stdout
-    for line in lines:
-        out.write(line + "\n")
     if args.out:
-        out.close()
+        with open(args.out, "w") as f:
+            f.write("\n".join(lines) + "\n")
         print("captured %d frames to %s" % (len(lines), args.out))
+    if args.decode:
+        print("\n".join(decode_lines(lines, summary=True)))
+    elif not args.out:
+        print("\n".join(lines))
+
+
+def cmd_decode(args):
+    with open(args.log) as f:
+        lines = f.read().split("\n")
+    print("\n".join(decode_lines(lines, summary=args.summary)))
 
 
 def build_parser():
@@ -195,12 +226,19 @@ def build_parser():
     s = sub.add_parser("raw", help="send any UDS request (can change the car)"); s.add_argument("ecu")
     s.add_argument("bytes", nargs="+"); s.set_defaults(fn=cmd_raw)
     s = sub.add_parser("monitor", help="capture raw CAN frames (does not transmit)")
-    s.add_argument("--seconds", type=float, default=5.0); s.add_argument("--out"); s.set_defaults(fn=cmd_monitor)
+    s.add_argument("--seconds", type=float, default=5.0); s.add_argument("--out")
+    s.add_argument("--decode", action="store_true", help="show the latest decoded value of each known message")
+    s.set_defaults(fn=cmd_monitor)
+    s = sub.add_parser("decode", help="decode a saved monitor log (no board needed)"); s.add_argument("log")
+    s.add_argument("--summary", action="store_true", help="only the latest value of each message")
+    s.set_defaults(fn=None, offline=cmd_decode)
     return p
 
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
+    if getattr(args, "offline", None):
+        return args.offline(args)
     try:
         with open_link(args) as link:
             args.fn(link, args)

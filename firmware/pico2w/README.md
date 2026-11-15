@@ -26,9 +26,10 @@ This is the first step toward the iOS-driven interface: Bluetooth, logging and s
 make -C sim
 ./sim/vw_diag_sim        # same console as the board, on stdin/stdout
 ```
-Six invented control modules (engine, transmission, ABS, cluster, gateway, steering; the airbag module is
-deliberately missing) answer identification, fault-code and OBD live-data requests, including multi-frame and
-"response pending" replies. The data is made up for testing and says nothing about the real car.
+Seven simulated control modules (engine, transmission, ABS, cluster, airbag, gateway, steering; radar and camera
+are deliberately missing) answer identification, fault-code and OBD live-data requests, including multi-frame and
+"response pending" replies, and the bus carries a few broadcast frames laid out as in the public VW MQB database.
+Part numbers and software versions are real Golf MK7 values from opendbc; the rest is made up for testing.
 
 ## Build
 Needs the Pico SDK (2.1 or newer, with the `lib/tinyusb` submodule) and the Arm GNU toolchain.

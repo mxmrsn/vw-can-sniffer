@@ -15,7 +15,7 @@ from contextlib import redirect_stdout
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "tools"))
 
-from vwdiag import cli, dtc, obd, vw            # noqa: E402
+from vwdiag import cli, dbc, dtc, obd, vw       # noqa: E402
 from vwdiag.link import Link                    # noqa: E402
 from vwdiag.uds import InterfaceRefused, NegativeResponse, NoResponse, UdsClient  # noqa: E402
 
@@ -58,6 +58,46 @@ class Decoders(unittest.TestCase):
         self.assertEqual(firmware, {name: (v[0], v[1]) for name, v in vw.ECUS.items()})
 
 
+class BroadcastDatabase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.db = dbc.Database()
+
+    def test_database_loads(self):
+        self.assertEqual(len(self.db.messages), 113)
+        self.assertEqual(self.db.by_name("ESP_21").id, 0x0FD)
+        self.assertEqual(self.db.by_name("Klemmen_Status_01").size, 4)
+        self.assertTrue(self.db.by_name("NMH_Gateway").extended)
+
+    def test_scaling_and_offset(self):
+        speed = self.db.by_name("ESP_21").decode(bytes([0, 0, 0, 0, 0x10, 0x27, 0, 0]))
+        self.assertEqual(speed["ESP_v_Signal"], (100.0, "KiloMeterPerHour"))    # 10000 x 0.01
+        temps = self.db.by_name("Motor_07").decode(bytes([0, 100, 156, 184, 0, 0, 0, 0]))
+        self.assertEqual(temps["MO_Ansaugluft_Temp"][0], 27.0)
+        self.assertEqual(temps["MO_Oel_Temp"][0], 96.0)
+        self.assertEqual(temps["MO_Kuehlmittel_Temp"][0], 90.0)
+
+    def test_housekeeping_hidden_and_multiplexing(self):
+        self.assertNotIn("CHECKSUM", self.db.by_name("ESP_21").decode(bytes(8)))
+        self.assertIn("CHECKSUM", self.db.by_name("ESP_21").decode(bytes(8), housekeeping=True))
+        vin = self.db.by_name("VIN_01")
+        first, second = vin.decode(bytes([0] + [0x41] * 7)), vin.decode(bytes([1] + [0x41] * 7))
+        self.assertNotEqual(set(first), set(second))     # different signals per multiplexer value
+        self.assertEqual(first["VIN_01_MUX"][0], 0)
+
+    def test_big_endian_signal(self):
+        sig = dbc.Signal("x", None, 7, 16, False, False, 1, 0, "")
+        self.assertEqual(sig.raw(bytes([0x12, 0x34])), 0x1234)
+        signed = dbc.Signal("y", None, 0, 8, True, True, 1, 0, "")
+        self.assertEqual(signed.raw(bytes([0xFF])), -1)
+
+    def test_log_line_parsing(self):
+        self.assertEqual(dbc.parse_log_line("3C0 [4] 00 47 03 00"), (0x3C0, False, bytes([0, 0x47, 3, 0])))
+        self.assertEqual(dbc.parse_log_line("1B000010 [2] AA BB"), (0x1B000010, True, bytes([0xAA, 0xBB])))
+        self.assertIsNone(dbc.parse_log_line("monitor on"))
+        self.assertIsNone(dbc.describe(self.db, 0x7FF, False, bytes(8)))
+
+
 class AgainstSimulator(unittest.TestCase):
     def setUp(self):
         self.link = Link.simulator(SIM)
@@ -91,7 +131,7 @@ class AgainstSimulator(unittest.TestCase):
         self.assertEqual(cm.exception.nrc, 0x31)
         self.link.command("timeout 200")
         with self.assertRaises(NoResponse):
-            UdsClient(self.link, 0x715, 0x77F).tester_present()
+            UdsClient(self.link, 0x757, 0x7C1).tester_present()
 
     def test_response_pending(self):
         self.link.command("silent off")
@@ -106,6 +146,17 @@ class AgainstSimulator(unittest.TestCase):
         self.assertEqual(len(info), 9)
         cluster = dict(vw.identify(UdsClient(self.link, 0x714, 0x77E)))
         self.assertEqual(sorted(cluster), ["Part number", "Software version", "System name"])
+
+    def test_fingerprint_matches_opendbc_format(self):
+        # One request for part number, software version and coding, answered run together.
+        # The expected bytes are real Golf MK7 values from opendbc's fingerprint list.
+        self.link.command("silent off")
+        raw = UdsClient(self.link, 0x712, 0x77C).request([0x22, 0xF1, 0x87, 0xF1, 0x89, 0xF1, 0x82])
+        self.assertEqual(raw[1:], b"\xf1\x875Q0909144AB\xf1\x891082\xf1\x82\x0521A00642A1")
+        engine = vw.fingerprint(self.engine())
+        self.assertEqual(engine, {0xF187: b"5G0906259L ", 0xF189: b"0002"})     # no coding item: left out
+        with self.assertRaises(NegativeResponse):
+            self.engine().read_dids([0x1234, 0x5678])
 
     def test_fault_codes_read_filter_clear(self):
         self.link.command("silent off")
@@ -133,15 +184,36 @@ class AgainstSimulator(unittest.TestCase):
         frames = self.link.read_lines(0.35)
         self.link.command("mon off")
         self.assertTrue(frames)
-        self.assertTrue(all(re.match(r"^3C0 \[4\]( [0-9A-F]{2}){4}$", f) for f in frames), frames)
+        self.assertTrue(all(dbc.parse_log_line(f) for f in frames), frames)
         status = " ".join(self.link.command("status"))
         self.assertRegex(status, r"rx [1-9]\d* dropped 0 tx 0")
+
+    def test_broadcast_frames_decode(self):
+        # The simulator packs these frames by hand in C; the Python side decodes them
+        # from the public database. Agreement checks both.
+        db = dbc.Database()
+        seen = {}
+        self.link.command("mon on")
+        for line in self.link.read_lines(1.3):
+            frame = dbc.parse_log_line(line)
+            if frame and db.lookup(frame[0], frame[1]):
+                seen[db.lookup(frame[0], frame[1]).name] = db.lookup(frame[0], frame[1]).decode(frame[2])
+        self.assertEqual(seen["Klemmen_Status_01"]["ZAS_Kl_15"][0], 1)
+        self.assertIn(seen["ESP_21"]["ESP_v_Signal"][0], (0, 1, 2, 3))
+        self.assertEqual(seen["Motor_07"]["MO_Kuehlmittel_Temp"][0], 90.0)
+        self.assertEqual(seen["Motor_Code_01"]["MO_Anzahl_Zyl"][0], 4)
+        self.assertEqual(seen["Motor_Code_01"]["MO_Hubraum"][0], 2.0)
+        self.assertEqual(seen["Motor_Code_01"]["MO_Leistung"][0], 169)
+        d = seen["Diagnose_01"]
+        self.assertEqual(d["KBI_Kilometerstand"], (48213, "KiloMeter"))
+        self.assertEqual([d[k][0] for k in ("UH_Jahr", "UH_Monat", "UH_Tag", "UH_Stunde", "UH_Minute", "UH_Sekunde")],
+                         [2026, 11, 15, 14, 30, 5])
 
     def test_firmware_scan_command(self):
         self.link.command("silent off")
         lines = self.link.command("scan")
         self.assertEqual(len(lines), len(vw.ECUS))
-        self.assertEqual([l.split()[0] for l in lines if "no answer" in l], ["airbag"])
+        self.assertEqual([l.split()[0] for l in lines if "no answer" in l], ["radar", "camera"])
 
     def test_keepalive_sends_without_reply(self):
         self.link.command("silent off")
@@ -172,10 +244,21 @@ class CommandLine(unittest.TestCase):
 
     def test_scan_info_dtc(self):
         scan = self.run_cli("--transmit", "scan")
-        self.assertEqual(scan.count("present"), 6)
+        self.assertEqual(scan.count("present"), 7)
         self.assertIn("no answer", scan)
         self.assertIn("EV_ECM20TFS0205G0906259L", self.run_cli("--transmit", "info", "engine"))
         self.assertIn("U0121-00", self.run_cli("--transmit", "dtc", "abs"))
+
+    def test_decode_saved_log(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "cap.log")
+            self.run_cli("monitor", "--seconds", "1.2", "--out", path)
+            summary = self.run_cli("decode", path, "--summary")
+            full = self.run_cli("decode", path)
+        self.assertIn("6B2 Diagnose_01:", summary)
+        self.assertIn("KBI_Kilometerstand=48213 KiloMeter", summary)
+        self.assertIn("MO_Leistung=169 KiloWatt", summary)
+        self.assertGreater(full.count("Klemmen_Status_01"), 5)
 
     def test_live_csv_log(self):
         with tempfile.TemporaryDirectory() as d:

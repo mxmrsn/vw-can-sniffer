@@ -62,6 +62,30 @@ class UdsClient:
             raise UdsError("malformed ReadDataByIdentifier response")
         return resp[3:]
 
+    def read_dids(self, dids):
+        """Read several identifiers in one request. Returns {did: bytes}.
+
+        The response is the identifiers and their data run together with no
+        lengths, so it is split at each requested identifier in order. That is
+        ambiguous if an identifier's bytes also occur inside earlier data.
+        """
+        payload = [0x22]
+        for did in dids:
+            payload += [did >> 8, did & 0xFF]
+        body = self.request(payload)[1:]
+        found = []
+        pos = 0
+        for did in dids:
+            at = body.find(bytes([did >> 8, did & 0xFF]), pos)
+            if at >= 0:
+                found.append((did, at))
+                pos = at + 2
+        out = {}
+        for i, (did, at) in enumerate(found):
+            end = found[i + 1][1] if i + 1 < len(found) else len(body)
+            out[did] = body[at + 2:end]
+        return out
+
     def read_dtcs(self, status_mask=0xFF):
         """Return (availability_mask, [(dtc_bytes, status), ...])."""
         resp = self.request([0x19, 0x02, status_mask])

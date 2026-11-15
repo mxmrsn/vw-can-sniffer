@@ -14,7 +14,8 @@ With one board plugged in, `--port` can be omitted.
 | Command | What it does | Transmits? |
 |---|---|---|
 | `status` | Interface state and frame counters | no |
-| `monitor [--seconds N] [--out FILE]` | Capture raw CAN frames | no |
+| `monitor [--seconds N] [--out FILE] [--decode]` | Capture raw CAN frames, optionally decoded | no |
+| `decode FILE [--summary]` | Decode a saved capture; needs no board | no |
 | `scan` | Find which control modules answer | yes |
 | `info [module ...]` | VIN, part number, software and hardware versions, system name | yes |
 | `dtc [module ...] [--mask HEX]` | Read and decode fault codes | yes |
@@ -31,14 +32,18 @@ The board powers up listen-only. Commands that transmit refuse to run without `-
   discovery, VIN.
 - **VW specifics** (`vw.py`): control module addresses and the identification DIDs.
 - **Fault codes** (`dtc.py`): SAE code and status-bit decoding.
+- **Broadcast frames** (`dbc.py`): decoding with the public VW MQB message database (113 messages) from
+  comma.ai's opendbc, in `data/vw_mqb.dbc`.
 
 ## What is verified and what is not
 Everything is tested end to end against the simulator (`python3 -m unittest discover -s tools/tests`), which runs
 the real firmware core against invented control modules. That proves the tools, the console protocol and the
 transport work together. It does not prove anything about the car:
 
-- The control module addresses other than engine and transmission are commonly published VW values, unconfirmed.
-- The identification DIDs are commonly published VW values, unconfirmed.
+- Addresses for airbag, steering, radar and camera, and the part-number, software-version and coding identifiers,
+  match what opendbc uses on Golf MK7 cars. ABS, cluster and gateway addresses and the other identifiers are
+  unconfirmed. `docs/vw_can_data_sources.md` has the full breakdown.
+- The broadcast frames in the database may not be visible at the OBD port at all.
 - VW-specific measuring values (beyond standard OBD) and VW's own fault-code numbers are not implemented.
 - Coding, adaptations and security access are not implemented.
 

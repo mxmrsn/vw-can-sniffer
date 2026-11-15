@@ -1,9 +1,11 @@
 """VW-specific knowledge: control module addresses and identification data.
 
-Engine and transmission use the legislated OBD addresses. The other addresses,
-and the identification DIDs, are the commonly published VW/MQB values and have
-not been confirmed on this car. firmware/pico2w/src/vw_ecus.h holds the same
-table; a test keeps the two in step.
+Sources and confidence are written up in docs/vw_can_data_sources.md. In short:
+engine and transmission use the legislated OBD addresses; airbag, steering, radar
+and camera, and the part-number / software-version / coding identifiers, match
+what comma.ai's opendbc uses on Golf MK7 cars; the rest is unconfirmed. Nothing
+has been checked on this car yet. firmware/pico2w/src/vw_ecus.h holds the same
+address table; a test keeps the two in step.
 """
 from .uds import NegativeResponse, NoResponse
 
@@ -16,7 +18,11 @@ ECUS = {
     "airbag":  (0x715, 0x77F, "Airbag (15)"),
     "gateway": (0x710, 0x77A, "Diagnostic gateway (19)"),
     "steer":   (0x712, 0x77C, "Power steering (44)"),
+    "radar":   (0x757, 0x7C1, "Front radar (13)"),
+    "camera":  (0x74F, 0x7B9, "Front camera (A5)"),
 }
+
+RX_OFFSET = 0x6A    # response ID = request ID + 0x6A for everything except engine and transmission
 
 # Identification data read with service 0x22.
 ID_DIDS = [
@@ -29,11 +35,23 @@ ID_DIDS = [
     (0xF18C, "Serial number"),
     (0xF19E, "ODX file"),
     (0xF1A2, "ODX version"),
+    (0xF182, "Coding / dataset"),
 ]
+
+# The three identifiers opendbc reads from every module in a single request.
+FINGERPRINT_DIDS = [0xF187, 0xF189, 0xF182]
 
 
 def text(data):
     return "".join(chr(b) if 32 <= b < 127 else "." for b in data).strip()
+
+
+def fingerprint(client):
+    """Part number, software version and coding in one request, as opendbc does it.
+
+    Returns {did: bytes}. Modules leave out identifiers they do not have.
+    """
+    return client.read_dids(FINGERPRINT_DIDS)
 
 
 def identify(client):

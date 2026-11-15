@@ -122,6 +122,7 @@ The wiring, pin numbers and firmware above describe v0.1.0. Firmware for v0.2.0 
 - `firmware/pico2w/`: Pico 2 W firmware, plus a host simulator with invented VW control modules.
 - `tools/vwdiag/`: Python command-line tools (scan, identification, fault codes, live data, CSV logging).
 - `docs/bringup_plan.md`: what to test, in order, when the hardware arrives.
+- `docs/vw_can_data_sources.md`: where the VW-specific data came from and how far to trust it.
 
 ## Next Steps
 - ESP32 firmware to host a WebSocket dashboard
