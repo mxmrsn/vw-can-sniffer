@@ -1,4 +1,6 @@
-# Teensy + ESP32 CAN Sniffer PCB
+# Teensy + ESP32 CAN Sniffer PCB — v0.1.0
+
+> Frozen as git tag `v0.1.0`. Superseded by the Pico 2 W board, [v0.2.0](../../../pcb-pico2w/pico2w-can-sniffer/docs/README.md).
 
 This document summarizes the current PCB design and shows the latest schematic, layout, and 3D model captures.
 
