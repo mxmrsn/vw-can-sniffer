@@ -16,6 +16,15 @@ void app_set_keepalive(bool on);
 uint8_t app_flags(void);     // PROTO_FLAG_* bits
 void app_leave_binary(void); // return the console to text mode
 
+bool app_set_logging(bool on); // false if it could not be started (no card)
+void app_set_time(uint32_t unix_seconds);
+void app_log_mark(const char *text);
+
+// Requests repeated on a timer (and so recorded in the log). Single CAN frame only.
+#define APP_POLL_MAX_LEN 7
+bool app_poll_add(uint32_t request_id, uint32_t response_id, uint32_t period_ms, const uint8_t *req, size_t len);
+void app_poll_clear(void);
+
 // One UDS request to any address. timeout_ms 0 uses the console's setting.
 // Returns a uds.h result; *detail is the NRC or the ISO-TP error code.
 int app_uds_request(uint32_t request_id, uint32_t response_id, uint32_t timeout_ms,

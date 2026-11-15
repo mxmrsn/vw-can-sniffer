@@ -1,0 +1,192 @@
+#include "logger.h"
+
+#include <string.h>
+
+#include "storage.h"
+
+#define BUFFER_SIZE 8192
+#define FLUSH_AT 4096       // write once this much is waiting...
+#define FLUSH_PERIOD_MS 250 // ...or this often when there is anything at all
+#define SYNC_PERIOD_MS 2000 // at most this much is lost if power is pulled
+
+static uint8_t buffer[BUFFER_SIZE];
+static size_t buffered;
+static struct logger_stats stats;
+static uint32_t pending_lost, seen_dropped;
+static uint32_t flushed_at, synced_at;
+static bool unsynced;
+static uint32_t epoch_base, epoch_base_ms; // 0 = time not known
+static bool have_time;
+
+static void put_u32(uint8_t *p, uint32_t v)
+{
+    p[0] = (uint8_t)v;
+    p[1] = (uint8_t)(v >> 8);
+    p[2] = (uint8_t)(v >> 16);
+    p[3] = (uint8_t)(v >> 24);
+}
+
+// Reserve room for a record and write its type and time. NULL if the buffer is full.
+static uint8_t *record(uint8_t type, uint32_t time_ms, size_t payload_len)
+{
+    if (buffered + 5 + payload_len > BUFFER_SIZE)
+        return NULL;
+    uint8_t *p = buffer + buffered;
+    p[0] = type;
+    put_u32(p + 1, time_ms);
+    buffered += 5 + payload_len;
+    return p + 5;
+}
+
+static void fail(void)
+{
+    storage_close();
+    stats.active = false;
+    buffered = 0;
+}
+
+static void flush(uint32_t now_ms)
+{
+    if (buffered) {
+        if (!storage_write(buffer, buffered)) {
+            fail();
+            return;
+        }
+        stats.bytes += (uint32_t)buffered;
+        buffered = 0;
+        unsynced = true;
+    }
+    flushed_at = now_ms;
+}
+
+static uint32_t epoch_at(uint32_t now_ms)
+{
+    return have_time ? epoch_base + (now_ms - epoch_base_ms) / 1000 : 0;
+}
+
+bool logger_start(uint32_t now_ms, uint32_t bitrate, uint32_t rx_dropped_total)
+{
+    if (stats.active)
+        return true;
+    char name[sizeof(stats.name)];
+    if (!storage_create_log(name, sizeof(name)))
+        return false;
+    memset(&stats, 0, sizeof(stats));
+    memcpy(stats.name, name, sizeof(stats.name));
+    stats.active = true;
+    buffered = 0;
+    pending_lost = 0;
+    seen_dropped = rx_dropped_total;
+    flushed_at = synced_at = now_ms;
+
+    uint8_t *h = buffer;
+    memset(h, 0, LOG_HEADER_LEN);
+    memcpy(h, "VWLG", 4);
+    h[4] = LOG_VERSION;
+    h[5] = LOG_HEADER_LEN;
+    put_u32(h + 8, bitrate);
+    put_u32(h + 12, now_ms);
+    put_u32(h + 16, epoch_at(now_ms));
+    buffered = LOG_HEADER_LEN;
+    flush(now_ms);
+    if (stats.active && !storage_sync())
+        fail();
+    return stats.active;
+}
+
+void logger_stop(void)
+{
+    if (!stats.active)
+        return;
+    flush(flushed_at);
+    if (stats.active) {
+        storage_close();
+        stats.active = false;
+    }
+}
+
+bool logger_active(void)
+{
+    return stats.active;
+}
+
+void logger_can(const struct can_frame *f, uint32_t time_ms, bool sent)
+{
+    if (!stats.active)
+        return;
+    uint8_t dlc = f->dlc > 8 ? 8 : f->dlc;
+    // Report earlier losses first, so the gap sits in the right place in the file.
+    if (pending_lost) {
+        uint8_t *p = record(LOG_REC_LOST, time_ms, 4);
+        if (!p) {
+            pending_lost++;
+            stats.lost++;
+            return;
+        }
+        put_u32(p, pending_lost);
+        pending_lost = 0;
+    }
+    uint8_t *p = record(LOG_REC_CAN, time_ms, 5 + dlc);
+    if (!p) {
+        pending_lost++;
+        stats.lost++;
+        return;
+    }
+    put_u32(p, f->id);
+    p[4] = (uint8_t)(dlc | (sent ? 0x40 : 0) | (f->ext ? 0x80 : 0));
+    memcpy(p + 5, f->data, dlc);
+    stats.records++;
+}
+
+void logger_mark(const char *text, uint32_t time_ms)
+{
+    if (!stats.active)
+        return;
+    size_t len = strlen(text);
+    if (len > 200)
+        len = 200;
+    uint8_t *p = record(LOG_REC_MARK, time_ms, 1 + len);
+    if (p) {
+        p[0] = (uint8_t)len;
+        memcpy(p + 1, text, len);
+    }
+}
+
+void logger_set_time(uint32_t epoch, uint32_t now_ms)
+{
+    epoch_base = epoch;
+    epoch_base_ms = now_ms;
+    have_time = true;
+    if (stats.active) {
+        uint8_t *p = record(LOG_REC_TIME, now_ms, 4);
+        if (p)
+            put_u32(p, epoch);
+    }
+}
+
+void logger_poll(uint32_t now_ms, uint32_t rx_dropped_total)
+{
+    if (!stats.active)
+        return;
+    if (rx_dropped_total != seen_dropped) {
+        uint32_t n = rx_dropped_total - seen_dropped;
+        pending_lost += n;
+        stats.lost += n;
+        seen_dropped = rx_dropped_total;
+    }
+    if (buffered >= FLUSH_AT || (buffered && now_ms - flushed_at >= FLUSH_PERIOD_MS))
+        flush(now_ms);
+    if (stats.active && unsynced && now_ms - synced_at >= SYNC_PERIOD_MS) {
+        if (!storage_sync()) {
+            fail();
+            return;
+        }
+        unsynced = false;
+        synced_at = now_ms;
+    }
+}
+
+void logger_get_stats(struct logger_stats *out)
+{
+    *out = stats;
+}

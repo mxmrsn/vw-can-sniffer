@@ -5,6 +5,7 @@
 #include "app.h"
 #include "can_port.h"
 #include "frame.h"
+#include "logger.h"
 #include "platform.h"
 #include "uds.h"
 
@@ -137,6 +138,66 @@ static void handle(const uint8_t *in, size_t len)
             data[0] = (uint8_t)detail;
             respond(PROTO_TRANSPORT, 1);
         }
+        break;
+    }
+
+    case PROTO_CMD_SET_LOG:
+    case PROTO_CMD_LOG_STATUS: {
+        if (cmd == PROTO_CMD_SET_LOG) {
+            if (nargs != 1 || args[0] > 1) {
+                respond(PROTO_BAD_ARGS, 0);
+                break;
+            }
+            if (!app_set_logging(args[0])) {
+                respond(PROTO_STORAGE, 0);
+                break;
+            }
+        }
+        struct logger_stats s;
+        logger_get_stats(&s);
+        size_t name_len = strlen(s.name);
+        data[0] = s.active;
+        put_u32(data + 1, s.records);
+        put_u32(data + 5, s.bytes);
+        put_u32(data + 9, s.lost);
+        memcpy(data + 13, s.name, name_len);
+        respond(PROTO_OK, 13 + name_len);
+        break;
+    }
+
+    case PROTO_CMD_SET_TIME:
+        if (nargs != 4) {
+            respond(PROTO_BAD_ARGS, 0);
+            break;
+        }
+        app_set_time(get_u32(args));
+        respond(PROTO_OK, 0);
+        break;
+
+    case PROTO_CMD_POLL_ADD:
+        if (nargs < 13 || !app_poll_add(get_u32(args), get_u32(args + 4), get_u32(args + 8), args + 12, nargs - 12)) {
+            respond(PROTO_BAD_ARGS, 0);
+            break;
+        }
+        respond(PROTO_OK, 0);
+        break;
+
+    case PROTO_CMD_POLL_CLEAR:
+        app_poll_clear();
+        respond(PROTO_OK, 0);
+        break;
+
+    case PROTO_CMD_LOG_MARK: {
+        char text[201];
+        size_t n = nargs > 200 ? 200 : nargs;
+        if (!logger_active() || n == 0) {
+            respond(PROTO_BAD_ARGS, 0);
+            break;
+        }
+        memcpy(text, args, n);
+        text[n] = 0;
+        app_log_mark(text);
+        respond(PROTO_OK, 0);
         break;
     }
 

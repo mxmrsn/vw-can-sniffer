@@ -12,9 +12,11 @@ from .link import Link, LinkError
 from .uds import InterfaceRefused, NegativeResponse, NoResponse
 
 CMD_HELLO, CMD_STATUS, CMD_SET_SILENT, CMD_SET_MONITOR, CMD_UDS, CMD_SET_KEEPALIVE, CMD_EXIT = 1, 2, 3, 4, 5, 6, 0x7F
+CMD_SET_LOG, CMD_SET_TIME, CMD_LOG_STATUS, CMD_POLL_ADD, CMD_POLL_CLEAR, CMD_LOG_MARK = 8, 9, 10, 11, 12, 13
 EVT_CAN_FRAME = 1
-OK, BAD_ARGS, UNKNOWN_CMD, SILENT, TIMEOUT, NEGATIVE, TRANSPORT = range(7)
-STATUS_NAMES = ["ok", "bad arguments", "unknown command", "silent", "timeout", "negative response", "transport error"]
+OK, BAD_ARGS, UNKNOWN_CMD, SILENT, TIMEOUT, NEGATIVE, TRANSPORT, STORAGE = range(8)
+STATUS_NAMES = ["ok", "bad arguments", "unknown command", "silent", "timeout", "negative response", "transport error",
+                "no card, or the log file could not be written"]
 MAX_PAYLOAD = 4160
 
 
@@ -132,7 +134,7 @@ class BinaryLink(Link):
     def _call(self, cmd, args=b"", timeout=3.0):
         status, data = self._exchange(cmd, args, timeout)
         if status != OK:
-            raise LinkError("interface refused command 0x%02X: %s" % (cmd, STATUS_NAMES[status] if status < 7 else status))
+            raise LinkError("interface refused command 0x%02X: %s" % (cmd, STATUS_NAMES[status] if status < len(STATUS_NAMES) else status))
         return data
 
     # ---- the interface, same as Link
@@ -151,7 +153,7 @@ class BinaryLink(Link):
     def status(self):
         flags, rx, dropped, tx, errors, bad = struct.unpack("<B5I", self._call(CMD_STATUS)[:21])
         return {"silent": bool(flags & 1), "monitor": bool(flags & 2), "keepalive": bool(flags & 4),
-                "rx": rx, "dropped": dropped, "tx": tx, "errors": errors, "bad_packets": bad}
+                "logging": bool(flags & 8), "rx": rx, "dropped": dropped, "tx": tx, "errors": errors, "bad_packets": bad}
 
     def uds_request(self, request_id, response_id, payload, timeout_ms=None):
         args = struct.pack("<IIH", request_id, response_id, timeout_ms or 0) + bytes(payload)
@@ -166,7 +168,37 @@ class BinaryLink(Link):
             raise InterfaceRefused("silent (the interface is listen-only)")
         if status == TRANSPORT:
             raise InterfaceRefused("transport %d" % struct.unpack("b", data[:1])[0])
-        raise InterfaceRefused(STATUS_NAMES[status] if status < 7 else "status %d" % status)
+        raise InterfaceRefused(STATUS_NAMES[status] if status < len(STATUS_NAMES) else "status %d" % status)
+
+    # ---- logging to the card
+    @staticmethod
+    def _log_reply(data):
+        active, frames, size, lost = struct.unpack_from("<B3I", data)
+        return {"active": bool(active), "name": data[13:].decode("ascii", "replace"),
+                "frames": frames, "bytes": size, "lost": lost}
+
+    def set_time(self, unix_seconds):
+        self._call(CMD_SET_TIME, struct.pack("<I", int(unix_seconds)))
+
+    def log_start(self):
+        return self._log_reply(self._call(CMD_SET_LOG, [1]))
+
+    def log_stop(self):
+        return self._log_reply(self._call(CMD_SET_LOG, [0]))
+
+    def log_status(self):
+        return self._log_reply(self._call(CMD_LOG_STATUS))
+
+    def log_mark(self, text):
+        self._call(CMD_LOG_MARK, text.encode("utf-8")[:200])
+
+    def poll_add(self, request_id, response_id, period_ms, payload):
+        status, _ = self._exchange(CMD_POLL_ADD, struct.pack("<III", request_id, response_id, period_ms) + bytes(payload))
+        if status != OK:
+            raise LinkError("the interface refused the poll request (too many, too long, or too fast)")
+
+    def poll_clear(self):
+        self._call(CMD_POLL_CLEAR)
 
     def read_frames(self, seconds):
         deadline = time.monotonic() + seconds

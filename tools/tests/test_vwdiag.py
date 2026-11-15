@@ -16,7 +16,7 @@ from contextlib import redirect_stdout
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "tools"))
 
-from vwdiag import cli, dbc, dtc, obd, vw       # noqa: E402
+from vwdiag import cli, dbc, dtc, logfile, obd, vw   # noqa: E402
 from vwdiag import binlink                      # noqa: E402
 from vwdiag.binlink import BinaryLink           # noqa: E402
 from vwdiag.link import Link, LinkError         # noqa: E402
@@ -231,6 +231,136 @@ class AgainstSimulator(unittest.TestCase):
         self.link.read_frames(2.3)
         self.assertGreaterEqual(self.link.status()["tx"] - before, 1)
         self.engine().tester_present()   # the link still works afterwards
+
+
+class Logging(unittest.TestCase):
+    """Logging to the card. In the simulator the card is a folder named by VWDIAG_SD."""
+    LINK = Link
+
+    def setUp(self):
+        self.card = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", self.card]))
+        os.environ["VWDIAG_SD"] = self.card
+        self.addCleanup(os.environ.pop, "VWDIAG_SD", None)
+
+    def open(self):
+        link = self.LINK.simulator(SIM)
+        self.addCleanup(link.close)
+        return link
+
+    def test_no_card(self):
+        os.environ["VWDIAG_SD"] = ""
+        link = self.open()
+        with self.assertRaises(LinkError):
+            link.log_start()
+        self.assertFalse(link.log_status()["active"])
+
+    def test_records_traffic_marks_and_time(self):
+        link = self.open()
+        link.set_time(1794787200)
+        state = link.log_start()
+        self.assertEqual((state["active"], state["name"]), (True, "LOG00001.VWL"))
+        link.log_mark("engine cold")
+        link.set_silent(False)
+        self.assertEqual(UdsClient(link, 0x7E0, 0x7E8).read_did(0xF190), b"WVWZZZAUZJW123456")
+        link.read_frames(1.2)
+        state = link.log_stop()
+        self.assertFalse(state["active"])
+        self.assertGreater(state["frames"], 10)
+
+        log = logfile.Log(os.path.join(self.card, "LOG00001.VWL"))
+        self.assertEqual(len(log.frames), state["frames"])
+        self.assertEqual(os.path.getsize(os.path.join(self.card, "LOG00001.VWL")), state["bytes"])
+        self.assertEqual((log.bitrate, log.lost, log.truncated), (500000, 0, False))
+        self.assertEqual(log.marks[0][1], "engine cold")
+        self.assertAlmostEqual(log.epoch(log.start_ms), 1794787200, delta=2)
+        sent = [f.text() for f in log.frames if f.sent]
+        received = [f.text() for f in log.frames if not f.sent]
+        self.assertEqual(sent[0], "7E0 [8] 03 22 F1 90 55 55 55 55")         # our request...
+        self.assertTrue(any(t.startswith("7E8 [8] 10 14 62 F1 90") for t in received))  # ...its multi-frame answer
+        self.assertTrue(any(t.startswith("7E0 [8] 30") for t in sent))      # and our flow control
+        self.assertTrue(any(t.startswith("3C0 ") for t in received))        # broadcast traffic too
+        ms = [f.ms for f in log.frames]
+        self.assertEqual(ms, sorted(ms))
+
+    def test_poll_list_puts_live_data_in_the_log(self):
+        link = self.open()
+        link.set_silent(False)
+        for pid in (0x0C, 0x05):
+            link.poll_add(0x7E0, 0x7E8, 100, [0x01, pid])
+        link.log_start()
+        link.read_frames(1.1)
+        link.log_stop()
+        link.poll_clear()
+        samples = list(logfile.Log(os.path.join(self.card, "LOG00001.VWL")).obd_samples())
+        rpm = [v for _, n, v, _ in samples if n == "rpm"]
+        coolant = [v for _, n, v, _ in samples if n == "coolant"]
+        self.assertGreaterEqual(len(rpm), 6)
+        self.assertGreaterEqual(len(coolant), 6)
+        self.assertEqual(set(coolant), {90})
+        with self.assertRaises(LinkError):
+            link.poll_add(0x7E0, 0x7E8, 5, [0x01, 0x0C])     # faster than the interface allows
+
+    def test_files_are_numbered_and_never_overwritten(self):
+        link = self.open()
+        for _ in range(3):
+            link.log_start()
+            link.log_stop()
+        self.assertEqual(sorted(os.listdir(self.card)), ["LOG00001.VWL", "LOG00002.VWL", "LOG00003.VWL"])
+        link.close()
+        link = self.open()   # after a restart numbering carries on
+        self.assertEqual(link.log_start()["name"], "LOG00004.VWL")
+
+    def test_autorun_logs_without_a_computer(self):
+        with open(os.path.join(self.card, "AUTORUN.TXT"), "w") as f:
+            f.write("# start logging at power-up\r\nsilent off\r\npoll 7E0 7E8 100 01 0D\r\nlog on\r\n")
+        link = self.open()
+        time.sleep(1.0)
+        state = link.log_status()
+        self.assertTrue(state["active"])
+        self.assertGreater(state["frames"], 10)
+        link.log_stop()
+        log = logfile.Log(os.path.join(self.card, "LOG00001.VWL"))
+        self.assertTrue(any(n == "speed" for _, n, _, _ in log.obd_samples()))
+
+    def test_power_cut_mid_record(self):
+        link = self.open()
+        link.log_start()
+        link.read_frames(0.6)
+        state = link.log_stop()
+        path = os.path.join(self.card, "LOG00001.VWL")
+        with open(path, "rb") as f:
+            data = f.read()
+        with open(path, "wb") as f:
+            f.write(data[:-3])
+        log = logfile.Log(path)
+        self.assertTrue(log.truncated)
+        self.assertEqual(len(log.frames), state["frames"] - 1)
+
+    def test_logread_command(self):
+        link = self.open()
+        link.set_silent(False)
+        link.poll_add(0x7E0, 0x7E8, 100, [0x01, 0x0C])
+        link.log_start()
+        link.read_frames(0.8)
+        link.log_stop()
+        path = os.path.join(self.card, "LOG00001.VWL")
+        dump, table = os.path.join(self.card, "out.log"), os.path.join(self.card, "out.csv")
+        out = io.StringIO()
+        with redirect_stdout(out):
+            cli.main(["logread", path, "--candump", dump, "--csv", table, "--decode"])
+        self.assertIn("Klemmen_Status_01", out.getvalue())
+        with open(dump) as f:
+            first = f.readline()
+        self.assertRegex(first, r"^\(\d+\.\d{6}\) can0 [0-9A-F]{3}#[0-9A-F]*$")
+        with open(table) as f:
+            rows = f.read().strip().split("\n")
+        self.assertEqual(rows[0], "time_s,rpm_rpm")
+        self.assertGreater(len(rows), 4)
+
+
+class LoggingBinary(Logging):
+    LINK = BinaryLink
 
 
 class BinaryAgainstSimulator(AgainstSimulator):

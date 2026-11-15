@@ -18,13 +18,28 @@
 
 #include "can_port.h"
 #include "isotp.h"
+#include "logger.h"
 #include "platform.h"
 #include "proto.h"
+#include "storage.h"
 #include "uds.h"
 #include "vw_ecus.h"
 
 #define KEEPALIVE_PERIOD_MS 2000
 #define SCAN_TIMEOUT_MS 300
+#define CAN_BITRATE 500000
+#define POLL_MAX 8
+#define POLL_TIMEOUT_MS 150
+#define AUTORUN_FILE "AUTORUN.TXT"
+
+// Requests repeated on a timer, so a log holds live data even when the car's
+// gateway passes nothing but diagnostic answers to the OBD port.
+struct poll_entry {
+    uint32_t request_id, response_id, period_ms, next_at;
+    uint8_t len, data[APP_POLL_MAX_LEN];
+};
+static struct poll_entry polls[POLL_MAX];
+static size_t poll_count, poll_next;
 
 static struct isotp_link link;
 static struct uds_client uds;
@@ -45,7 +60,10 @@ static uint32_t now_ms(void *ctx)
 static int send_frame(void *ctx, const struct can_frame *f)
 {
     (void)ctx;
-    return can_port_send(f);
+    int rc = can_port_send(f);
+    if (rc == 0)
+        logger_can(f, plat_now_ms(), true);
+    return rc;
 }
 
 static void print_frame(const struct can_frame *f)
@@ -74,6 +92,7 @@ static void pump(void *ctx)
         any = true;
         plat_led(PLAT_LED_CAN, true);
         led_off_at = plat_now_ms() + 20;
+        logger_can(&f, plat_now_ms(), false);
         if (monitor && binary)
             proto_send_can_event(&f, plat_now_ms());
         else if (monitor)
@@ -81,6 +100,13 @@ static void pump(void *ctx)
         isotp_on_frame(&link, &f);
     }
     isotp_poll(&link);
+    if (logger_active()) {
+        struct can_stats s;
+        can_port_get_stats(&s);
+        logger_poll(plat_now_ms(), s.rx_dropped);
+        if (!logger_active())
+            plat_led(PLAT_LED_WIFI, false); // the card failed or was pulled
+    }
     if (led_off_at && (int32_t)(plat_now_ms() - led_off_at) >= 0) {
         plat_led(PLAT_LED_CAN, false);
         led_off_at = 0;
@@ -121,7 +147,49 @@ void app_set_keepalive(bool on)
 uint8_t app_flags(void)
 {
     return (uint8_t)((can_port_is_silent() ? PROTO_FLAG_SILENT : 0) | (monitor ? PROTO_FLAG_MONITOR : 0) |
-                     (keepalive ? PROTO_FLAG_KEEPALIVE : 0));
+                     (keepalive ? PROTO_FLAG_KEEPALIVE : 0) | (logger_active() ? PROTO_FLAG_LOGGING : 0));
+}
+
+bool app_set_logging(bool on)
+{
+    if (on) {
+        struct can_stats s;
+        can_port_get_stats(&s);
+        logger_start(plat_now_ms(), CAN_BITRATE, s.rx_dropped);
+    } else {
+        logger_stop();
+    }
+    plat_led(PLAT_LED_WIFI, logger_active()); // no Wi-Fi yet, so this LED shows "logging"
+    return logger_active() == on;
+}
+
+void app_set_time(uint32_t epoch)
+{
+    logger_set_time(epoch, plat_now_ms());
+}
+
+void app_log_mark(const char *text)
+{
+    logger_mark(text, plat_now_ms());
+}
+
+bool app_poll_add(uint32_t request_id, uint32_t response_id, uint32_t period_ms, const uint8_t *req, size_t len)
+{
+    if (poll_count >= POLL_MAX || len == 0 || len > APP_POLL_MAX_LEN || period_ms < 20 || period_ms > 3600000)
+        return false;
+    struct poll_entry *e = &polls[poll_count++];
+    e->request_id = request_id;
+    e->response_id = response_id;
+    e->period_ms = period_ms;
+    e->next_at = plat_now_ms();
+    e->len = (uint8_t)len;
+    memcpy(e->data, req, len);
+    return true;
+}
+
+void app_poll_clear(void)
+{
+    poll_count = 0;
 }
 
 void app_leave_binary(void)
@@ -204,6 +272,12 @@ static void cmd_help(void)
            "  timeout <ms>        response timeout (default 1000)\n"
            "  x <req> <resp> <hex bytes>   one request, machine-readable reply\n"
            "  mode m|h            machine mode (no echo, \"$\" ends each reply) or human\n"
+           "  log on|off          record every CAN frame to the microSD card\n"
+           "  log                 logging state and counters\n"
+           "  log mark <text>     put a note in the log\n"
+           "  time <unix seconds> tell the interface the time, for log files\n"
+           "  poll <req> <resp> <ms> <hex bytes>   repeat a request on a timer\n"
+           "  poll list | poll clear\n"
            "  mode b              binary packet protocol, for apps\n");
 }
 
@@ -217,6 +291,62 @@ static void cmd_status(void)
     print_target();
     printf("timeout %lu ms, keepalive %s, monitor %s\n", (unsigned long)timeout_ms,
            keepalive ? "on" : "off", monitor ? "on" : "off");
+    printf("log %s, %u poll request(s)\n", logger_active() ? "on" : "off", (unsigned)poll_count);
+}
+
+static void cmd_log(char *rest)
+{
+    struct logger_stats s;
+    if (rest && !strcmp(rest, "on")) {
+        if (!app_set_logging(true)) {
+            printf("- no card, or the log file could not be created\n");
+            return;
+        }
+    } else if (rest && !strcmp(rest, "off")) {
+        app_set_logging(false);
+    } else if (rest && !strncmp(rest, "mark ", 5)) {
+        if (!logger_active()) {
+            printf("- not logging\n");
+            return;
+        }
+        app_log_mark(rest + 5);
+    } else if (rest) {
+        printf("- usage: log on|off, log mark <text>, or log alone for the state\n");
+        return;
+    }
+    logger_get_stats(&s);
+    printf("log %s %s frames %lu bytes %lu lost %lu\n", s.active ? "on" : "off", s.name[0] ? s.name : "-",
+           (unsigned long)s.records, (unsigned long)s.bytes, (unsigned long)s.lost);
+}
+
+static void cmd_poll(char *rest)
+{
+    static uint8_t req[APP_POLL_MAX_LEN];
+    if (rest && !strcmp(rest, "clear")) {
+        app_poll_clear();
+        printf("poll list cleared\n");
+        return;
+    }
+    if (rest && !strcmp(rest, "list")) {
+        for (size_t i = 0; i < poll_count; i++) {
+            printf("%03lX %03lX every %lu ms: ", (unsigned long)polls[i].request_id,
+                   (unsigned long)polls[i].response_id, (unsigned long)polls[i].period_ms);
+            print_hex(polls[i].data, polls[i].len);
+        }
+        printf("%u of %u poll requests in use\n", (unsigned)poll_count, POLL_MAX);
+        return;
+    }
+    char *a = rest ? strtok(rest, " ") : NULL;
+    char *b = a ? strtok(NULL, " ") : NULL;
+    char *c = b ? strtok(NULL, " ") : NULL;
+    char *hex = c ? strtok(NULL, "") : NULL;
+    int len = hex ? parse_hex_bytes(hex, req, sizeof(req)) : -1;
+    if (len <= 0 || !app_poll_add(strtoul(a, NULL, 16), strtoul(b, NULL, 16), strtoul(c, NULL, 10), req, (size_t)len)) {
+        printf("- usage: poll <req id> <resp id> <period ms, 20 or more> <1-%d hex bytes>; at most %d entries\n",
+               APP_POLL_MAX_LEN, POLL_MAX);
+        return;
+    }
+    printf("poll %u added\n", (unsigned)poll_count);
 }
 
 static void cmd_did(uint16_t did, bool as_text)
@@ -393,6 +523,13 @@ static void handle_line(char *text)
         do_request(rest);
     } else if (!strcmp(cmd, "x")) {
         cmd_x(rest);
+    } else if (!strcmp(cmd, "log")) {
+        cmd_log(rest);
+    } else if (!strcmp(cmd, "poll")) {
+        cmd_poll(rest);
+    } else if (!strcmp(cmd, "time") && rest) {
+        app_set_time((uint32_t)strtoul(rest, NULL, 10));
+        printf("time set\n");
     } else {
         printf("- unknown command; type \"help\"\n");
     }
@@ -407,11 +544,38 @@ static void prompt(void)
     fflush(stdout);
 }
 
+// Commands in AUTORUN.TXT on the card run at power-up, one per line, as if typed.
+// That is how the board logs on its own: for example "silent off", a few "poll"
+// lines and "log on". Lines starting with # are comments.
+static void run_boot_script(void)
+{
+    static char script[2048];
+    int n = storage_read_file(AUTORUN_FILE, script, sizeof(script) - 1);
+    if (n <= 0)
+        return;
+    script[n] = 0;
+    char *next = script;
+    while (next) {
+        char *text = next;
+        next = strchr(text, '\n');
+        if (next)
+            *next++ = 0;
+        size_t len = strlen(text);
+        while (len && (text[len - 1] == '\r' || text[len - 1] == ' '))
+            text[--len] = 0;
+        if (!len || text[0] == '#' || !strncmp(text, "mode", 4))
+            continue;
+        printf("autorun: %s\n", text);
+        handle_line(text);
+    }
+}
+
 void app_init(void)
 {
     plat_led(PLAT_LED_SILENT, true);
     plat_led(PLAT_LED_USB, true);
     set_target(VW_ECUS[0].name, VW_ECUS[0].request_id, VW_ECUS[0].response_id, VW_ECUS[0].description);
+    run_boot_script();
 }
 
 void app_poll(void)
@@ -424,6 +588,20 @@ void app_poll(void)
         if (!isotp_tx_busy(&link))
             isotp_send(&link, tp, sizeof(tp));
         keepalive_at = plat_now_ms() + KEEPALIVE_PERIOD_MS;
+    }
+
+    // One poll request per pass, so the console stays responsive between them.
+    for (size_t i = 0; i < poll_count && !can_port_is_silent(); i++) {
+        struct poll_entry *e = &polls[(poll_next + i) % poll_count];
+        if ((int32_t)(plat_now_ms() - e->next_at) < 0)
+            continue;
+        static uint8_t resp[ISOTP_MAX_PAYLOAD];
+        size_t n;
+        int detail;
+        app_uds_request(e->request_id, e->response_id, POLL_TIMEOUT_MS, e->data, e->len, resp, sizeof(resp), &n, &detail);
+        e->next_at = plat_now_ms() + e->period_ms;
+        poll_next = (poll_next + i + 1) % poll_count;
+        break;
     }
 
     int ch;

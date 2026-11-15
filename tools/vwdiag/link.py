@@ -181,6 +181,40 @@ class Link:
             raise NoResponse("no response from %X" % response_id)
         raise InterfaceRefused(reply[1:].strip())
 
+    # ---- logging to the card
+    def _log_reply(self, lines):
+        m = re.search(r"log (on|off) (\S+) frames (\d+) bytes (\d+) lost (\d+)", " ".join(lines))
+        if not m:
+            raise LinkError(" ".join(lines).lstrip("- ") or "could not read the logging state")
+        return {"active": m.group(1) == "on", "name": "" if m.group(2) == "-" else m.group(2),
+                "frames": int(m.group(3)), "bytes": int(m.group(4)), "lost": int(m.group(5))}
+
+    def set_time(self, unix_seconds):
+        """The interface has no clock; tell it the time so log files can carry real timestamps."""
+        self.command("time %d" % unix_seconds)
+
+    def log_start(self):
+        return self._log_reply(self.command("log on"))
+
+    def log_stop(self):
+        return self._log_reply(self.command("log off"))
+
+    def log_status(self):
+        return self._log_reply(self.command("log"))
+
+    def log_mark(self, text):
+        self._log_reply(self.command("log mark " + text))
+
+    def poll_add(self, request_id, response_id, period_ms, payload):
+        """Have the interface repeat a short request on a timer (so its answers land in the log)."""
+        reply = self.command("poll %X %X %d %s" % (request_id, response_id, period_ms,
+                                                   " ".join("%02X" % b for b in payload)))
+        if not reply or reply[-1].startswith("-"):
+            raise LinkError("the interface refused the poll request (too many, too long, or too fast)")
+
+    def poll_clear(self):
+        self.command("poll clear")
+
     def read_frames(self, seconds):
         """Collect monitored CAN frames for a while, as text lines like "3C0 [4] 00 00 03 00"."""
         return self.read_lines(seconds)

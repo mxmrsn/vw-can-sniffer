@@ -1,0 +1,125 @@
+// microSD card storage for the logger: FatFs over SPI1, using
+// carlk3/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico (Apache-2.0). FAT32 and exFAT cards.
+//
+// Not yet run on hardware.
+#include "storage.h"
+
+#include <stdio.h>
+#include <string.h>
+
+#include "../pins.h"
+#include "ff.h"
+#include "hw_config.h"
+
+// ---- what the library needs to know about the board
+static spi_t spi = {
+    .hw_inst = SD_SPI_PORT,
+    .sck_gpio = SD_SCK_PIN,
+    .mosi_gpio = SD_MOSI_PIN,
+    .miso_gpio = SD_MISO_PIN,
+    .baud_rate = 12500 * 1000, // conservative; the library drops to 400 kHz to initialise the card
+};
+static sd_spi_if_t spi_if = { .spi = &spi, .ss_gpio = SD_CS_PIN };
+static sd_card_t sd_card = { .type = SD_IF_SPI, .spi_if_p = &spi_if };
+
+size_t sd_get_num(void)
+{
+    return 1;
+}
+
+sd_card_t *sd_get_by_num(size_t num)
+{
+    return num == 0 ? &sd_card : NULL;
+}
+
+// ---- storage.h
+static FATFS fs;
+static FIL log_file;
+static bool mounted, file_open;
+
+static bool mount(void)
+{
+    if (!mounted)
+        mounted = f_mount(&fs, "", 1) == FR_OK;
+    return mounted;
+}
+
+// After any error assume the card was pulled: forget it, so the next attempt starts clean.
+static void drop_card(void)
+{
+    if (file_open)
+        f_close(&log_file);
+    file_open = false;
+    f_unmount("");
+    mounted = false;
+}
+
+bool storage_create_log(char *name, size_t name_cap)
+{
+    if (file_open)
+        storage_close();
+    if (!mount())
+        return false;
+
+    unsigned highest = 0, n;
+    DIR dir;
+    FILINFO info;
+    FRESULT r = f_findfirst(&dir, &info, "", "LOG?????.VWL");
+    while (r == FR_OK && info.fname[0]) {
+        if (sscanf(info.fname + 3, "%5u", &n) == 1 && n > highest)
+            highest = n;
+        r = f_findnext(&dir, &info);
+    }
+    f_closedir(&dir);
+    if (r != FR_OK || highest >= 99999) {
+        drop_card();
+        return false;
+    }
+
+    snprintf(name, name_cap, "LOG%05u.VWL", highest + 1);
+    if (f_open(&log_file, name, FA_WRITE | FA_CREATE_NEW) != FR_OK) {
+        drop_card();
+        return false;
+    }
+    file_open = true;
+    return true;
+}
+
+bool storage_write(const uint8_t *data, size_t len)
+{
+    UINT written = 0;
+    if (!file_open || f_write(&log_file, data, (UINT)len, &written) != FR_OK || written != len) {
+        drop_card();
+        return false;
+    }
+    return true;
+}
+
+bool storage_sync(void)
+{
+    if (!file_open || f_sync(&log_file) != FR_OK) {
+        drop_card();
+        return false;
+    }
+    return true;
+}
+
+void storage_close(void)
+{
+    if (file_open)
+        f_close(&log_file);
+    file_open = false;
+}
+
+int storage_read_file(const char *name, char *buf, size_t cap)
+{
+    FIL f;
+    UINT n = 0;
+    if (file_open || !mount())
+        return -1;
+    if (f_open(&f, name, FA_READ) != FR_OK)
+        return -1;
+    FRESULT r = f_read(&f, buf, (UINT)cap, &n);
+    f_close(&f);
+    return r == FR_OK ? (int)n : -1;
+}

@@ -12,16 +12,19 @@ Paths in this file are relative to this folder (`hardware/pico2w/firmware/`) unl
 |---|---|
 | `src/isotp.c`, `src/uds.c` | Transport and diagnostic layers, platform independent |
 | `src/app.c` | Console and commands, platform independent |
+| `src/logger.c` | Logging to a file, platform independent; see `../docs/logging.md` |
+| `src/storage_pico.c`, `sim/storage_host.c` | microSD card on the board; a folder in the simulator |
 | `src/frame.c`, `src/proto.c` | Binary packet protocol for apps (USB now, BLE later); see `../docs/link_protocol.md` |
 | `src/can_port.c`, `src/main.c` | Pico-only: can2040 glue and platform hooks |
 | `sim/` | Host build of the same core against simulated VW control modules |
-| `tests/` | Host tests for the transport, diagnostic and packet framing layers |
+| `tests/` | Host tests for the transport, diagnostic, packet framing and logging layers |
 
 ## Status
 - Transport and diagnostic layers: 54 host checks against a simulated ECU (`make -C tests`), sanitizers on.
-- Packet framing: 73 host checks in the same run.
+- Packet framing: 73 host checks, logger: 21 host checks with a fake card, in the same run.
 - Console, commands and both tool protocols (text and binary): tested end to end through the simulator by the
-  Python suite in `tools/tests` (repo root), 74 tests. The binary protocol is also run with the byte stream
+  Python suite in `tools/tests` (repo root), 88 tests, including logging to a folder that stands in for the
+  card. The binary protocol is also run with the byte stream
   delivered 7 bytes at a time, as a BLE connection would.
 - All of the above and the Pico build run on every push (`.github/workflows/ci.yml`).
 - Pico build: compiles cleanly (Pico SDK 2.2.0, Arm GNU toolchain 13.3). **Not yet run on hardware.**
@@ -49,9 +52,12 @@ cmake --build build
 
 The first configure also downloads and builds `picotool`.
 
-Copy `build/vw_diag.uf2` to the Pico in BOOTSEL mode. CMake downloads can2040 v1.7.0 during configure.
+Copy `build/vw_diag.uf2` to the Pico in BOOTSEL mode. CMake downloads can2040 v1.7.0 (GPL-3.0) and the
+microSD driver no-OS-FatFS-SD-SDIO-SPI-RPi-Pico v3.6.2 (Apache-2.0) during configure.
 
 ## Console
+At power-up the board first runs any commands in `AUTORUN.TXT` on the microSD card (see `../docs/logging.md`).
+
 Open the Pico's USB serial port (any baud rate) and type `help`.
 
 | Command | What it does |
@@ -70,6 +76,10 @@ Open the Pico's USB serial port (any baud rate) and type `help`.
 | `dtc [mask]` | Read fault codes as raw 3-byte codes with status |
 | `raw <hex bytes>` | Send any UDS request and print the response |
 | `x <req> <resp> <hex bytes>` | One request to any address; replies `+ <hex>` or `- <reason>` |
+| `log on` / `log off` / `log` | Record every CAN frame to the microSD card; `log` alone shows the state |
+| `log mark <text>` | Put a note in the log |
+| `time <unix seconds>` | Tell the board the time, for log timestamps |
+| `poll <req> <resp> <ms> <hex>` | Repeat a short request on a timer (up to 8); `poll list`, `poll clear` |
 | `mode m` / `mode h` | Machine mode for programs (no echo, each reply ends with `$`), or human mode |
 | `mode b` | Binary packet protocol for apps; see `../docs/link_protocol.md` |
 

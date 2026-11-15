@@ -11,6 +11,7 @@ Everything specific to the current board.
 | [`pcb/3dmodels/`](pcb/3dmodels/README.md) | 3D models not in the stock KiCad library |
 | [`firmware/`](firmware/README.md) | Pico 2 W firmware, host simulator (`firmware/sim/`) and protocol tests (`firmware/tests/`) |
 | [`docs/bringup_plan.md`](docs/bringup_plan.md) | What to test, in order, when the hardware arrives |
+| [`docs/logging.md`](docs/logging.md) | Logging to the microSD card, with or without a computer attached |
 | [`docs/link_protocol.md`](docs/link_protocol.md) | The packet protocol an app uses, and the Bluetooth LE plan |
 
 The host tools that drive this board are board-independent and live in [`../../tools/vwdiag`](../../tools/vwdiag/README.md).

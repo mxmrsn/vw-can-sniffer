@@ -73,7 +73,9 @@ Power-path checks with a current-limited bench supply. Do these before plugging 
 | 4.4 | Each LED and both buttons | LEDs light on the documented pins; buttons read high when pressed |
 | 4.5 | Repeat 2.1–2.6 through J1 | Same results as on the breakout |
 | 4.6 | Read GP28 with 12.0 V on J1 | ADC reads 12.0 V ÷ 5.545 ≈ 2.16 V |
-| 4.7 | microSD: insert a card, read and write a file | Works once SD firmware exists (not written yet) |
+| 4.7 | microSD: FAT32 card in, `log on`, wait 10 s, `log off`; copy the file to a computer and run `vwdiag logread` on it | A `LOG00001.VWL` that reads cleanly; Wi-Fi LED on while logging |
+| 4.8 | Pull the card while logging | Logging stops and the LED goes off; `log on` works again after reinserting |
+| 4.9 | Put the `AUTORUN.TXT` example from `logging.md` (without `silent off` and the `poll` lines) on the card and power up from 12 V only | A new log starts by itself |
 
 ## Stage 5: on the car, listening only
 The board stays in listen-only for this whole stage, so it cannot disturb the car. JP1 must be open.
@@ -84,6 +86,7 @@ The board stays in listen-only for this whole stage, so it cannot disturb the ca
 | 5.2 | `vwdiag monitor --seconds 10 --out idle.log`, ignition off | Record what appears (possibly nothing) |
 | 5.3 | Same with ignition on, engine off | Record; `errors` stays 0 |
 | 5.3a | `vwdiag decode idle.log --summary` on each capture | Shows which known messages appear, and lists IDs not in the database |
+| 5.3b | `vwdiag log start`, drive or idle a few minutes, `vwdiag log stop`; `logread --ids` on the file | The same picture as 5.3 over a longer time; `lost` is 0 |
 | 5.4 | Read GP28 with engine off, then running | About 12.0–12.8 V off, 13.5–14.5 V running |
 
 5.2 and 5.3 answer the open question of how much traffic the gateway lets through to the OBD port.
@@ -100,6 +103,7 @@ First time the board transmits on the car. Ignition on, engine off, car stationa
 | 6.5 | `vwdiag --transmit dtc engine` | A list (possibly empty); compare with another scan tool if one is available |
 | 6.6 | `vwdiag --transmit info` and `dtc` for each module found in 6.1 | Record results; fix any wrong addresses in `vw_ecus.h` and `vw.py` |
 | 6.7 | Start the engine, repeat 6.4 with `--csv idle.csv` | rpm 700–900 at idle; voltage 13.5–14.5 V; log file written |
+| 6.7a | `vwdiag --transmit log start --poll rpm speed coolant --interval 0.2`, drive, `log stop`, then `logread --csv` | A live-data spreadsheet from the card that matches the dash |
 | 6.8 | Watch the dash throughout | No warning lights, no new fault codes afterwards (repeat 6.5) |
 
 If nothing answers in 6.1: check `status` for `tx` rising and `errors`, check CAN-H/CAN-L are not swapped, and

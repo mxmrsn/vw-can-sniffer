@@ -15,7 +15,7 @@ import time
 
 from . import dbc
 from . import dtc as dtcfmt
-from . import obd, vw
+from . import logfile, obd, vw
 from .binlink import BinaryLink
 from .link import Link, LinkError
 from .uds import NegativeResponse, NoResponse, UdsClient, UdsError
@@ -59,6 +59,7 @@ def cmd_status(link, args):
     print("bus %s" % ("listen-only" if s["silent"] else "transmit-enabled"))
     print("rx %(rx)d dropped %(dropped)d tx %(tx)d errors %(errors)d" % s)
     print("keepalive %s, monitor %s" % ("on" if s["keepalive"] else "off", "on" if s["monitor"] else "off"))
+    print_log_state(link.log_status())
     if getattr(link, "info", None):
         print("%(name)s, protocol %(version)d" % link.info)
 
@@ -204,6 +205,80 @@ def cmd_monitor(link, args):
         print("\n".join(lines))
 
 
+def print_log_state(s):
+    if not s["name"]:
+        print("log off")
+        return
+    print("log %s: %s, %d frames, %d bytes%s" % ("on" if s["active"] else "off", s["name"], s["frames"], s["bytes"],
+                                                 ", %d frames lost" % s["lost"] if s["lost"] else ""))
+
+
+def cmd_log(link, args):
+    if args.action == "start":
+        link.set_time(int(time.time()))
+        if args.poll:
+            for n in args.poll:
+                if n not in obd.PIDS:
+                    sys.exit("unknown value %r; choose from: %s" % (n, ", ".join(obd.PIDS)))
+            enable_transmit(link, args)
+            req, resp, _ = vw.ECUS["engine"]
+            link.poll_clear()
+            for n in args.poll:
+                link.poll_add(req, resp, int(args.interval * 1000), [0x01, obd.PIDS[n][0]])
+        print_log_state(link.log_start())
+        if args.poll:
+            print("polling %s every %g s; this continues after the tools disconnect" % (", ".join(args.poll), args.interval))
+    elif args.action == "stop":
+        link.poll_clear()
+        print_log_state(link.log_stop())
+    elif args.action == "mark":
+        link.log_mark(" ".join(args.text) or "mark")
+        print_log_state(link.log_status())
+    else:
+        print_log_state(link.log_status())
+
+
+def cmd_logread(args):
+    try:
+        log = logfile.Log(args.file)
+    except (OSError, logfile.LogError) as e:
+        sys.exit("error: %s" % e)
+    ids = {}
+    for f in log.frames:
+        ids[(f.can_id, f.extended)] = ids.get((f.can_id, f.extended), 0) + 1
+    print("started   %s" % log.start_time_text())
+    print("duration  %.1f s" % log.duration)
+    print("frames    %d (%d sent by the interface), %d different IDs" % (
+        len(log.frames), sum(f.sent for f in log.frames), len(ids)))
+    if log.lost:
+        print("lost      %d frames in %d gap(s): the card could not keep up" % (log.lost, len(log.lost_events)))
+    if log.truncated:
+        print("note      the file ends mid-record (power was removed while logging); everything before that is intact")
+    for ms, text in log.marks:
+        print("mark      %8.3f s  %s" % (log.seconds(ms), text))
+    if args.candump:
+        with open(args.candump, "w") as f:
+            f.write("\n".join(log.candump_lines()) + "\n")
+        print("wrote %d frames to %s (can-utils format)" % (len(log.frames), args.candump))
+    if args.csv:
+        samples = list(log.obd_samples())
+        names = sorted({s[1] for s in samples}, key=list(obd.PIDS).index)
+        with open(args.csv, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["time_s"] + ["%s_%s" % (n, obd.PIDS[n][1]) for n in names])
+            for t, name, value, _ in samples:
+                w.writerow(["%.3f" % t] + ["%g" % value if n == name else "" for n in names])
+        print("wrote %d live-data samples to %s" % (len(samples), args.csv))
+    if args.ids:
+        for (can_id, ext), n in sorted(ids.items()):
+            print(("%08X" if ext else "%03X") % can_id + "  x%d" % n)
+    if args.frames:
+        for f in log.frames:
+            print("%10.3f %s %s" % (log.seconds(f.ms), "tx" if f.sent else "rx", f.text()))
+    if args.decode:
+        print("\n".join(decode_lines([f.text() for f in log.frames], summary=True)))
+
+
 def cmd_decode(args):
     with open(args.log) as f:
         lines = f.read().split("\n")
@@ -235,6 +310,18 @@ def build_parser():
     s.add_argument("--seconds", type=float, default=5.0); s.add_argument("--out")
     s.add_argument("--decode", action="store_true", help="show the latest decoded value of each known message")
     s.set_defaults(fn=cmd_monitor)
+    s = sub.add_parser("log", help="record CAN frames to the board's microSD card")
+    s.add_argument("action", choices=["start", "stop", "status", "mark"]); s.add_argument("text", nargs="*")
+    s.add_argument("--poll", nargs="+", metavar="VALUE", help="also request these OBD live values on a timer")
+    s.add_argument("--interval", type=float, default=0.5, help="seconds between requests for each value")
+    s.set_defaults(fn=cmd_log)
+    s = sub.add_parser("logread", help="read a log file from the card (no board needed)"); s.add_argument("file")
+    s.add_argument("--candump", metavar="OUT", help="convert to can-utils format, for SavvyCAN and others")
+    s.add_argument("--csv", metavar="OUT", help="extract OBD live values to a spreadsheet file")
+    s.add_argument("--ids", action="store_true", help="count frames per CAN ID")
+    s.add_argument("--frames", action="store_true", help="print every frame")
+    s.add_argument("--decode", action="store_true", help="latest decoded value of each known broadcast message")
+    s.set_defaults(fn=None, offline=cmd_logread)
     s = sub.add_parser("decode", help="decode a saved monitor log (no board needed)"); s.add_argument("log")
     s.add_argument("--summary", action="store_true", help="only the latest value of each message")
     s.set_defaults(fn=None, offline=cmd_decode)

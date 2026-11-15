@@ -60,6 +60,7 @@ one request at a time and answers each one exactly once.
 | 4 | TIMEOUT | The control module did not answer |
 | 5 | NEGATIVE | The control module refused; data is one byte, the UDS negative response code |
 | 6 | TRANSPORT | ISO-TP failure; data is one signed byte, the error code from `isotp.h` |
+| 7 | STORAGE | No card, or the log file could not be created or written |
 
 ### Commands
 | Code | Name | Arguments | Data in an OK response |
@@ -70,9 +71,16 @@ one request at a time and answers each one exactly once.
 | 04 | SET_MONITOR | `00` or `01` | none. While on, every received CAN frame is sent as an event |
 | 05 | UDS | request ID (u32), response ID (u32), timeout in ms (u16, 0 = default 1000), request bytes | the positive response bytes, starting with the service ID + 0x40 |
 | 06 | SET_KEEPALIVE | `00` or `01` | none. While on, TesterPresent goes to the last-used module every 2 s |
+| 08 | SET_LOG | `00` or `01` | logging state, as for LOG_STATUS |
+| 09 | SET_TIME | Unix seconds (u32) | none. The board has no clock; this timestamps log files |
+| 0A | LOG_STATUS | none | active (u8), frames written (u32), bytes written (u32), frames lost (u32), then the file name as ASCII |
+| 0B | POLL_ADD | request ID (u32), response ID (u32), period in ms (u32, at least 20), request bytes (1 to 7) | none. Up to 8 entries; BAD_ARGS when full |
+| 0C | POLL_CLEAR | none | none |
+| 0D | LOG_MARK | text, up to 200 bytes | none. BAD_ARGS when not logging |
 | 7F | EXIT | none | none, then the console is back in text mode |
 
-Flags in `STATUS`: bit 0 listen-only, bit 1 monitor on, bit 2 keepalive on.
+Flags in `STATUS`: bit 0 listen-only, bit 1 monitor on, bit 2 keepalive on, bit 3 logging. Logging and the
+poll list are described in `logging.md`.
 
 For `UDS`, IDs above 0x7FF are sent as 29-bit. The interface handles segmentation, flow control and "response
 pending" (NRC 0x78) itself; the app sees one request and one final answer. A request can take much longer than

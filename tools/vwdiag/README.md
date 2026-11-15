@@ -16,6 +16,9 @@ With one board plugged in, `--port` can be omitted.
 | `status` | Interface state and frame counters | no |
 | `monitor [--seconds N] [--out FILE] [--decode]` | Capture raw CAN frames, optionally decoded | no |
 | `decode FILE [--summary]` | Decode a saved capture; needs no board | no |
+| `log start [--poll VALUE ...] [--interval S]` | Start recording to the board's microSD card, optionally polling live values | only with `--poll` |
+| `log stop`, `log status`, `log mark TEXT` | Stop, check, or add a note to the log | no |
+| `logread FILE [--csv OUT] [--candump OUT] [--decode] [--ids] [--frames]` | Read a log copied off the card; needs no board | no |
 | `scan` | Find which control modules answer | yes |
 | `info [module ...]` | VIN, part number, software and hardware versions, system name | yes |
 | `dtc [module ...] [--mask HEX]` | Read and decode fault codes | yes |
@@ -34,6 +37,8 @@ The board powers up listen-only. Commands that transmit refuse to run without `-
   discovery, VIN.
 - **VW specifics** (`vw.py`): control module addresses and the identification DIDs.
 - **Fault codes** (`dtc.py`): SAE code and status-bit decoding.
+- **Log files** (`logfile.py`): reader for the card's log format, with OBD live-value extraction and can-utils
+  export. Format in `hardware/pico2w/docs/logging.md`.
 - **Broadcast frames** (`dbc.py`): decoding with the public VW MQB message database (113 messages) from
   comma.ai's opendbc, in `data/vw_mqb.dbc`.
 
