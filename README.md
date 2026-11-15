@@ -115,8 +115,8 @@ Requires `pyserial`.
 | v0.1.0 (tag `v0.1.0`) | Teensy 4.0 + XIAO ESP32S3 carrier | `pcb-teensy-esp32/teensy-esp32-can-sniffer/docs/README.md` |
 | v0.2.0 | Raspberry Pi Pico 2 W (RP2350 + Wi-Fi/BLE) carrier | `pcb-pico2w/pico2w-can-sniffer/docs/README.md` |
 
-The wiring, pin numbers and firmware above describe v0.1.0. The v0.2.0 pin map is in `firmware/pico2w/pins.h`;
-Pico 2 W firmware (can2040 + Wi-Fi dashboard) has not been written yet.
+The wiring, pin numbers and firmware above describe v0.1.0. Firmware for v0.2.0 is in `firmware/pico2w/`
+(CAN, ISO-TP and UDS with a USB serial console; see its README).
 
 ## Next Steps
 - ESP32 firmware to host a WebSocket dashboard

@@ -17,3 +17,8 @@ fp-info-cache
 # KiCad local history and lock files
 .history/
 *.lck
+
+# Firmware build outputs
+firmware/pico2w/build/
+firmware/pico2w/tests/test_isotp_uds
+*.dSYM/
