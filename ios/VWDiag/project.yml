@@ -1,0 +1,29 @@
+# XcodeGen spec: `xcodegen` in this folder writes VWDiag.xcodeproj (not checked in).
+name: VWDiag
+options:
+  bundleIdPrefix: io.github.mxmrsn
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  VWDiagKit:
+    path: ../VWDiagKit
+targets:
+  VWDiag:
+    type: application
+    platform: iOS
+    sources: [VWDiag]
+    dependencies:
+      - package: VWDiagKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.mxmrsn.vwdiag
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_KEY_CFBundleDisplayName: VW Diag
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: "Connects to your VW diagnostic interface over Bluetooth."
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: "Connects to the interface simulator running on your Mac."

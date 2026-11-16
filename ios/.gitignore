@@ -1,0 +1,5 @@
+# generated: run `xcodegen` in VWDiag/ to recreate the project
+VWDiag/VWDiag.xcodeproj/
+VWDiag/build/
+VWDiagKit/.build/
+VWDiagKit/.swiftpm/

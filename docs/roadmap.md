@@ -22,7 +22,7 @@ it feeds what the car told us back into the simulator.
 |---|---|---|---|
 | 0 | ~~Verify the remaining BOM lines and the module footprint, review the buck layout~~, order | Hardware lead time is the long pole | Done; ordering is yours |
 | 1 | ~~Make the simulator pessimistic, add misfire diagnostics, script the first car session~~ | Has to be ready before the boards arrive | Done (2026-11-15) |
-| 2 | iOS app skeleton: scan, faults, live data, logging | Fills the 1 to 3 weeks of fabrication and shipping | 3 to 4 sessions |
+| 2 | ~~iOS app skeleton: scan, faults, live data, logging~~ | Fills the 1 to 3 weeks of fabrication and shipping | Done (2026-11-15); Bluetooth untested on hardware |
 | 3 | Bring-up, hardware-in-the-loop bench, first car session | When the boards arrive | 2 sessions plus car time |
 | 4 | Misfire analysis; stock and stage 1 baseline logs | First real data | Ongoing |
 | 5 | v0.4.0: integrated OBD connector, mezzanine, sensor and sync expansion | Needs what the car taught us | 3 to 5 sessions, plus your enclosure |
@@ -108,6 +108,9 @@ The tools retry, time out cleanly and keep going if a module does not answer, so
 useful result.
 
 ## Phase 2: iOS app skeleton (while boards are being made)
+**Done (2026-11-15):** `ios/` (see `ios/README.md`). Runs in the iOS Simulator against the simulator's Bluetooth
+stand-in, with a Misfire tab added for the live question. Open: Bluetooth against a real board, and copying logs
+off the card, which needs a file-transfer command in the link protocol.
 SwiftUI app, CoreBluetooth, with the packet protocol in a Swift package that has its own tests against recorded
 byte streams. During development it talks to the simulator's Bluetooth stand-in over TCP from the iOS Simulator,
 so it is exercised against the same control-module models as the Python tools.
