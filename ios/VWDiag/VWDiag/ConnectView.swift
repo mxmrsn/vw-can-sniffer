@@ -80,6 +80,28 @@ struct ConnectView: View {
     }
 
     @ViewBuilder
+    private func gpsSection(_ g: Interface.GPSState) -> some View {
+        Section {
+            LabeledContent("Receiver", value: g.present ? (g.fix ? "fix, \(g.satellites) satellites" : "no fix yet") : "not connected")
+            if g.present && g.fix {
+                LabeledContent("Position", value: String(format: "%.6f, %.6f", g.latitude, g.longitude))
+                LabeledContent("Speed", value: String(format: "%.1f km/h", g.speedMs * 3.6))
+            }
+            LabeledContent("Time pulse", value: g.pulseLocked ? "locked" : "not locked")
+            if let d = g.driftPpm { LabeledContent("Interface clock", value: String(format: "%+.2f ppm against GPS", d)) }
+            Picker("Camera sync", selection: Binding(get: { g.syncHz }, set: { hz in Task { await model.setSync(hz) } })) {
+                ForEach(Array(Set([0, 1, 5, 10, 20, 30, 50, 100, g.syncHz])).sorted(), id: \.self) { hz in
+                    Text(hz == 0 ? "Off" : "\(hz) Hz").tag(hz)
+                }
+            }
+        } header: {
+            Text("GPS and sync")
+        } footer: {
+            Text("A GPS receiver on the dongle's GPS / sync connector stamps the log with UTC: every frame, fix and camera sync edge lines up to within microseconds. With the pulse locked, each sync edge falls on a GPS second or a fraction of one.")
+        }
+    }
+
+    @ViewBuilder
     private func connectedSection(_ info: InterfaceInfo) -> some View {
         Section("Connected") {
             LabeledContent("Interface", value: info.name)
@@ -104,6 +126,7 @@ struct ConnectView: View {
             }
         }
         if let p = model.power { powerSection(p) }
+        if let g = model.gps { gpsSection(g) }
         Section {
             Button("Disconnect", role: .destructive) { Task { await model.disconnect() } }
         }

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../src/gnss.h"
 #include "../src/logger.h"
 #include "../src/storage.h"
 
@@ -141,6 +142,28 @@ int main(void)
     CHECK(logger_read_file("LOG00003.VWL", 0, got, sizeof(got), &size) > 0);
     card_present = 0;
     CHECK(logger_read_file("LOG00003.VWL", 0, got, sizeof(got), &size) == LOGGER_READ_NO_CARD);
+
+    printf("GPS and sync records\n");
+    card_present = 1;
+    CHECK(logger_start(8000, 500000, 0));
+    size_t at = card_len;
+    logger_pps(8123456789ull, 1794787200);
+    struct gnss_fix fx = { .utc = 1794787201, .utc_ms = 100, .valid = true, .quality = 1, .sats = 9,
+                           .lat_e7 = -338688000, .lon_e7 = 1512093000, .alt_cm = -150, .speed_cms = 2500,
+                           .course_cdeg = 27000, .hdop_c = 85 };
+    logger_fix(&fx, 8200000000ull);
+    logger_sync(8300000001ull, 42);
+    logger_stop();
+    const uint8_t *q = card + at;
+    CHECK(q[0] == LOG_REC_PPS && u32(q + 1) == 8123456 && u32(q + 5) == (uint32_t)8123456789ull &&
+          u32(q + 9) == 1 && u32(q + 13) == 1794787200);
+    q += 17;
+    CHECK(q[0] == LOG_REC_FIX && u32(q + 1) == 8200000 && u32(q + 5) == 1794787201 && q[9] == 100 && q[11] == 1 &&
+          q[12] == 1 && q[13] == 9 && (int32_t)u32(q + 14) == -338688000 && (int32_t)u32(q + 18) == 1512093000 &&
+          (int32_t)u32(q + 22) == -150 && q[26] == (2500 & 0xFF) && q[30] == (85 & 0xFF));
+    q += 5 + LOG_FIX_LEN;
+    CHECK(q[0] == LOG_REC_SYNC && u32(q + 1) == 8300000 && u32(q + 13) == 42);
+    CHECK(q + 17 == card + card_len);
 
     printf("\n%d checks, %d failed\n", checks, failures);
     return failures ? 1 : 0;

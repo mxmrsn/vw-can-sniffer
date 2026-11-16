@@ -1,5 +1,5 @@
-CFLAGS = -DAPP_POWER -std=c11 -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror -O1 -g
-SRC = main_host.c sim_bus.c car.c sim_config.c sim_engine.c storage_host.c ble_host.c ../src/ble_link.c ../src/logger.c ../src/app.c ../src/isotp.c ../src/uds.c ../src/frame.c ../src/proto.c ../src/power.c
+CFLAGS = -DAPP_POWER -DAPP_GNSS -std=c11 -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror -O1 -g
+SRC = main_host.c gps_host.c ../src/gnss.c sim_bus.c car.c sim_config.c sim_engine.c storage_host.c ble_host.c ../src/ble_link.c ../src/logger.c ../src/app.c ../src/isotp.c ../src/uds.c ../src/frame.c ../src/proto.c ../src/power.c
 
 vw_diag_sim: $(SRC) $(wildcard ../src/*.h) sim.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) -lm

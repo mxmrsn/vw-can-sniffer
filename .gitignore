@@ -25,6 +25,7 @@ hardware/pico2w/firmware/tests/test_frame
 hardware/pico2w/firmware/tests/test_logger
 hardware/pico2w/firmware/tests/test_power
 hardware/pico2w/firmware/tests/test_ble_link
+hardware/pico2w/firmware/tests/test_gnss
 *.dSYM/
 
 # Host simulator and Python caches

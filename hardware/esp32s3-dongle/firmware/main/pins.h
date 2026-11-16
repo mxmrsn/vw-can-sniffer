@@ -33,14 +33,17 @@
 #define SD_SCK_PIN 12
 #define SD_MISO_PIN 13
 
-// Not used by the firmware yet: IMU (I2C, optional part), GPS / sync connector, expansion.
-#define IMU_SDA_PIN 8
-#define IMU_SCL_PIN 9
-#define IMU_INT_PIN 16
+// GPS / sync connector (gnss_esp32.c): the receiver's UART (RXD here is the receiver's TX), its
+// pulse-per-second input, and the sync output for a camera or IMU rig.
 #define GPS_RXD_PIN 17
 #define GPS_TXD_PIN 18
 #define GPS_PPS_PIN 34
 #define SYNC_OUT_PIN 35
+
+// Not used by the firmware yet: IMU (I2C, optional part), expansion.
+#define IMU_SDA_PIN 8
+#define IMU_SCL_PIN 9
+#define IMU_INT_PIN 16
 #define EXP_CS1_PIN 14
 #define EXP_CS2_PIN 21
 #define EXP_INT1_PIN 47

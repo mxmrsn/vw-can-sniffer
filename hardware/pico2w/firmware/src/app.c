@@ -51,6 +51,9 @@ static uint32_t led_off_at, keepalive_at;
 static uint32_t user_ms, bus_ms; // last request from a person, last CAN frame: for the power manager
 static void power_check(void);
 static void cmd_power(char *rest);
+static void gnss_service(void);
+static void cmd_gps(char *rest);
+static void cmd_sync(char *rest);
 static uint32_t timeout_ms = 1000;
 
 static char line[700];
@@ -105,6 +108,7 @@ static void pump(void *ctx)
         isotp_on_frame(&link, &f);
     }
     isotp_poll(&link);
+    gnss_service();
     plat_ble_poll();
     if (logger_active()) {
         struct can_stats s;
@@ -305,6 +309,8 @@ static void cmd_help(void)
            "  ble                 Bluetooth state, name and pairing passkey\n"
            "  ble pair | forget   allow a new phone to pair for 2 minutes, or forget all phones\n"
            "  power               power state; power stay on|off, idle <s>, cutoff <mV>, sleep (dongle)\n"
+           "  gps                 GPS fix, pulse lock and clock drift; gps baud <n> (dongle)\n"
+           "  sync off|<hz>       camera sync output, 1-100 Hz, locked to the GPS pulse (dongle)\n"
            "  mode b              binary packet protocol, for apps\n");
 }
 
@@ -631,6 +637,10 @@ static void handle_line(char *text)
         cmd_ble(rest);
     } else if (!strcmp(cmd, "power")) {
         cmd_power(rest);
+    } else if (!strcmp(cmd, "gps")) {
+        cmd_gps(rest);
+    } else if (!strcmp(cmd, "sync")) {
+        cmd_sync(rest);
     } else if (!strcmp(cmd, "log")) {
         cmd_log(rest);
     } else if (!strcmp(cmd, "poll")) {
@@ -791,8 +801,151 @@ static void cmd_power(char *rest)
 }
 #endif
 
+// ---- GPS and sync output (boards built with APP_GNSS)
+#ifdef APP_GNSS
+static uint32_t sync_hz, sync_edges;
+static bool time_from_gps;
+
+static void on_gnss(const struct gnss_event *e, void *ctx)
+{
+    (void)ctx;
+    if (e->kind == GNSS_EVT_FIX) {
+        logger_fix(&e->fix, e->us);
+        return;
+    }
+    logger_pps(e->us, e->utc);
+    // The first paired pulse sets the log clock: better than anything a phone can say.
+    if (e->utc && !time_from_gps) {
+        logger_set_time(e->utc, (uint32_t)(e->us / 1000));
+        time_from_gps = true;
+    }
+}
+
+static void gnss_service(void)
+{
+    static uint8_t buf[256];
+    uint64_t edge;
+    // Pulses first: a time sentence read now belongs to a pulse that came before it.
+    while (plat_pps_take(&edge))
+        gnss_pps(edge, on_gnss, NULL);
+    for (size_t n; (n = plat_gnss_read(buf, sizeof(buf))) > 0;)
+        gnss_feed(buf, n, plat_now_us(), on_gnss, NULL);
+    gnss_poll(plat_now_us(), on_gnss, NULL);
+    while (plat_sync_take(&edge))
+        logger_sync(edge, ++sync_edges);
+}
+
+bool app_gnss_get(struct app_gnss *out)
+{
+    gnss_get_status(&out->gps, plat_now_us());
+    out->sync_hz = sync_hz;
+    out->sync_edges = sync_edges;
+    out->time_from_gps = time_from_gps;
+    return true;
+}
+
+bool app_sync_set(uint32_t hz)
+{
+    if (hz > 100 || !plat_sync_set(hz))
+        return false;
+    sync_hz = hz;
+    return true;
+}
+
+static void print_degrees(int32_t e7, char pos, char neg)
+{
+    uint32_t a = e7 < 0 ? (uint32_t)-(int64_t)e7 : (uint32_t)e7;
+    printf("%lu.%07lu %c", (unsigned long)(a / 10000000), (unsigned long)(a % 10000000), e7 < 0 ? neg : pos);
+}
+
+static void cmd_gps(char *rest)
+{
+    if (rest) {
+        char *what = strtok(rest, " ");
+        char *val = strtok(NULL, " ");
+        unsigned long baud = val ? strtoul(val, NULL, 10) : 0;
+        if (strcmp(what, "baud") || baud < 4800 || baud > 921600 || !plat_gnss_baud((uint32_t)baud)) {
+            printf("- usage: gps, gps baud <4800-921600>\n");
+            return;
+        }
+        printf("gps baud %lu\n", baud);
+        return;
+    }
+    struct app_gnss a;
+    app_gnss_get(&a);
+    const struct gnss_status *g = &a.gps;
+    const struct gnss_fix *x = &g->last;
+    printf("gps %s, %s, pulse %s\n", g->present ? "receiver present" : "no receiver",
+           g->fix ? "fix" : "no fix", g->pps_locked ? "locked" : "not locked");
+    if (g->present) {
+        printf("fix: quality %u, %u satellites, hdop %u.%02u\n", x->quality, x->sats, x->hdop_c / 100, x->hdop_c % 100);
+        printf("position: ");
+        print_degrees(x->lat_e7, 'N', 'S');
+        printf(", ");
+        print_degrees(x->lon_e7, 'E', 'W');
+        printf(", altitude %ld.%02u m\n", (long)(x->alt_cm / 100), (unsigned)((x->alt_cm < 0 ? -x->alt_cm : x->alt_cm) % 100));
+        printf("speed %u.%02u m/s, course %u.%02u deg\n", x->speed_cms / 100, x->speed_cms % 100,
+               x->course_cdeg / 100, x->course_cdeg % 100);
+        printf("utc %lu.%03u\n", (unsigned long)x->utc, x->utc_ms);
+    }
+    if (g->drift_valid)
+        printf("clock drift %ld ppb (local clock against GPS)\n", (long)g->drift_ppb);
+    printf("log clock %s\n", a.time_from_gps ? "from GPS" : "not from GPS");
+    printf("sentences %lu bad %lu pulses %lu paired %lu mismatched %lu\n", (unsigned long)g->sentences,
+           (unsigned long)g->bad_sentences, (unsigned long)g->pulses, (unsigned long)g->paired,
+           (unsigned long)g->mismatched);
+    printf("sync %lu Hz, %lu edges\n", (unsigned long)a.sync_hz, (unsigned long)a.sync_edges);
+}
+
+static void cmd_sync(char *rest)
+{
+    if (!rest) {
+        printf("sync %lu Hz, %lu edges\n", (unsigned long)sync_hz, (unsigned long)sync_edges);
+        return;
+    }
+    char *end;
+    unsigned long hz = !strcmp(rest, "off") ? 0 : strtoul(rest, &end, 10);
+    if ((strcmp(rest, "off") && (*end || hz == 0)) || !app_sync_set((uint32_t)hz)) {
+        printf("- usage: sync off, or sync <1-100 Hz>\n");
+        return;
+    }
+    printf(hz ? "sync %lu Hz\n" : "sync off\n", hz);
+}
+#else
+static void gnss_service(void)
+{
+}
+
+bool app_gnss_get(struct app_gnss *out)
+{
+    (void)out;
+    return false;
+}
+
+bool app_sync_set(uint32_t hz)
+{
+    (void)hz;
+    return false;
+}
+
+static void cmd_gps(char *rest)
+{
+    (void)rest;
+    printf("- this board has no GPS connector\n");
+}
+
+static void cmd_sync(char *rest)
+{
+    (void)rest;
+    printf("- this board has no sync output\n");
+}
+#endif
+
 void app_init(void)
 {
+#ifdef APP_GNSS
+    gnss_init();
+#endif
 #ifdef APP_POWER
     power_init(plat_wake_reason(), plat_now_ms());
     struct power_settings saved = *power_settings();

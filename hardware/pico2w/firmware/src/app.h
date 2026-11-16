@@ -31,6 +31,16 @@ bool app_power_get(struct power_status *st, struct power_settings *set);
 // op: 1 stay awake (0/1), 2 idle seconds, 3 battery cutoff mV, 4 sleep now
 bool app_power_set(uint8_t op, uint32_t value);
 
+// GPS and sync output, on boards built with APP_GNSS (the OBD dongle). Both return false elsewhere.
+#include "gnss.h"
+struct app_gnss {
+    struct gnss_status gps;
+    uint32_t sync_hz, sync_edges;
+    bool time_from_gps; // the log clock was set from a GPS pulse
+};
+bool app_gnss_get(struct app_gnss *out);
+bool app_sync_set(uint32_t hz); // 0 off, 1 to 100
+
 // One UDS request to any address. timeout_ms 0 uses the console's setting.
 // Returns a uds.h result; *detail is the NRC or the ISO-TP error code.
 int app_uds_request(uint32_t request_id, uint32_t response_id, uint32_t timeout_ms,

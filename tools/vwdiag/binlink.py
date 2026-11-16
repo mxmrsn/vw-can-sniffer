@@ -16,7 +16,7 @@ from .uds import InterfaceRefused, NegativeResponse, NoResponse
 
 CMD_HELLO, CMD_STATUS, CMD_SET_SILENT, CMD_SET_MONITOR, CMD_UDS, CMD_SET_KEEPALIVE, CMD_EXIT = 1, 2, 3, 4, 5, 6, 0x7F
 CMD_SET_LOG, CMD_SET_TIME, CMD_LOG_STATUS, CMD_POLL_ADD, CMD_POLL_CLEAR, CMD_LOG_MARK = 8, 9, 10, 11, 12, 13
-CMD_LOG_LIST, CMD_LOG_READ, CMD_POWER = 0x0E, 0x0F, 0x10
+CMD_LOG_LIST, CMD_LOG_READ, CMD_POWER, CMD_GNSS = 0x0E, 0x0F, 0x10, 0x11
 EVT_CAN_FRAME = 1
 OK, BAD_ARGS, UNKNOWN_CMD, SILENT, TIMEOUT, NEGATIVE, TRANSPORT, STORAGE, BUSY = range(9)
 STATUS_NAMES = ["ok", "bad arguments", "unknown command", "silent", "timeout", "negative response", "transport error",
@@ -24,6 +24,15 @@ STATUS_NAMES = ["ok", "bad arguments", "unknown command", "silent", "timeout", "
 MAX_PAYLOAD = 4160
 POWER_HOLDS = ["usb", "phone", "activity", "engine", "bus", "logging", "stay"]
 POWER_WAKES = ["unknown", "power-on", "usb", "can", "engine", "button"]
+
+
+def gnss_dict(present, fix, locked, gps_clock, quality, sats, utc, lat, lon, alt_m, speed_ms, course_deg, hdop,
+              drift_ppb, sync_hz, pulses, paired, sync_edges, sentences, bad):
+    """The GPS state, the same from either link."""
+    return {"present": bool(present), "fix": bool(fix), "pulse_locked": bool(locked), "log_clock_from_gps": bool(gps_clock),
+            "quality": quality, "sats": sats, "utc": utc, "lat": lat, "lon": lon, "alt_m": alt_m, "speed_ms": speed_ms,
+            "course_deg": course_deg, "hdop": hdop, "drift_ppb": drift_ppb, "sync_hz": sync_hz, "pulses": pulses,
+            "paired": paired, "sync_edges": sync_edges, "sentences": sentences, "bad_sentences": bad}
 
 
 def crc16(data):
@@ -225,6 +234,21 @@ class BinaryLink(Link):
                 "wake": POWER_WAKES[wake] if wake < len(POWER_WAKES) else str(wake),
                 "battery_mv": vbat, "sleeps_in_s": sleep_in, "battery_low_for_s": low_for,
                 "idle_s": idle, "cutoff_mv": cutoff, "running_mv": running, "stay_awake": bool(stay)}
+
+    def gnss(self, sync_hz=None):
+        """GPS and sync-output state of the dongle; sync_hz sets the sync output (0 off, 1-100)."""
+        args = b"" if sync_hz is None else struct.pack("<H", sync_hz)
+        status, d = self._exchange(CMD_GNSS, args)
+        if status == UNKNOWN_CMD:
+            raise LinkError("this board has no GPS connector")
+        if status != OK:
+            raise LinkError("the interface refused that sync rate (1-100 Hz, or 0 for off)")
+        flags, quality, sats = d[0], d[1], d[2]
+        utc, utc_ms, lat, lon, alt, speed, course, hdop, drift, hz = struct.unpack_from("<IHiiiHHHiH", d, 4)
+        pulses, paired, edges, sentences, bad = struct.unpack_from("<IIIII", d, 34)
+        return gnss_dict(flags & 1, flags & 2, flags & 4, flags & 16, quality, sats, utc + utc_ms / 1000.0,
+                         lat / 1e7, lon / 1e7, alt / 100.0, speed / 100.0, course / 100.0, hdop / 100.0,
+                         drift if flags & 8 else None, hz, pulses, paired, edges, sentences, bad)
 
     def log_files(self):
         out, first = [], 0

@@ -6,6 +6,7 @@ end to end against the host simulator (the real firmware core plus simulated ECU
 import io
 import os
 import re
+import struct
 import subprocess
 import sys
 import tempfile
@@ -971,6 +972,103 @@ class Power(unittest.TestCase):
         # the text console answers on every build; the simulator is built with power management
         link = self.open("realistic")
         self.assertIn("usb", link.power()["holds"])
+
+
+class Gps(unittest.TestCase):
+    """The dongle's GPS / sync connector, in the simulator (VWDIAG_GPS=1: a receiver whose time runs
+    against the computer's clock with a known drift)."""
+
+    def open(self, link_class=BinaryLink, gps="1", drift=None, card=None):
+        env = {"VWDIAG_GPS": gps, "VWDIAG_GPS_DRIFT": drift, "VWDIAG_SD": card}
+        for k, v in env.items():
+            if v is not None:
+                os.environ[k] = v
+                self.addCleanup(os.environ.pop, k, None)
+        link = link_class.simulator(SIM)
+        self.addCleanup(link.close)
+        return link
+
+    def test_fix_lock_and_drift_over_both_links(self):
+        links = [self.open(cls) for cls in (Link, BinaryLink)]
+        time.sleep(3.3)
+        for link in links:
+            g = link.gnss(10)
+            self.assertTrue(g["present"] and g["fix"] and g["pulse_locked"] and g["log_clock_from_gps"])
+            self.assertEqual((g["sats"], g["quality"], g["sync_hz"]), (12, 1, 10))
+            self.assertAlmostEqual(g["lat"], 52.4227, places=5)
+            self.assertAlmostEqual(g["hdop"], 0.8)
+            # what the simulated receiver was given, to a microsecond over the seconds measured
+            self.assertAlmostEqual(g["drift_ppb"], 25000, delta=600)
+            self.assertAlmostEqual(g["utc"], time.time(), delta=2)
+            self.assertGreaterEqual(g["paired"], 3)
+            self.assertEqual(g["bad_sentences"], 0)
+            with self.assertRaises(LinkError):
+                link.gnss(101)
+            time.sleep(0.35)
+            self.assertGreaterEqual(link.gnss(0)["sync_edges"], 3)
+
+    def test_nothing_connected(self):
+        link = self.open(gps="0")
+        g = link.gnss()
+        self.assertFalse(g["present"] or g["fix"] or g["pulse_locked"])
+        self.assertIsNone(g["drift_ppb"])
+        self.assertEqual(link.gnss(5)["sync_hz"], 5)       # the sync output runs from the local clock
+
+    def test_log_lines_up_with_gps_time(self):
+        card = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", card]))
+        link = self.open(drift="80", card=card)
+        link.gnss(20)
+        link.log_start()
+        time.sleep(3.6)
+        link.log_mark("end")
+        link.log_stop()
+        log = logfile.Log(os.path.join(card, "LOG00001.VWL"))
+        self.assertEqual(log.version, 2)
+        self.assertGreaterEqual(sum(1 for _, utc in log.pulses if utc), 3)
+        self.assertAlmostEqual(log.clock_drift_ppm(), 80, delta=0.5)
+        self.assertGreater(len(log.fixes), 25)
+        self.assertTrue(all(f.valid and f.sats == 12 for f in log.fixes))
+        # Every sync edge falls on a twentieth of a GPS second, to within a few microseconds.
+        self.assertGreater(len(log.syncs), 50)
+        for us, _ in log.syncs:
+            frac = (log.utc_of_us(us) * 20) % 1
+            self.assertLess(min(frac, 1 - frac) / 20, 10e-6)
+        self.assertEqual([c for _, c in log.syncs], list(range(log.syncs[0][1], log.syncs[0][1] + len(log.syncs))))
+        self.assertAlmostEqual(log.epoch(log.marks[0][0]), time.time(), delta=2)
+        self.assertEqual(log.gpx().count("<trkpt"), len(log.fixes))
+
+        out = os.path.join(card, "sync.csv")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            cli.main(["logread", os.path.join(card, "LOG00001.VWL"), "--sync-csv", out, "--gpx", out + ".gpx"])
+        self.assertIn("clock +80.0", buf.getvalue())
+        with open(out) as f:
+            self.assertEqual(len(f.read().strip().split("\n")), len(log.syncs) + 1)
+
+    def test_reader_handles_pulses_without_gps_and_cut_files(self):
+        def rec(kind, ms, payload):
+            return struct.pack("<BI", kind, ms) + payload
+        head = b"VWLG" + bytes([2, 32, 0, 0]) + struct.pack("<III", 500000, 0, 0) + bytes(12)
+        body = rec(logfile.REC_PPS, 1000, struct.pack("<QI", 1000000, 0))            # unpaired
+        body += rec(logfile.REC_PPS, 2000, struct.pack("<QI", 2000010, 1794787200))
+        body += rec(logfile.REC_PPS, 3000, struct.pack("<QI", 3000030, 1794787201))
+        body += rec(logfile.REC_SYNC, 2500, struct.pack("<QI", 2500020, 7))
+        body += rec(logfile.REC_FIX, 2100, struct.pack("<IHBBBiiiHHHH", 1794787200, 100, 1, 1, 7, 10, -20, 30, 40, 50,
+                                                          60, 0))
+        path = os.path.join(tempfile.mkdtemp(), "T.VWL")
+        with open(path, "wb") as f:
+            f.write(head + body + rec(logfile.REC_FIX, 4000, b"\x00" * 10))
+        log = logfile.Log(path)
+        self.assertTrue(log.truncated)
+        self.assertEqual((len(log.pulses), len(log.syncs), len(log.fixes)), (3, 1, 1))
+        self.assertAlmostEqual(log.utc_of_us(2500020), 1794787200.5, places=6)   # between two pulses
+        self.assertAlmostEqual(log.utc_of_us(3500040), 1794787201.5, places=6)   # past the last one
+        self.assertEqual(log.us_of_ms(2000), 2000500)
+        self.assertEqual(log.us_of_ms((2000 + (1 << 32)) & 0xFFFFFFFF), 2000500)
+        self.assertAlmostEqual(log.clock_drift_ppm(), 20, places=3)
+        f = log.fixes[0]
+        self.assertEqual((f.utc, f.sats, f.lat, f.lon, f.alt_m), (1794787200.1, 7, 1e-6, -2e-6, 0.3))
 
 
 if __name__ == "__main__":
