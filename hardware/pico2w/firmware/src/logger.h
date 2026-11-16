@@ -42,3 +42,8 @@ void logger_set_time(uint32_t epoch, uint32_t now_ms);
 // Call often: writes buffered records out and notices frames the CAN driver lost.
 void logger_poll(uint32_t now_ms, uint32_t rx_dropped_total);
 void logger_get_stats(struct logger_stats *out);
+
+// Fetching files from the card (for copying logs off it over USB or Bluetooth).
+// logger_read_file returns bytes read, or one of these:
+enum { LOGGER_READ_NO_CARD = -1, LOGGER_READ_BAD_NAME = -2, LOGGER_READ_BUSY = -3 };
+int logger_read_file(const char *name, uint32_t offset, uint8_t *buf, size_t cap, uint32_t *size);

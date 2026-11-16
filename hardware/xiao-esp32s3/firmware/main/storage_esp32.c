@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "driver/sdspi_host.h"
@@ -153,6 +154,55 @@ int storage_read_file(const char *name, char *buf, size_t cap)
     if (!f)
         return -1;
     size_t n = fread(buf, 1, cap, f);
+    int err = ferror(f);
+    fclose(f);
+    return err ? -1 : (int)n;
+}
+
+int storage_list(storage_list_fn fn, void *ctx)
+{
+    if (!mount())
+        return -1;
+    DIR *dir = opendir(MOUNT_POINT);
+    if (!dir) {
+        drop_card();
+        return -1;
+    }
+    int count = 0;
+    const struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        char path[sizeof(MOUNT_POINT) + 1 + sizeof(entry->d_name)];
+        struct stat st;
+        if (strlen(entry->d_name) > 12)
+            continue;   // 8.3 names only, like everything the logger writes
+        snprintf(path, sizeof(path), MOUNT_POINT "/%s", entry->d_name);
+        if (stat(path, &st) || !S_ISREG(st.st_mode))
+            continue;
+        fn(entry->d_name, (uint32_t)st.st_size, ctx);
+        count++;
+    }
+    closedir(dir);
+    return count;
+}
+
+int storage_read_at(const char *name, uint32_t offset, uint8_t *buf, size_t cap, uint32_t *size)
+{
+    char path[sizeof(MOUNT_POINT) + 16];
+    if (!mount())
+        return -1;
+    snprintf(path, sizeof(path), MOUNT_POINT "/%s", name);
+    FILE *f = fopen(path, "rb");
+    if (!f)
+        return -1;
+    struct stat st;
+    if (fstat(fileno(f), &st)) {
+        fclose(f);
+        return -1;
+    }
+    *size = (uint32_t)st.st_size;
+    size_t n = 0;
+    if (offset < *size && fseek(f, (long)offset, SEEK_SET) == 0)
+        n = fread(buf, 1, cap, f);
     int err = ferror(f);
     fclose(f);
     return err ? -1 : (int)n;

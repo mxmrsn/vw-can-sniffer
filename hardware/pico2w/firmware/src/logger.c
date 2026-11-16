@@ -190,3 +190,41 @@ void logger_get_stats(struct logger_stats *out)
 {
     *out = stats;
 }
+
+// A plain 8.3 name in the top folder: no paths, nothing to escape.
+static bool valid_name(const char *n)
+{
+    size_t base = 0, ext = 0;
+    bool dot = false;
+    for (; *n; n++) {
+        char c = *n;
+        if (c == '.' && !dot && base) {
+            dot = true;
+            continue;
+        }
+        bool ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-';
+        if (!ok)
+            return false;
+        if (dot ? ++ext > 3 : ++base > 8)
+            return false;
+    }
+    return base > 0 && (!dot || ext > 0);
+}
+
+int logger_read_file(const char *name, uint32_t offset, uint8_t *buf, size_t cap, uint32_t *size)
+{
+    if (!valid_name(name))
+        return LOGGER_READ_BAD_NAME;
+    if (stats.active) {
+        // the file being recorded is still growing: stop logging first
+        const char *a = name, *b = stats.name;
+        while (*a && *b && (*a | 0x20) == (*b | 0x20)) {
+            a++;
+            b++;
+        }
+        if (!*a && !*b)
+            return LOGGER_READ_BUSY;
+    }
+    int n = storage_read_at(name, offset, buf, cap, size);
+    return n < 0 ? LOGGER_READ_NO_CARD : n;
+}

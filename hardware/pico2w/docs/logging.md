@@ -33,7 +33,19 @@ python3 -m vwdiag log stop
 `log start` also tells the board the time. Logging and polling carry on after the tools disconnect, until
 `log stop`, the card is removed, or power is lost.
 
-Reading a log copied off the card needs no board:
+Logs can be copied off the card without taking it out, over USB or Bluetooth (the file being recorded only once
+recording stops):
+
+```bash
+python3 -m vwdiag files                  # what is on the card
+python3 -m vwdiag files all              # copy every log into ./logs (files already copied are skipped)
+python3 -m vwdiag files LOG00003.VWL --out drives
+```
+
+Over USB that runs at the console's speed; over Bluetooth expect a few kB a second, so a long busy log is quicker
+off the card itself. The iOS app does the same from its Logs tab.
+
+Reading a log, however it was copied, needs no board:
 
 ```bash
 python3 -m vwdiag logread LOG00003.VWL                       # summary: start time, length, frames, losses, marks
@@ -43,9 +55,9 @@ python3 -m vwdiag logread LOG00003.VWL --decode              # VW broadcast mess
 python3 -m vwdiag logread LOG00003.VWL --ids --frames        # per-ID counts, and every frame
 ```
 
-From the console: `log on`, `log off`, `log`, `log mark <text>`, `time <unix seconds>`, `poll <req> <resp> <ms>
-<hex bytes>`, `poll list`, `poll clear`. The binary protocol has the same operations (commands 08 to 0D in
-`link_protocol.md`).
+From the console: `log on`, `log off`, `log`, `log mark <text>`, `log ls`, `log get <file> <offset> <length>`,
+`time <unix seconds>`, `poll <req> <resp> <ms> <hex bytes>`, `poll list`, `poll clear`. The binary protocol has the
+same operations (commands 08 to 0F in `link_protocol.md`).
 
 ## Logging with nothing attached
 At power-up the board runs the commands in `AUTORUN.TXT` on the card, one per line, as if typed. Lines starting
@@ -77,7 +89,8 @@ and logging stops; start it again after reinserting the card.
 - Rough sizes: a frame takes 10 to 18 bytes. A fully loaded 500 kbit/s bus is about 4,000 frames a second, about
   60 kB/s or 200 MB an hour, well within what a microSD card can write over SPI. Polling a few values is a few
   kB/s.
-- FAT32 and exFAT cards both work. The card is read only by the logger, so take it out to copy logs.
+- FAT32 and exFAT cards both work. Files can be copied off over the link (above) or by taking the card out.
+  Only plain 8.3 names in the top folder can be read that way: no paths.
 
 ## File format (version 1)
 All numbers are little-endian. Times are milliseconds since the board powered up.

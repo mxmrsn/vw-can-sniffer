@@ -61,7 +61,8 @@ one request at a time and answers each one exactly once.
 | 4 | TIMEOUT | The control module did not answer |
 | 5 | NEGATIVE | The control module refused; data is one byte, the UDS negative response code |
 | 6 | TRANSPORT | ISO-TP failure; data is one signed byte, the error code from `isotp.h` |
-| 7 | STORAGE | No card, or the log file could not be created or written |
+| 7 | STORAGE | No card, or the file could not be created, written or read |
+| 8 | BUSY | That file is being recorded; stop logging before reading it |
 
 ### Commands
 | Code | Name | Arguments | Data in an OK response |
@@ -78,6 +79,8 @@ one request at a time and answers each one exactly once.
 | 0B | POLL_ADD | request ID (u32), response ID (u32), period in ms (u32, at least 20), request bytes (1 to 7) | none. Up to 8 entries; BAD_ARGS when full |
 | 0C | POLL_CLEAR | none | none |
 | 0D | LOG_MARK | text, up to 200 bytes | none. BAD_ARGS when not logging |
+| 0E | LOG_LIST | first index (u16), optional, default 0 | total files (u16), entries in this answer (u8), then per entry: size (u32), name length (u8), name. One answer holds at most about 1000 bytes of entries; ask again from the next index for the rest |
+| 0F | LOG_READ | offset (u32), most bytes wanted (u16, 0 = as many as allowed), file name | file size (u32), then up to 4000 bytes from the offset (none past the end). BAD_ARGS for a name that is not a plain 8.3 name; BUSY for the file being recorded; STORAGE if there is no card or no such file |
 | 7F | EXIT | none | none, then the console is back in text mode |
 
 Flags in `STATUS`: bit 0 listen-only, bit 1 monitor on, bit 2 keepalive on, bit 3 logging. Monitoring, the

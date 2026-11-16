@@ -123,3 +123,43 @@ int storage_read_file(const char *name, char *buf, size_t cap)
     f_close(&f);
     return r == FR_OK ? (int)n : -1;
 }
+
+int storage_list(storage_list_fn fn, void *ctx)
+{
+    if (!mount())
+        return -1;
+    DIR dir;
+    FILINFO info;
+    int count = 0;
+    FRESULT r = f_findfirst(&dir, &info, "", "*");
+    while (r == FR_OK && info.fname[0]) {
+        if (!(info.fattrib & (AM_DIR | AM_HID | AM_SYS))) {
+            fn(info.fname, (uint32_t)info.fsize, ctx);
+            count++;
+        }
+        r = f_findnext(&dir, &info);
+    }
+    f_closedir(&dir);
+    if (r != FR_OK) {
+        drop_card();
+        return -1;
+    }
+    return count;
+}
+
+int storage_read_at(const char *name, uint32_t offset, uint8_t *buf, size_t cap, uint32_t *size)
+{
+    FIL f;
+    UINT n = 0;
+    if (!mount() || f_open(&f, name, FA_READ) != FR_OK)
+        return -1;
+    *size = (uint32_t)f_size(&f);
+    FRESULT r = FR_OK;
+    if (offset < *size) {
+        r = f_lseek(&f, offset);
+        if (r == FR_OK)
+            r = f_read(&f, buf, (UINT)cap, &n);
+    }
+    f_close(&f);
+    return r == FR_OK ? (int)n : -1;
+}

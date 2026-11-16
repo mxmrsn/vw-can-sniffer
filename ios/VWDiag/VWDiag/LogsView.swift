@@ -1,13 +1,25 @@
 import SwiftUI
 import VWDiagKit
 
-/// Recording on the interface's microSD card: start, stop, marks. Recordings made by this app
-/// (live data CSVs) are shared from the Live tab.
+/// Recording on the interface's microSD card: start, stop, marks, and copying files off the card.
+/// Recordings made by this app (live data CSVs) are shared from the Live tab.
 struct LogsView: View {
     @Environment(AppModel.self) private var model
     @State private var log: LogState?
     @State private var mark = ""
     @State private var pollMisfireSet = true
+    @State private var files: [Interface.CardFile] = []
+    @State private var copying: String?
+    @State private var progress = 0.0
+    @State private var copied: [String: URL] = [:]
+    @State private var copyTask: Task<Void, Never>?
+
+    /// Copied logs live in the app's Documents folder (visible in the Files app).
+    static var folder: URL {
+        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("Card logs")
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
 
     static let pollSet = ["rpm", "load", "speed", "stft", "ltft", "timing", "coolant", "map"]
 
@@ -43,8 +55,13 @@ struct LogsView: View {
                     }
                 }
                 Section {
-                    Text("Copying log files off the card over Bluetooth is not in the protocol yet: take the card out and read it with  vwdiag logread.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                    if files.isEmpty { Text("No files, or not listed yet").foregroundStyle(.secondary) }
+                    ForEach(files) { f in fileRow(f) }
+                    Button("List files") { Task { await listFiles() } }
+                } header: {
+                    Text("Files on the card")
+                } footer: {
+                    Text("Copies go to this app's folder in the Files app. Over Bluetooth expect a few kB a second: a minute of a busy bus takes a while. The file being recorded can only be copied once recording stops.")
                 }
             }
             .navigationTitle("Logs")
@@ -56,6 +73,58 @@ struct LogsView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func fileRow(_ f: Interface.CardFile) -> some View {
+        let busy = log?.active == true && log?.name.caseInsensitiveCompare(f.name) == .orderedSame
+        HStack {
+            VStack(alignment: .leading) {
+                Text(f.name).font(.body.monospaced())
+                Text(ByteCountFormatter.string(fromByteCount: Int64(f.size), countStyle: .file) + (busy ? ", recording" : ""))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if copying == f.name {
+                ProgressView(value: progress).frame(width: 80)
+                Button("Stop") { copyTask?.cancel() }.buttonStyle(.borderless)
+            } else if let url = copied[f.name] {
+                ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }
+            } else {
+                Button("Copy") { copyTask = Task { await copy(f) } }
+                    .buttonStyle(.borderless)
+                    .disabled(busy || copying != nil)
+            }
+        }
+    }
+
+    private func listFiles() async {
+        guard let ifc = model.interface else { return }
+        do {
+            files = try await ifc.cardFiles().sorted { $0.name < $1.name }
+            for f in files {
+                let url = Self.folder.appendingPathComponent(f.name)
+                if let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size == f.size { copied[f.name] = url }
+            }
+        } catch InterfaceError.refused(_, .storage) {
+            files = []
+        } catch { model.fail(error) }
+    }
+
+    private func copy(_ f: Interface.CardFile) async {
+        guard let ifc = model.interface else { return }
+        copying = f.name
+        progress = 0
+        defer { copying = nil }
+        do {
+            let data = try await ifc.copyCardFile(f.name) { done, total in
+                Task { @MainActor in progress = total > 0 ? Double(done) / Double(total) : 0 }
+            }
+            let url = Self.folder.appendingPathComponent(f.name)
+            try data.write(to: url)
+            copied[f.name] = url
+        } catch is CancellationError {
+        } catch { model.fail(error) }
     }
 
     private func refresh() async {

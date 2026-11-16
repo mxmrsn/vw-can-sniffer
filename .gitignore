@@ -33,3 +33,4 @@ __pycache__/
 
 # vwdiag session results (car data: keep out of git unless chosen)
 sessions/
+logs/

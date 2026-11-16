@@ -16,7 +16,7 @@ tested on their own.
 | Modules | Autoscan: every known module, present or not, part number, fault count. Tap in for identification, fault codes with status and freeze frame, and Clear (asks first; it changes the car) |
 | Live | Pick OBD values, see them and a graph, recorded to CSV and shareable |
 | Misfire | Misfires per cylinder (this drive and the ten-drive average), trims, warning lamp, stored and pending codes, freeze frame |
-| Logs | Start and stop recording on the interface's card, optionally polling the misfire set; marks |
+| Logs | Start and stop recording on the interface's card, optionally polling the misfire set; marks; list the card's files and copy them to the phone (Files app), then share |
 
 The interface powers up listen-only; the app turns sending on when a screen first needs to read from a module.
 Nothing writes to the car except Clear fault codes, behind a confirmation.
@@ -47,6 +47,4 @@ cd ios/VWDiagKit && swift test
 ## Not yet
 - **Bluetooth on a board.** `BLETransport` follows the board's service (Nordic UART layout, pairing with a
   passkey) but has never met real hardware; the simulator has no radio.
-- **Copying logs off the card.** The link protocol has no file listing or download yet; for now the card is read
-  with `vwdiag logread`.
 - Engine measuring values (the Simos 18 list), sessions and dashboards: later phases.

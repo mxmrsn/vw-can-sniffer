@@ -15,3 +15,12 @@ void storage_close(void);
 
 // Read a whole small text file. Returns its length, or -1 if it is not there.
 int storage_read_file(const char *name, char *buf, size_t cap);
+
+// Every file in the card's top folder, in the card's own order. Returns how many,
+// or -1 if there is no usable card.
+typedef void (*storage_list_fn)(const char *name, uint32_t size, void *ctx);
+int storage_list(storage_list_fn fn, void *ctx);
+
+// Read up to `cap` bytes of a file from `offset`; *size gets the file's size.
+// Returns the number of bytes read (0 past the end), or -1 if it cannot be read.
+int storage_read_at(const char *name, uint32_t offset, uint8_t *buf, size_t cap, uint32_t *size);

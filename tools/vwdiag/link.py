@@ -218,3 +218,39 @@ class Link:
     def read_frames(self, seconds):
         """Collect monitored CAN frames for a while, as text lines like "3C0 [4] 00 00 03 00"."""
         return self.read_lines(seconds)
+
+    # ---- copying files off the card
+    READ_CHUNK = 1024   # what one "log get" returns on the text console
+
+    def log_files(self):
+        """Files on the card: [(name, size)]."""
+        lines = self.command("log ls")
+        if lines and lines[-1].startswith("-"):
+            raise LinkError(lines[-1].lstrip("- "))
+        out = []
+        for line in lines[:-1]:
+            name, size = line.rsplit(" ", 1)
+            out.append((name, int(size)))
+        return out
+
+    def log_read(self, name, offset, length):
+        """Part of a file: (file size, bytes)."""
+        lines = self.command("log get %s %d %d" % (name, offset, min(length, self.READ_CHUNK)))
+        reply = lines[-1] if lines else "- no reply"
+        if not reply.startswith("+"):
+            raise LinkError(reply.lstrip("- "))
+        words = reply[1:].split()
+        return int(words[0]), bytes(int(b, 16) for b in words[1:])
+
+    def fetch(self, name, progress=None):
+        """A whole file from the card, as bytes. progress(done, total) is called after each piece."""
+        data = bytearray()
+        size = None
+        while size is None or len(data) < size:
+            size, piece = self.log_read(name, len(data), self.READ_CHUNK)
+            if not piece:
+                break
+            data += piece
+            if progress:
+                progress(len(data), size)
+        return bytes(data)

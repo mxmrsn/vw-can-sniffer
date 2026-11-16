@@ -40,6 +40,20 @@ bool storage_write(const uint8_t *d, size_t n)
 bool storage_sync(void) { syncs++; return true; }
 void storage_close(void) {}
 int storage_read_file(const char *n, char *b, size_t c) { (void)n; (void)b; (void)c; return -1; }
+int storage_list(storage_list_fn fn, void *ctx) { fn("LOG00001.VWL", (uint32_t)card_len, ctx); return 1; }
+static char last_read[16];
+int storage_read_at(const char *name, uint32_t offset, uint8_t *buf, size_t cap, uint32_t *size)
+{
+    if (!card_present)
+        return -1;
+    snprintf(last_read, sizeof(last_read), "%s", name);
+    *size = (uint32_t)card_len;
+    size_t n = offset < card_len ? card_len - offset : 0;
+    if (n > cap)
+        n = cap;
+    memcpy(buf, card + offset, n);
+    return (int)n;
+}
 
 static uint32_t u32(const uint8_t *p) { return p[0] | p[1] << 8 | p[2] << 16 | (uint32_t)p[3] << 24; }
 
@@ -110,6 +124,23 @@ int main(void)
     CHECK(!logger_active());
     card_fail_after = -1;
     CHECK(logger_start(7000, 500000, 0) && files == 3);
+
+    printf("reading files back: plain names only, never the one being recorded\n");
+    uint8_t got[64];
+    uint32_t size = 0;
+    CHECK(logger_read_file("LOG00003.VWL", 0, got, sizeof(got), &size) == LOGGER_READ_BUSY);
+    CHECK(logger_read_file("log00003.vwl", 0, got, sizeof(got), &size) == LOGGER_READ_BUSY);
+    CHECK(logger_read_file("../etc", 0, got, sizeof(got), &size) == LOGGER_READ_BAD_NAME);
+    CHECK(logger_read_file("A/B.TXT", 0, got, sizeof(got), &size) == LOGGER_READ_BAD_NAME);
+    CHECK(logger_read_file("TOOLONGNAME.VWL", 0, got, sizeof(got), &size) == LOGGER_READ_BAD_NAME);
+    CHECK(logger_read_file("", 0, got, sizeof(got), &size) == LOGGER_READ_BAD_NAME);
+    int n = logger_read_file("LOG00002.VWL", 4, got, 8, &size);
+    CHECK(n == 8 && size == card_len && memcmp(got, card + 4, 8) == 0 && !strcmp(last_read, "LOG00002.VWL"));
+    CHECK(logger_read_file("LOG00002.VWL", (uint32_t)card_len, got, 8, &size) == 0);
+    logger_stop();
+    CHECK(logger_read_file("LOG00003.VWL", 0, got, sizeof(got), &size) > 0);
+    card_present = 0;
+    CHECK(logger_read_file("LOG00003.VWL", 0, got, sizeof(got), &size) == LOGGER_READ_NO_CARD);
 
     printf("\n%d checks, %d failed\n", checks, failures);
     return failures ? 1 : 0;

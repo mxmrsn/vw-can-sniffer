@@ -293,6 +293,8 @@ static void cmd_help(void)
            "  log on|off          record every CAN frame to the microSD card\n"
            "  log                 logging state and counters\n"
            "  log mark <text>     put a note in the log\n"
+           "  log ls              files on the card\n"
+           "  log get <f> <o> <n> read n bytes (up to 1024) of file f from offset o, as hex\n"
            "  time <unix seconds> tell the interface the time, for log files\n"
            "  poll <req> <resp> <ms> <hex bytes>   repeat a request on a timer\n"
            "  poll list | poll clear\n"
@@ -314,6 +316,42 @@ static void cmd_status(void)
     printf("log %s, %u poll request(s)\n", logger_active() ? "on" : "off", (unsigned)poll_count);
 }
 
+static void print_file(const char *name, uint32_t size, void *ctx)
+{
+    (void)ctx;
+    printf("%s %lu\n", name, (unsigned long)size);
+}
+
+// "log get NAME OFFSET LENGTH": "+ <file size> <hex bytes>", at most 1024 bytes per line.
+static void log_get(char *args)
+{
+    static uint8_t buf[1024];
+    char *name = strtok(args, " ");
+    char *off = strtok(NULL, " ");
+    char *len = strtok(NULL, " ");
+    unsigned long offset = off ? strtoul(off, NULL, 10) : 0, want = len ? strtoul(len, NULL, 10) : sizeof(buf);
+    if (!name) {
+        printf("- usage: log get <file> <offset> <length, at most 1024>\n");
+        return;
+    }
+    if (want == 0 || want > sizeof(buf))
+        want = sizeof(buf);
+    uint32_t size = 0;
+    int n = logger_read_file(name, (uint32_t)offset, buf, want, &size);
+    if (n == LOGGER_READ_BAD_NAME)
+        printf("- bad file name\n");
+    else if (n == LOGGER_READ_BUSY)
+        printf("- busy: that file is being recorded; log off first\n");
+    else if (n < 0)
+        printf("- no card, or no such file\n");
+    else {
+        printf("+ %lu", (unsigned long)size);
+        for (int i = 0; i < n; i++)
+            printf(" %02X", buf[i]);
+        printf("\n");
+    }
+}
+
 static void cmd_log(char *rest)
 {
     struct logger_stats s;
@@ -330,8 +368,18 @@ static void cmd_log(char *rest)
             return;
         }
         app_log_mark(rest + 5);
+    } else if (rest && !strcmp(rest, "ls")) {
+        int n = storage_list(print_file, NULL);
+        if (n < 0)
+            printf("- no card\n");
+        else
+            printf("%d file(s)\n", n);
+        return;
+    } else if (rest && !strncmp(rest, "get ", 4)) {
+        log_get(rest + 4);
+        return;
     } else if (rest) {
-        printf("- usage: log on|off, log mark <text>, or log alone for the state\n");
+        printf("- usage: log on|off, log mark <text>, log ls, log get <file> <offset> <length>, or log alone\n");
         return;
     }
     logger_get_stats(&s);
