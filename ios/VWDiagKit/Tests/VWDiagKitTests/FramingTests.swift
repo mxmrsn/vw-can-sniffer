@@ -49,6 +49,15 @@ final class FramingTests: XCTestCase {
                        ["confirmed", "failed since clear", "warning lamp requested"])
     }
 
+    func testDescriptionsMatchTheTools() {
+        XCTAssertEqual(FaultCode.describe("P0303"), "Cylinder 3 Misfire Detected")
+        XCTAssertEqual(FaultCode.describe("P0299"), "Turbocharger/Supercharger \"A\" Underboost Condition")
+        XCTAssertEqual(FaultCode.describe("P130A"), "Manufacturer-specific powertrain code: VW's own description is not public")
+        XCTAssertEqual(FaultCode.describe("P03FF"), "Ignition system or misfire code, not in this list")
+        XCTAssertEqual(FaultCode(bytes: [0xC1, 0x21, 0x00], status: 8).description,
+                       "Lost Communication With Anti-Lock Brake System (ABS) Control Module")
+    }
+
     func testOBDFormulas() {
         XCTAssertEqual(OBD.byName["rpm"]!.decode([0x0A, 0xF0]), 700)
         XCTAssertEqual(OBD.byName["stft"]!.decode([0x8A]), 7.8125)

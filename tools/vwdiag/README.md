@@ -55,7 +55,10 @@ The board powers up listen-only. Commands that transmit refuse to run without `-
   identification, fault codes with snapshots, an idle capture of the misfire set, and a drive logged to the card.
   Requests are retried; a step that fails is noted and the session carries on.
 - **VW specifics** (`vw.py`): control module addresses and the identification DIDs.
-- **Fault codes** (`dtc.py`): SAE code and status-bit decoding.
+- **Fault codes** (`dtc.py`): SAE code and status-bit decoding, and a plain-language description of every code:
+  about 470 generic codes from the dtcdb project (MIT licence), 37 more that matter on this car written from the
+  SAE J2012 titles, and otherwise what the code's SAE group is for. VW's own codes (P1xxx, most B, C and U1/U2)
+  say so: their meaning is in VW's data, which is not public.
 - **Log files** (`logfile.py`): reader for the card's log format, with OBD live-value extraction and can-utils
   export. Format in `hardware/pico2w/docs/logging.md`.
 - **Broadcast frames** (`dbc.py`): decoding with the public VW MQB message database (113 messages) from

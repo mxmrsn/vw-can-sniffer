@@ -55,13 +55,17 @@ struct MisfireView: View {
                 }
                 Section("Emission codes") {
                     if let lamp { LabeledContent("Warning lamp", value: lamp ? "ON" : "off") }
-                    LabeledContent("Stored", value: stored.isEmpty ? "none" : stored.joined(separator: ", "))
-                    LabeledContent("Pending", value: pending.isEmpty ? "none" : pending.joined(separator: ", "))
+                    codeRows("Stored", stored)
+                    codeRows("Pending", pending)
                 }
                 if let ff = freeze {
-                    Section("Freeze frame\(ff.code.map { " (\($0))" } ?? "")") {
+                    Section {
                         if ff.values.isEmpty { Text("None stored").foregroundStyle(.secondary) }
                         ForEach(ff.values, id: \.0.name) { p, v in LabeledContent(p.label, value: "\(fmt(v)) \(p.unit)") }
+                    } header: {
+                        Text("Freeze frame" + (ff.code.map { " (\($0))" } ?? ""))
+                    } footer: {
+                        if let c = ff.code { Text(FaultCode.describe(c)) }
                     }
                 }
                 Section {
@@ -77,6 +81,20 @@ struct MisfireView: View {
                 while follow && !Task.isCancelled {
                     try? await Task.sleep(nanoseconds: 2_000_000_000)
                     await readLive()
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func codeRows(_ title: String, _ codes: [String]) -> some View {
+        if codes.isEmpty {
+            LabeledContent(title, value: "none")
+        } else {
+            ForEach(codes, id: \.self) { c in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(title): \(c)").font(.body.monospaced())
+                    Text(FaultCode.describe(c)).font(.caption).foregroundStyle(.secondary)
                 }
             }
         }

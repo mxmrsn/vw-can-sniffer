@@ -91,6 +91,18 @@ public struct FaultCode: Sendable, Hashable, Identifiable {
     ]
 
     public var statusText: [String] { FaultCode.statusBits.filter { status & $0.0 != 0 }.map(\.1) }
+
+    /// Plain-language description, the same as the tools give (tools/vwdiag/dtc.py).
+    public var description: String { FaultCode.describe(FaultCode.sae(bytes[0], bytes[1])) }
+
+    /// Description of a "P0303" style code: from the generic list, the added codes, or the code's SAE group.
+    public static func describe(_ code: String) -> String {
+        let c = code.uppercased()
+        if let d = DTCDescriptions.generic[c] ?? DTCDescriptions.extra[c] { return d }
+        let g = DTCDescriptions.groups.filter { c.hasPrefix($0.0) }.max { $0.0.count < $1.0.count }?.1 ?? "reserved"
+        let head = g.prefix(1).uppercased() + g.dropFirst()
+        return g.contains("manufacturer") ? "\(head) code: VW's own description is not public" : "\(head) code, not in this list"
+    }
 }
 
 /// A session with one control module.

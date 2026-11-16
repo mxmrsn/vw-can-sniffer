@@ -71,6 +71,35 @@ enum power_wake plat_wake_reason(void)
     return POWER_WAKE_POWER_ON;
 }
 
+// Settings kept in the file VWDIAG_SETTINGS names (none: kept in memory only, like a fresh board).
+bool plat_settings_load(struct power_settings *s)
+{
+    const char *path = getenv("VWDIAG_SETTINGS");
+    FILE *f = path && *path ? fopen(path, "r") : NULL;
+    if (!f)
+        return false;
+    unsigned long idle = 0;
+    unsigned cutoff = 0, stay = 0;
+    bool ok = fscanf(f, "idle %lu cutoff %u stay %u", &idle, &cutoff, &stay) == 3;
+    fclose(f);
+    if (ok) {
+        s->idle_s = (uint32_t)idle;
+        s->cutoff_mv = (uint16_t)cutoff;
+        s->stay_awake = stay != 0;
+    }
+    return ok;
+}
+
+void plat_settings_save(const struct power_settings *s)
+{
+    const char *path = getenv("VWDIAG_SETTINGS");
+    FILE *f = path && *path ? fopen(path, "w") : NULL;
+    if (!f)
+        return;
+    fprintf(f, "idle %lu cutoff %u stay %u\n", (unsigned long)s->idle_s, s->cutoff_mv, s->stay_awake ? 1u : 0u);
+    fclose(f);
+}
+
 void plat_power_sleep(enum power_sleep_reason why)
 {
     // The dongle's power goes off; here the process ends, which a connected app sees as the link dropping.

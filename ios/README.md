@@ -46,7 +46,9 @@ cd ios/VWDiagKit && swift test
 - Experiments: identify, listen and warm-idle run from Swift against a stand-in car with known numbers, then
   `vwdiag calibrate` (Python) reads the folders the app wrote and must recover those numbers.
 
-`make_simos18.py` regenerates `Simos18.swift` from the tools' list (`tools/vwdiag/data/simos18_parameters_22.csv`).
+`make_simos18.py` regenerates `Simos18.swift` from the tools' list (`tools/vwdiag/data/simos18_parameters_22.csv`),
+and `make_dtc.py` regenerates `DTCDescriptions.swift` from the tools' fault-code lists, so the app and the tools
+describe every code the same way.
 
 ## Not yet
 - **Bluetooth on a board.** `BLETransport` follows the board's service (Nordic UART layout, pairing with a

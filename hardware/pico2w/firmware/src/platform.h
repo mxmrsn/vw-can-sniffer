@@ -27,3 +27,6 @@ uint16_t plat_battery_mv(void);   // the OBD port's battery voltage; under ~6 V 
 bool plat_usb_host(void);         // a computer is attached to the USB port
 enum power_wake plat_wake_reason(void);
 void plat_power_sleep(enum power_sleep_reason why); // switch off; on the dongle it does not return
+// Keep the power settings across sleeps (flash on the dongle). Load returns false if none were saved.
+bool plat_settings_load(struct power_settings *s);
+void plat_settings_save(const struct power_settings *s);

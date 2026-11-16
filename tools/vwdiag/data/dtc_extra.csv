@@ -1,0 +1,38 @@
+code,description
+P0010,"""A"" Camshaft Position Actuator Circuit (Bank 1)"
+P0011,"""A"" Camshaft Position - Timing Over-Advanced or System Performance (Bank 1)"
+P0012,"""A"" Camshaft Position - Timing Over-Retarded (Bank 1)"
+P0013,"""B"" Camshaft Position Actuator Circuit (Bank 1)"
+P0014,"""B"" Camshaft Position - Timing Over-Advanced or System Performance (Bank 1)"
+P0015,"""B"" Camshaft Position - Timing Over-Retarded (Bank 1)"
+P0016,Crankshaft Position - Camshaft Position Correlation (Bank 1 Sensor A)
+P0017,Crankshaft Position - Camshaft Position Correlation (Bank 1 Sensor B)
+P0087,Fuel Rail/System Pressure - Too Low
+P0088,Fuel Rail/System Pressure - Too High
+P0128,Coolant Thermostat (Coolant Temperature Below Thermostat Regulating Temperature)
+P0234,"Turbocharger/Supercharger ""A"" Overboost Condition"
+P0299,"Turbocharger/Supercharger ""A"" Underboost Condition"
+P0441,Evaporative Emission System Incorrect Purge Flow
+P0442,Evaporative Emission System Leak Detected (Small Leak)
+P0455,Evaporative Emission System Leak Detected (Large Leak)
+P0456,Evaporative Emission System Leak Detected (Very Small Leak)
+P0506,Idle Air Control System RPM Lower Than Expected
+P0507,Idle Air Control System RPM Higher Than Expected
+P0562,System Voltage Low
+P0563,System Voltage High
+P2004,Intake Manifold Runner Control Stuck Open (Bank 1)
+P2096,Post Catalyst Fuel Trim System Too Lean (Bank 1)
+P2097,Post Catalyst Fuel Trim System Too Rich (Bank 1)
+P2177,System Too Lean Off Idle (Bank 1)
+P2178,System Too Rich Off Idle (Bank 1)
+P2187,System Too Lean at Idle (Bank 1)
+P2188,System Too Rich at Idle (Bank 1)
+P2279,Intake Air System Leak
+U0001,High Speed CAN Communication Bus
+U0100,"Lost Communication With ECM/PCM ""A"""
+U0101,Lost Communication With TCM
+U0121,Lost Communication With Anti-Lock Brake System (ABS) Control Module
+U0131,Lost Communication With Power Steering Control Module
+U0140,Lost Communication With Body Control Module
+U0151,Lost Communication With Restraints Control Module
+U0155,Lost Communication With Instrument Panel Cluster (IPC) Control Module
