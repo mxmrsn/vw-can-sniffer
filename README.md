@@ -9,6 +9,7 @@ data. The longer-term aim is an iOS app with custom dashboards talking to a low-
 |---|---|
 | [`hardware/pico2w/`](hardware/pico2w/README.md) | **Board v0.2.0 (tag `v0.2.0`):** Raspberry Pi Pico 2 W carrier, its firmware and bring-up plan |
 | [`hardware/xiao-esp32s3/`](hardware/xiao-esp32s3/README.md) | **Current board (v0.3.0):** Seeed XIAO ESP32-S3 carrier, because the Pico 2 W is hard to buy |
+| [`hardware/esp32s3-dongle/`](hardware/esp32s3-dongle/README.md) | **Next (v0.4.0), architecture only:** OBD dongle, two boards stacked behind a J1962 plug |
 | [`hardware/teensy-esp32/`](hardware/teensy-esp32/README.md) | Original board (v0.1.0, tag `v0.1.0`): Teensy 4.0 + ESP32, its firmware and tools |
 | [`tools/vwdiag/`](tools/vwdiag/README.md) | Host tools: scan, identification, fault codes, live data, logging, frame decoding |
 | [`tools/tests/`](tools/tests) | End-to-end tests for the tools, run against the firmware simulator |
