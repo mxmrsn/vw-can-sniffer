@@ -2,7 +2,8 @@
 
 The plan for the low-profile version: the interface plugs straight into the OBD port, two boards stacked behind
 the plug, in an enclosure you design. This document fixes the electrical architecture and the interface between
-the boards and the enclosure. Nothing here is drawn or built yet.
+the boards and the enclosure. **Both schematics are drawn** (see "Schematics" below); nothing is laid out or
+built yet.
 
 The v0.3.0 XIAO board stays the bench and first-car-session board. This one is designed in parallel and ordered
 once the first car session has answered the questions it depends on (see "Decisions waiting on the car").
@@ -50,16 +51,16 @@ pin 16 --fuse--TVS--diode-- VBAT ---+--> TJA1043 VBAT (always powered, about 20 
                                               ^ EN
                          TJA1043 INH ---------+     (INH floats in sleep: buck off, everything else off)
 ```
-\* to confirm against the datasheet.
+\* NXP's datasheet: 18 uA typical, 30 uA maximum in sleep.
 
 - **Sleep:** firmware puts the transceiver into go-to-sleep mode; its INH output floats, a pull-down on the buck's
   EN pin turns the buck off, and
   the module, card and LEDs lose power. Only the transceiver and a few leakage paths remain.
 - **Wake sources**, each turning INH back on:
-  1. **CAN activity** on the OBD bus (built into the transceiver).
-  2. **Engine running**: a comparator on VBAT drives the transceiver's WAKE pin when the voltage rises above
-     about 13.2 V (alternator charging).
-  3. **The button** on the top board, routed down to WAKE.
+  1. **CAN activity** on the OBD bus (the transceiver recognises the standard wake-up pattern).
+  2. **Engine running**: a TPS3700 voltage detector on VBAT (13.4 V rising, 13.2 V falling) switches a small
+     MOSFET that pulls the WAKE node low. The transceiver wakes on any change of level on WAKE.
+  3. **The button** on the top board pulls the same node low.
 - **Staying awake:** the firmware keeps the system on while a phone is connected, while logging, or while the
   engine-running voltage is present, and goes back to sleep after a quiet period. It also sleeps, and refuses to
   wake for anything but the button, if VBAT falls below about 12.0 V, to protect the battery.
@@ -67,15 +68,20 @@ pin 16 --fuse--TVS--diode-- VBAT ---+--> TJA1043 VBAT (always powered, about 20 
   draining the battery; waking it is starting the engine, any CAN activity, or the button. A "stay connectable"
   option (processor in light sleep with slow Bluetooth advertising, a few mA) can be a firmware setting later.
 
-**Sleep current budget** (target under 100 uA, which is years on a car battery):
+**Sleep current budget**, from the datasheets now that the parts are chosen:
 
-| Item | Estimate | Note |
+| Item | Typical | Worst case |
 |---|---|---|
-| TJA1043 asleep | about 20 to 30 uA | To confirm |
-| Buck with EN low | about 1 uA | |
-| OBD voltage divider | **100 uA as on v0.3.0** | Too much: becomes 1 M / 220 k (about 10 uA) with a filter capacitor, or moves behind the switched rail |
-| Engine-running comparator | a few uA | Needs a micropower part |
-| TVS and diode leakage | about 1 uA | |
+| TJA1043 in sleep | 18 uA | 30 uA |
+| TPS3700 wake detector | 6 uA | 13 uA |
+| Its supply clamp and output pull-up (R5/D4, R8) | 6 uA | 7 uA |
+| Its 13.4 V sense divider (R6/R7) | 4 uA | 4 uA |
+| OBD voltage divider, now 1 M / 220 k | 10 uA | 11 uA |
+| Buck with EN low | 1 uA | 3 uA |
+| TVS and diode leakage | 1 uA | 5 uA |
+| **Total** | **about 46 uA** | **about 73 uA** |
+
+Under the 100 uA target: a 60 Ah battery would take decades to notice.
 
 **3.3 V:** the buck makes 5 V on the bottom board (the transceiver needs 5 V); USB 5 V and that rail are
 diode-OR'd on the top board into an AP2112K-3.3. With Bluetooth and no Wi-Fi the module averages well under
@@ -87,9 +93,9 @@ TJA1043T: 5 V supply, 3.3 V I/O pin, and the modes this needs: normal, **listen-
 hardware safety: the board cannot drive the bus until firmware asks), standby, sleep, plus INH, WAKE and an
 error output.
 
-At power-up the transceiver comes up in a mode set by its STB_N and EN pins; both get pull resistors so the
-default, before firmware runs, is listen-only or standby, never normal. **Which exact combination is listen-only
-needs confirming against NXP's mode table** before the schematic.
+Modes, from NXP's mode table: normal is STB_N high and EN high, **listen-only is STB_N high and EN low**, standby
+is both low, and go-to-sleep is STB_N low with EN high. Both pins have internal pull-downs, so before firmware
+runs the transceiver sits in standby: it cannot drive the bus, and INH stays on so the board stays powered.
 
 Termination is not fitted, as on v0.3.0 (the car's bus is already terminated).
 
@@ -181,11 +187,40 @@ The application core, protocol, logging and tools do not change. New platform co
 
 The simulator gains sleep and wake states so the app can be tested against "the dongle went to sleep".
 
+## Schematics
+Drawn, ERC clean (0 errors), and generated by scripts so they can be rebuilt:
+
+| Board | Schematic | Parts |
+|---|---|---|
+| Bottom | [`../pcb/bottom/dongle-bottom.kicad_sch`](../pcb/bottom/dongle-bottom.kicad_sch) | 36 |
+| Top | [`../pcb/top/dongle-top.kicad_sch`](../pcb/top/dongle-top.kicad_sch) | 41 (the IMU and the expansion header are not fitted by default) |
+
+```bash
+python3 hardware/esp32s3-dongle/pcb/scripts/bottom.py      # python 3.10 or newer
+python3 hardware/esp32s3-dongle/pcb/scripts/top.py
+```
+
+Every pin ends in a short stub and a net label, so a sheet reads as a reference drawing rather than a
+hand-routed one, and connectivity is exactly what the script lists. The generator refuses to write a sheet in
+which two different nets would touch. Both netlists were checked: the two halves of the board-to-board connector
+agree pin for pin, and the transceiver, regulator and detector pins match their datasheets.
+
+Two ERC warnings remain on the top board, both intended: the IMU's address and auxiliary pins are tied to
+ground, which KiCad flags against a power flag on the same net.
+
+Things the schematics settle that the architecture left open:
+- **The MODE button** pulls the WAKE node low (waking a sleeping dongle) and reads on a GPIO through a diode,
+  which keeps the 12 V-level node off the 3.3 V pin.
+- **CAN bus ESD**: a NUP2105L across CAN-H and CAN-L, since the bus now goes straight to a connector.
+- **microSD**: 47 k pull-ups on chip select, data in and data out.
+- **Processor pins**: CAN on 4 to 7 and 15, the card on the SPI pins 10 to 13, LEDs on 48, button on 2, OBD
+  sense on 1 (ADC), IMU on 8, 9 and 16, GPS and sync on 17, 18, 34 and 35, expansion on 14, 21, 47 and 33.
+
 ## Effort
 | Step | Estimate |
 |---|---|
 | Confirm the transceiver modes, the INH-to-buck connection and the sleep currents from datasheets | Part of the schematic session |
-| Schematics for both boards (mostly reused from v0.3.0) | 1 session |
+| Schematics for both boards | **Done** |
 | Layout of both boards, once outlines and the plug are known (the v0.3.0 scripts and autorouter carry over) | 1 to 2 sessions |
 | Firmware: transceiver modes, sleep manager, new pin map | 1 session |
 | Mechanical iterations with your enclosure | As many as it takes |
@@ -193,11 +228,11 @@ The simulator gains sleep and wake states so the app can be tested against "the 
 ## Parts to verify before the schematic is final
 | Part | Status |
 |---|---|
-| TJA1043T | KiCad has the symbol. Mode table, INH behaviour and sleep current to confirm in NXP's datasheet |
+| TJA1043T | Modes, INH, WAKE and sleep current confirmed in NXP's datasheet. Orderable code and stock to check |
 | ESP32-S3-MINI-1 (N8) | KiCad has the symbol and footprint. Stock to check |
 | AP2112K-3.3 | KiCad has the symbol. Stock to check |
-| AP63301WU-7 | As v0.3.0. To confirm: that EN tolerates INH's battery-level voltage, and that EN has no internal pull-up (a floating INH must mean off) |
-| Micropower comparator for the engine-running wake | To choose |
+| AP63301WU-7 | As v0.3.0. Confirmed: EN is rated to 35 V, so INH can drive it directly; EN has an internal 1.5 uA pull-up, so a 100 k pull-down (R4) holds it off when INH floats |
+| TPS3700 (wake detector) | Chosen; pinout, 18 V supply limit and 6 uA from TI's datasheet. Symbol drawn for this project. Stock to check |
 | IMU | Candidates in KiCad: LSM6DSM, LSM6DSL. To choose |
 | 2 x 7 1.27 mm header and socket | To choose with the enclosure |
 | J1962 PCB plug | Samples needed |
