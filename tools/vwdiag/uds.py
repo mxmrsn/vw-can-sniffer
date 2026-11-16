@@ -82,6 +82,46 @@ class UdsClient:
         body = resp[3:]
         return resp[2], [(body[i:i + 3], body[i + 3]) for i in range(0, len(body) - 3, 4)]
 
+    def dtc_count(self, status_mask=0xFF):
+        resp = self.request([0x19, 0x01, status_mask])
+        if len(resp) < 6 or resp[1] != 0x01:
+            raise UdsError("malformed ReadDTCInformation count response")
+        return resp[4] << 8 | resp[5]
+
+    def dtc_snapshots(self, dtc, record=0xFF, sizes=None):
+        """Freeze-frame records stored with one fault code: {record: {did: bytes}}.
+
+        A record lists identifiers and their data with no lengths, so `sizes` ({did: length})
+        is needed to split them; reading stops at the first identifier of unknown length and
+        keeps the rest under the key None.
+        """
+        resp = self.request([0x19, 0x04] + list(dtc) + [record])
+        if len(resp) < 6 or resp[1] != 0x04:
+            raise UdsError("malformed snapshot response")
+        out, body, i = {}, resp[6:], 0
+        sizes = sizes or {}
+        while i + 2 <= len(body):
+            rec, count = body[i], body[i + 1]
+            i += 2
+            items = out.setdefault(rec, {})
+            for _ in range(count):
+                if i + 2 > len(body):
+                    break
+                did = body[i] << 8 | body[i + 1]
+                if did not in sizes:
+                    items[None] = body[i:]
+                    return out
+                items[did] = body[i + 2:i + 2 + sizes[did]]
+                i += 2 + sizes[did]
+        return out
+
+    def dtc_extended(self, dtc, record=0xFF):
+        """Extended data stored with one fault code (counters), as raw bytes after the status."""
+        resp = self.request([0x19, 0x06] + list(dtc) + [record])
+        if len(resp) < 6 or resp[1] != 0x06:
+            raise UdsError("malformed extended-data response")
+        return resp[6:]
+
     def clear_dtcs(self):
         """Erase stored fault codes in this module. This changes the car's state."""
         self.request([0x14, 0xFF, 0xFF, 0xFF])

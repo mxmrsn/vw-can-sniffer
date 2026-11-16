@@ -27,6 +27,13 @@ With one board plugged in, `--port` can be omitted.
 | `live [value ...] [--interval S] [--count N] [--csv FILE]` | Poll live values, optionally logging to CSV | yes |
 | `clear module ... --yes` | Erase fault codes. Changes the car | yes |
 | `raw module HEX ...` | Send any UDS request. Can change the car | yes |
+| `misfire [--watch S] [--csv FILE]` | Misfire counts per cylinder (service 06), trims, freeze frame, emission codes | yes |
+| `measure [value ...] [--list] [--count N]` | Engine measuring values from the Simos 18 list (knock retard per cylinder, misfires, cams, rail pressure...) | yes |
+| `dtc ... --details` | Also each code's snapshot (freeze frame) and counters | yes |
+| `session [--listen S] [--idle S] [--drive S] [--sweep] [--yes]` | The scripted first car session; everything saved to a folder | yes, after listening |
+
+`--sim-profile SPEC` picks the simulator's scenario, e.g. `--sim --sim-profile gti` for this car's misfire
+(see `hardware/pico2w/firmware/README.md`).
 
 The board powers up listen-only. Commands that transmit refuse to run without `--transmit`.
 
@@ -35,8 +42,14 @@ The board powers up listen-only. Commands that transmit refuse to run without `-
   an app uses (`binlink.py`, pass `--binary`), and that same protocol over the simulator's Bluetooth stand-in
   (`BleSimLink`, pass `--sim-ble`). All described in `hardware/pico2w/docs/link_protocol.md`.
 - **UDS** (`uds.py`): requests over either link, negative responses, timeouts.
-- **OBD-II live data** (`obd.py`): 15 standard service-01 values with their standard formulas, supported-PID
-  discovery, VIN.
+- **OBD-II** (`obd.py`): 20 standard service-01 values (now with fuel trims and lambda), supported-PID
+  discovery, VIN, warning lamp and code count, stored and pending emission codes (services 03 and 07), freeze
+  frame (service 02), and the misfire monitor per cylinder (service 06, MIDs A1 to A5).
+- **Engine measuring values** (`simos18.py`): 48 service-0x22 values for the Simos 18 engine module, from the
+  list the open-source VW_Flash logger uses (`data/simos18_parameters_22.csv`, BSD licence).
+- **The first car session** (`session.py`): listen-only capture with ignition off and on, scan and
+  identification, fault codes with snapshots, an idle capture of the misfire set, and a drive logged to the card.
+  Requests are retried; a step that fails is noted and the session carries on.
 - **VW specifics** (`vw.py`): control module addresses and the identification DIDs.
 - **Fault codes** (`dtc.py`): SAE code and status-bit decoding.
 - **Log files** (`logfile.py`): reader for the card's log format, with OBD live-value extraction and can-utils
@@ -53,7 +66,9 @@ transport work together. It does not prove anything about the car:
   match what opendbc uses on Golf MK7 cars. ABS, cluster and gateway addresses and the other identifiers are
   unconfirmed. `docs/vw_can_data_sources.md` has the full breakdown.
 - The broadcast frames in the database may not be visible at the OBD port at all.
-- VW-specific measuring values (beyond standard OBD) and VW's own fault-code numbers are not implemented.
+- The Simos 18 measuring values come from VW_Flash's list, used on Simos 18 cars by that project; whether this
+  car's software answers each of them in the default session is unconfirmed. VW's own fault-code numbers are not
+  implemented.
 - Coding, adaptations and security access are not implemented.
 
 `hardware/pico2w/docs/bringup_plan.md` lists the on-car tests that settle the unconfirmed items.

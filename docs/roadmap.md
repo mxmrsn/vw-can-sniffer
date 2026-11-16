@@ -21,7 +21,7 @@ it feeds what the car told us back into the simulator.
 | # | Phase | Why now | Effort |
 |---|---|---|---|
 | 0 | ~~Verify the remaining BOM lines and the module footprint, review the buck layout~~, order | Hardware lead time is the long pole | Done; ordering is yours |
-| 1 | Make the simulator pessimistic, add misfire diagnostics, script the first car session | Has to be ready before the boards arrive | 2 sessions |
+| 1 | ~~Make the simulator pessimistic, add misfire diagnostics, script the first car session~~ | Has to be ready before the boards arrive | Done (2026-11-15) |
 | 2 | iOS app skeleton: scan, faults, live data, logging | Fills the 1 to 3 weeks of fabrication and shipping | 3 to 4 sessions |
 | 3 | Bring-up, hardware-in-the-loop bench, first car session | When the boards arrive | 2 sessions plus car time |
 | 4 | Misfire analysis; stock and stage 1 baseline logs | First real data | Ongoing |
@@ -54,6 +54,11 @@ A "session" here is one working session like the ones so far.
 us (is broadcast data visible at the OBD port? do we need a gateway tap? GPS?) changes what goes in the stack.
 
 ## Phase 1: sim-to-real hardening and the first-session script (before hardware arrives)
+**Done (2026-11-15).** The simulator is pessimistic by default (every row of the table below except replay and
+measuring values from real captures), with an engine model for this car (DKFA, EA888 Gen 3) and a `gti` scenario
+for its misfire. `vwdiag misfire`, `measure` and `session` are in; see `tools/vwdiag/README.md`. Still open: replay
+of real captures, which needs the captures (the first car session, and the public data listed in
+`docs/vw_can_data_sources.md`).
 
 ### Simulator audit
 The simulator exercises the protocol logic well, but it is optimistic in ways that will not survive the car:

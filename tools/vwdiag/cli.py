@@ -15,7 +15,7 @@ import time
 
 from . import dbc
 from . import dtc as dtcfmt
-from . import logfile, obd, vw
+from . import logfile, obd, simos18, vw
 from .binlink import BinaryLink, BleSimLink
 from .link import Link, LinkError
 from .uds import NegativeResponse, NoResponse, UdsClient, UdsError
@@ -25,6 +25,21 @@ SIM_BINARY = os.path.join(REPO, "hardware", "pico2w", "firmware", "sim", "vw_dia
 
 
 def open_link(args):
+    if args.sim_profile:
+        # the simulator reads its scenario from the environment when it starts
+        saved = os.environ.get("VWSIM")
+        os.environ["VWSIM"] = args.sim_profile
+        try:
+            return _open_link(args)
+        finally:
+            if saved is None:
+                os.environ.pop("VWSIM", None)
+            else:
+                os.environ["VWSIM"] = saved
+    return _open_link(args)
+
+
+def _open_link(args):
     Link = BinaryLink if args.binary else globals()["Link"]
     if args.sim_ble:
         if not os.path.exists(SIM_BINARY):
@@ -107,6 +122,32 @@ def cmd_dtc(link, args):
         print("%s: %d fault code(s)" % (name, len(codes)))
         for code, status in codes:
             print("  " + dtcfmt.format_dtc(code, status))
+            if args.details:
+                for line in dtc_details(client_for(link, name), code):
+                    print("      " + line)
+
+
+def dtc_details(client, code):
+    """What the module stored with a fault code: freeze-frame values and counters. Text lines."""
+    lines = []
+    try:
+        for rec, items in sorted(client.dtc_snapshots(code, sizes=obd.SNAPSHOT_SIZES).items()):
+            values = obd.decode_snapshot(items)
+            text = ", ".join("%s %s %s" % (n, fmt(v), obd.PIDS[n][1]) for n, v in values.items())
+            lines.append("snapshot %02X: %s" % (rec, text or "(no values this tool decodes)"))
+    except UdsError as e:
+        lines.append("snapshot: %s" % e)
+    try:
+        ext = client.dtc_extended(code)
+        if ext:
+            lines.append("extended data: %s" % ext.hex(" ").upper())
+    except UdsError as e:
+        lines.append("extended data: %s" % e)
+    return lines
+
+
+def fmt(v):
+    return ("%.2f" % v).rstrip("0").rstrip(".") if isinstance(v, float) else str(v)
 
 
 def cmd_clear(link, args):
@@ -164,6 +205,134 @@ def cmd_live(link, args):
         if out:
             out.close()
             print("wrote %d rows to %s" % (count, args.csv))
+
+
+def cmd_misfire(link, args):
+    """Everything the engine module reports about misfires, for a low-compression hunt."""
+    enable_transmit(link, args)
+    engine = client_for(link, "engine")
+    report = misfire_report(engine)
+    print("\n".join(report["lines"]))
+    if args.watch:
+        watch_misfire(engine, args.watch, args.csv)
+
+
+def misfire_report(engine):
+    """Read the misfire picture once. Returns {"lines": [...], plus the values}."""
+    out, lines = {}, []
+    try:
+        lamp, count = obd.monitor_status(engine)
+        out["lamp"], out["stored_count"] = lamp, count
+        lines.append("warning lamp %s, %d stored emission code(s)" % ("ON" if lamp else "off", count))
+    except UdsError as e:
+        lines.append("monitor status: %s" % e)
+    for pending in (False, True):
+        try:
+            codes = [dtcfmt.sae_code(c) for c in obd.emission_dtcs(engine, pending)]
+            out["pending" if pending else "stored"] = codes
+            lines.append("%s codes: %s" % ("pending" if pending else "stored", ", ".join(codes) or "none"))
+        except UdsError as e:
+            lines.append("%s codes: %s" % ("pending" if pending else "stored", e))
+    try:
+        code, values = obd.freeze_frame(engine)
+        out["freeze_frame"] = {"code": dtcfmt.sae_code(code) if code else None, "values": values}
+        if code:
+            lines.append("freeze frame (%s): %s" % (dtcfmt.sae_code(code), ", ".join(
+                "%s %s %s" % (n, fmt(v), obd.PIDS[n][1]) for n, v in values.items())))
+        else:
+            lines.append("freeze frame: none stored")
+    except UdsError as e:
+        lines.append("freeze frame: %s" % e)
+    try:
+        counts = obd.misfire_counts(engine)
+        out["misfires"] = {str(c): {"this_cycle": n, "avg_10_cycles": a} for c, (n, a) in counts.items()}
+        lines.append("misfire monitor (service 06)   this cycle   avg of last 10 cycles")
+        for cyl, (now, avg) in counts.items():
+            lines.append("  %-27s %10s   %10s" % ("all cylinders" if cyl == 0 else "cylinder %d" % cyl, now, avg))
+        worst = max((c for c in counts if c), key=lambda c: (counts[c][0] or 0) + (counts[c][1] or 0))
+        if (counts[worst][0] or 0) + (counts[worst][1] or 0) > 0:
+            lines.append("  most misfires: cylinder %d" % worst)
+    except UdsError as e:
+        lines.append("misfire monitor: %s" % e)
+    trims = {}
+    for n in ("stft", "ltft", "rpm", "load", "coolant"):
+        try:
+            trims[n] = obd.read_pid(engine, n)[0]
+        except UdsError:
+            pass
+    out["now"] = trims
+    if trims:
+        lines.append("now: " + ", ".join("%s %s %s" % (n, fmt(v), obd.PIDS[n][1]) for n, v in trims.items()))
+    out["lines"] = lines
+    return out
+
+
+def watch_misfire(engine, seconds, csv_path):
+    names = ["rpm", "load", "coolant", "stft", "ltft"]
+    out = open(csv_path, "w", newline="") if csv_path else None
+    writer = csv.writer(out) if out else None
+    head = ["time_s"] + names + ["mis_c%d" % c for c in range(1, 5)]
+    if writer:
+        writer.writerow(head)
+    print(" ".join("%8s" % h for h in head))
+    start = time.monotonic()
+    try:
+        while time.monotonic() - start < seconds:
+            t0 = time.monotonic()
+            row = []
+            for n in names:
+                try:
+                    row.append(obd.read_pid(engine, n)[0])
+                except UdsError:
+                    row.append(None)
+            try:
+                counts = obd.misfire_counts(engine)
+                row += [counts[c][0] for c in range(1, 5)]
+            except UdsError:
+                row += [None] * 4
+            cells = ["%.1f" % (t0 - start)] + ["" if v is None else fmt(round(v, 1) if isinstance(v, float) else v) for v in row]
+            print(" ".join("%8s" % c for c in cells))
+            if writer:
+                writer.writerow(cells)
+                out.flush()
+            time.sleep(max(0, 1.0 - (time.monotonic() - t0)))
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if out:
+            out.close()
+
+
+def cmd_measure(link, args):
+    """Simos 18 measuring values (engine module, service 0x22), e.g. knock retard per cylinder."""
+    if args.list or not args.value:
+        for k, (did, _, _, unit, _, name) in sorted(simos18.VALUES.items()):
+            print("%-16s %04X  %-6s %s" % (k, did, unit, name))
+        return
+    for n in args.value:
+        if n not in simos18.VALUES:
+            sys.exit("unknown value %r; see  vwdiag measure --list" % n)
+    enable_transmit(link, args)
+    engine = client_for(link, "engine")
+    for _ in range(args.count):
+        cells = []
+        for n in args.value:
+            try:
+                v, unit = simos18.read(engine, n)
+                cells.append("%s %s %s" % (n, fmt(round(v, 2)), unit))
+            except UdsError as e:
+                cells.append("%s: %s" % (n, e))
+        print(", ".join(cells))
+        if args.count > 1:
+            time.sleep(args.interval)
+
+
+def cmd_session(link, args):
+    from .session import Session
+    if not args.transmit:
+        sys.exit("the session transmits after the listen-only step; add --transmit to allow it")
+    out = args.out or os.path.join("sessions", time.strftime("%Y%m%d-%H%M%S"))
+    Session(link, args, out).run()
 
 
 def cmd_raw(link, args):
@@ -296,13 +465,34 @@ def build_parser():
     p.add_argument("--binary", action="store_true", help="use the binary packet protocol (what an app uses)")
     p.add_argument("--sim-ble", action="store_true", help="use the simulator through its Bluetooth stand-in")
     p.add_argument("--transmit", action="store_true", help="allow sending on the CAN bus")
+    p.add_argument("--sim-profile", metavar="SPEC", help="simulator scenario, e.g. gti or realistic,gateway=open "
+                   "(see hardware/pico2w/firmware/sim/sim_config.c)")
     sub = p.add_subparsers(dest="command", required=True)
 
     sub.add_parser("status", help="interface state and counters").set_defaults(fn=cmd_status)
     sub.add_parser("scan", help="find which control modules answer").set_defaults(fn=cmd_scan)
     s = sub.add_parser("info", help="read identification data"); s.add_argument("ecu", nargs="*"); s.set_defaults(fn=cmd_info)
     s = sub.add_parser("dtc", help="read fault codes"); s.add_argument("ecu", nargs="*")
-    s.add_argument("--mask", type=lambda v: int(v, 16), default=0xFF); s.set_defaults(fn=cmd_dtc)
+    s.add_argument("--mask", type=lambda v: int(v, 16), default=0xFF)
+    s.add_argument("--details", action="store_true", help="also read each code's freeze frame and counters")
+    s.set_defaults(fn=cmd_dtc)
+    s = sub.add_parser("session", help="the scripted first car session (read only), everything saved")
+    s.add_argument("--out", help="folder for the results (default sessions/<date-time>)")
+    s.add_argument("--listen", type=float, default=60, help="seconds of listen-only capture, split ignition off/on (0 skips)")
+    s.add_argument("--idle", type=float, default=120, help="seconds of idle capture (0 skips)")
+    s.add_argument("--drive", type=float, help="seconds of drive logging (default: until you type q; 0 skips)")
+    s.add_argument("--interval", type=float, default=1.0, help="seconds between samples in the idle capture")
+    s.add_argument("--sweep", action="store_true", help="also try every other diagnostic address 700-795")
+    s.add_argument("--yes", action="store_true", help="do not wait at the prompts")
+    s.set_defaults(fn=cmd_session)
+    s = sub.add_parser("measure", help="engine measuring values (Simos 18 list), e.g. knock_cyl_1 misfires")
+    s.add_argument("value", nargs="*"); s.add_argument("--list", action="store_true")
+    s.add_argument("--count", type=int, default=1); s.add_argument("--interval", type=float, default=0.5)
+    s.set_defaults(fn=cmd_measure)
+    s = sub.add_parser("misfire", help="misfire counts per cylinder, trims, freeze frame, emission codes")
+    s.add_argument("--watch", type=float, metavar="SECONDS", help="then follow counts and trims once a second")
+    s.add_argument("--csv", help="with --watch: also write the readings here")
+    s.set_defaults(fn=cmd_misfire)
     s = sub.add_parser("clear", help="erase fault codes (changes the car)"); s.add_argument("ecu", nargs="+")
     s.add_argument("--yes", action="store_true"); s.set_defaults(fn=cmd_clear)
     sub.add_parser("pids", help="list OBD live values the engine supports").set_defaults(fn=cmd_pids)

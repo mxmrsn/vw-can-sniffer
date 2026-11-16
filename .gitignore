@@ -30,3 +30,6 @@ hardware/pico2w/firmware/tests/test_ble_link
 hardware/pico2w/firmware/sim/vw_diag_sim
 __pycache__/
 *.pyc
+
+# vwdiag session results (car data: keep out of git unless chosen)
+sessions/

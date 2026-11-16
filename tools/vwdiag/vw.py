@@ -36,6 +36,7 @@ ID_DIDS = [
     (0xF19E, "ODX file"),
     (0xF1A2, "ODX version"),
     (0xF182, "Coding / dataset"),
+    (0xF1AD, "Engine code"),        # engine module only; unconfirmed on this car (expect DKFA)
 ]
 
 # The three identifiers opendbc reads from every module in a single request.

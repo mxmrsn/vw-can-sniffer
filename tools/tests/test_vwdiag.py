@@ -16,18 +16,29 @@ from contextlib import redirect_stdout
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "tools"))
 
-from vwdiag import cli, dbc, dtc, logfile, obd, vw   # noqa: E402
+from vwdiag import cli, dbc, dtc, logfile, obd, simos18, vw   # noqa: E402
 from vwdiag import binlink                      # noqa: E402
 from vwdiag.binlink import BinaryLink, BleSimLink   # noqa: E402
 from vwdiag.link import Link, LinkError         # noqa: E402
-from vwdiag.uds import InterfaceRefused, NegativeResponse, NoResponse, UdsClient  # noqa: E402
+from vwdiag.uds import InterfaceRefused, NegativeResponse, NoResponse, UdsClient, UdsError  # noqa: E402
 
 SIM_DIR = os.path.join(REPO, "hardware", "pico2w", "firmware", "sim")
 SIM = os.path.join(SIM_DIR, "vw_diag_sim")
 
 
+# Most suites exercise the interface itself (monitoring, logging, the link protocols), which needs bus
+# traffic to work on, so they run the realistic simulator with the gateway open. RealCar below runs
+# the default, where the gateway hides the broadcast traffic as it probably does on the car.
+TEST_SIM = "realistic,gateway=open"
+
+
 def setUpModule():
     subprocess.run(["make", "-C", SIM_DIR], check=True, capture_output=True)
+    os.environ["VWSIM"] = TEST_SIM
+
+
+def tearDownModule():
+    os.environ.pop("VWSIM", None)
 
 
 class Decoders(unittest.TestCase):
@@ -149,7 +160,8 @@ class AgainstSimulator(unittest.TestCase):
         info = dict(vw.identify(self.engine()))
         self.assertEqual(info["VIN"], "WVWZZZAUZJW123456")
         self.assertEqual(info["Part number"], "5G0906259L")
-        self.assertEqual(len(info), 9)
+        self.assertEqual(len(info), 10)
+        self.assertEqual(info["Engine code"], "DKFA")
         cluster = dict(vw.identify(UdsClient(self.link, 0x714, 0x77E)))
         self.assertEqual(sorted(cluster), ["Part number", "Software version", "System name"])
 
@@ -176,14 +188,15 @@ class AgainstSimulator(unittest.TestCase):
     def test_obd_live_data(self):
         self.link.set_silent(False)
         pids = obd.supported_pids(self.engine())
-        self.assertEqual(pids, [0x04, 0x05, 0x0B, 0x0C, 0x0D, 0x0F, 0x10, 0x11, 0x1F, 0x2F, 0x42, 0x46, 0x5C])
+        self.assertEqual(pids, [0x01, 0x04, 0x05, 0x06, 0x07, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x1C, 0x1F,
+                                0x21, 0x2F, 0x33, 0x34, 0x42, 0x44, 0x46, 0x5C])
         rpm, unit = obd.read_pid(self.engine(), "rpm")
         self.assertEqual(unit, "rpm")
-        self.assertTrue(780 <= rpm < 840)
+        self.assertTrue(680 <= rpm < 740, rpm)   # warm idle, with a little unevenness
         self.assertEqual(obd.read_pid(self.engine(), "coolant")[0], 90)
         self.assertEqual(obd.read_vin(self.engine()), "WVWZZZAUZJW123456")
         with self.assertRaises(NegativeResponse):
-            obd.read_pid(self.engine(), "baro")   # simulated engine does not implement it
+            obd.read_pid(self.engine(), "rail")   # simulated engine does not implement it
 
     def test_monitor_and_counters(self):
         self.link.set_monitor(True)
@@ -210,7 +223,7 @@ class AgainstSimulator(unittest.TestCase):
         self.assertEqual(seen["Motor_07"]["MO_Kuehlmittel_Temp"][0], 90.0)
         self.assertEqual(seen["Motor_Code_01"]["MO_Anzahl_Zyl"][0], 4)
         self.assertEqual(seen["Motor_Code_01"]["MO_Hubraum"][0], 2.0)
-        self.assertEqual(seen["Motor_Code_01"]["MO_Leistung"][0], 169)
+        self.assertEqual(seen["Motor_Code_01"]["MO_Leistung"][0], 170)
         d = seen["Diagnose_01"]
         self.assertEqual(d["KBI_Kilometerstand"], (48213, "KiloMeter"))
         self.assertEqual([d[k][0] for k in ("UH_Jahr", "UH_Monat", "UH_Tag", "UH_Stunde", "UH_Minute", "UH_Sekunde")],
@@ -535,22 +548,235 @@ class CommandLine(unittest.TestCase):
             full = self.run_cli("decode", path)
         self.assertIn("6B2 Diagnose_01:", summary)
         self.assertIn("KBI_Kilometerstand=48213 KiloMeter", summary)
-        self.assertIn("MO_Leistung=169 KiloWatt", summary)
+        self.assertIn("MO_Leistung=170 KiloWatt", summary)
         self.assertGreater(full.count("Klemmen_Status_01"), 5)
 
     def test_live_csv_log(self):
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "log.csv")
-            self.run_cli("--transmit", "live", "rpm", "coolant", "baro", "--count", "3", "--interval", "0.05", "--csv", path)
+            self.run_cli("--transmit", "live", "rpm", "coolant", "rail", "--count", "3", "--interval", "0.05", "--csv", path)
             with open(path) as f:
                 rows = f.read().strip().split("\n")
-        self.assertEqual(rows[0], "time_s,rpm_rpm,coolant_C,baro_kPa")
+        self.assertEqual(rows[0], "time_s,rpm_rpm,coolant_C,rail_kPa")
         self.assertEqual(len(rows), 4)
         self.assertTrue(rows[1].endswith(",90,"))   # unsupported value logs as an empty cell
 
 
 class CommandLineBinary(CommandLine):
     MODE = ["--sim", "--binary"]
+
+
+def sim_with(spec, link_class=Link):
+    """Start the simulator with a particular scenario (VWSIM)."""
+    saved = os.environ.get("VWSIM")
+    os.environ["VWSIM"] = spec
+    try:
+        return link_class.simulator(SIM)
+    finally:
+        os.environ["VWSIM"] = saved if saved is not None else ""
+
+
+class RealCar(unittest.TestCase):
+    """The simulator's pessimistic side: the things the car will do that an ideal bus would not."""
+
+    def open(self, spec):
+        link = sim_with(spec)
+        self.addCleanup(link.close)
+        return link
+
+    def engine(self, link, **kw):
+        return UdsClient(link, 0x7E0, 0x7E8, **kw)
+
+    def test_gateway_hides_broadcast_by_default(self):
+        link = self.open("realistic")
+        link.set_monitor(True)
+        frames = link.read_frames(0.5)
+        link.set_monitor(False)
+        self.assertEqual(frames, [])
+        link.set_silent(False)
+        self.assertEqual(self.engine(link).read_did(0xF1AD), b"DKFA")   # diagnostics still get through
+
+    def test_answers_take_time(self):
+        link = self.open("realistic,latency=40-60")
+        link.set_silent(False)
+        start = time.monotonic()
+        for _ in range(5):
+            self.engine(link).tester_present()
+        self.assertGreaterEqual((time.monotonic() - start) / 5, 0.035)
+
+    def test_extended_session_expires(self):
+        link = self.open("realistic,s3=600")
+        link.set_silent(False)
+        engine = self.engine(link)
+        engine.session(0x03)
+        self.assertEqual(engine.read_did(0xF186), b"\x03")
+        time.sleep(0.3)
+        engine.tester_present()                       # keeps it alive
+        time.sleep(0.4)
+        self.assertEqual(engine.read_did(0xF186), b"\x03")
+        time.sleep(0.9)
+        self.assertEqual(engine.read_did(0xF186), b"\x01")   # dropped back to the default session
+
+    def test_functional_obd_request_gets_two_answers(self):
+        # Engine and transmission both answer 7DF; listening for one of them ignores the other.
+        link = self.open("realistic")
+        link.set_silent(False)
+        engine = UdsClient(link, 0x7DF, 0x7E8).request([0x01, 0x00])
+        trans = UdsClient(link, 0x7DF, 0x7E9).request([0x01, 0x00])
+        self.assertEqual(engine[:2], bytes([0x41, 0x00]))
+        self.assertEqual(trans, bytes([0x41, 0x00, 0x80, 0x08, 0x00, 0x00]))   # PIDs 01 and 0D only
+        with self.assertRaises(NoResponse):          # functional requests get no refusals
+            UdsClient(link, 0x7DF, 0x7E9, timeout_ms=200).request([0x09, 0x02])
+
+    def test_modules_pace_long_requests(self):
+        # A request spanning several frames: the ABS module asks for blocks of 2, 5 ms apart.
+        link = self.open("realistic,fc=2/5")
+        link.set_silent(False)
+        abs_ = UdsClient(link, 0x713, 0x77D)
+        out = abs_.read_dids([0xF187, 0xF189, 0xF197, 0xF190, 0xF18C, 0xF19E])
+        self.assertEqual(out[0xF187], b"5Q0614517BK")
+
+    def test_ignition_decides_who_answers(self):
+        link = self.open("realistic,ignition=off:0/on:1500/crank:2500/run:3200")
+        link.set_silent(False)
+        gw = UdsClient(link, 0x710, 0x77A, timeout_ms=300)
+        gw.tester_present()                                   # the gateway wakes for diagnostics
+        with self.assertRaises(NoResponse):
+            self.engine(link, timeout_ms=300).tester_present()   # everything else is asleep
+        time.sleep(1.6)
+        self.assertEqual(obd.read_pid(self.engine(link), "rpm")[0], 0)   # ignition on, engine off
+        self.assertAlmostEqual(obd.read_pid(self.engine(link), "voltage")[0], 12.3, delta=0.2)
+        time.sleep(1.0)
+        with self.assertRaises(NegativeResponse) as cm:       # cranking: busy, ask again
+            obd.read_pid(self.engine(link), "rpm")
+        self.assertEqual(cm.exception.nrc, 0x21)
+        time.sleep(1.2)
+        self.assertGreater(obd.read_pid(self.engine(link), "rpm")[0], 600)
+
+    def test_bus_faults_are_counted_and_survived(self):
+        from vwdiag.session import retry
+        link = self.open("realistic,gateway=open,drop=3,errors=5,delay=5:20")
+        link.set_silent(False)
+        ok = 0
+        for _ in range(20):
+            try:
+                retry(lambda: self.engine(link, timeout_ms=200).read_did(0xF190), tries=4)
+                ok += 1
+            except UdsError:
+                pass
+        status = link.status()
+        self.assertGreater(status["errors"], 0)
+        self.assertGreater(status["dropped"], 0)
+        self.assertGreaterEqual(ok, 16)
+
+    def test_bus_off_window(self):
+        link = self.open("realistic,busoff=0:1200")
+        link.set_silent(False)
+        with self.assertRaises(UdsError):
+            self.engine(link, timeout_ms=200).tester_present()
+        time.sleep(1.3)
+        self.engine(link).tester_present()
+        self.assertGreater(link.status()["errors"], 0)
+
+    def test_live_values_move_together(self):
+        link = self.open("realistic,drive=1")
+        link.set_silent(False)
+        e = self.engine(link)
+        rpm, maf, map_ = (obd.read_pid(e, n)[0] for n in ("rpm", "maf", "map"))
+        self.assertTrue(650 <= rpm <= 760, rpm)
+        self.assertTrue(2.0 <= maf <= 6.0, maf)        # EA888 Gen 3 at warm idle: a few g/s
+        self.assertTrue(25 <= map_ <= 40, map_)
+        time.sleep(17)                                   # the trace pulls away after 15 s
+        rpm2, speed = obd.read_pid(e, "rpm")[0], obd.read_pid(e, "speed")[0]
+        self.assertGreater(speed, 5)
+        self.assertGreater(rpm2, rpm)
+
+
+class Misfire(unittest.TestCase):
+    """The 'gti' scenario: cylinder 3 low on compression, a stored P0303 from earlier drives."""
+
+    def setUp(self):
+        self.link = sim_with("gti")
+        self.addCleanup(self.link.close)
+        self.link.set_silent(False)
+        self.engine = UdsClient(self.link, 0x7E0, 0x7E8)
+
+    def test_emission_view(self):
+        lamp, count = obd.monitor_status(self.engine)
+        self.assertTrue(lamp)
+        self.assertEqual(count, 3)
+        self.assertIn("P0303", [dtc.sae_code(c) for c in obd.emission_dtcs(self.engine)])
+        code, values = obd.freeze_frame(self.engine)
+        self.assertEqual(dtc.sae_code(code), "P0303")
+        self.assertEqual(values["rpm"], 812)
+        self.assertEqual(values["coolant"], 41)
+        self.assertAlmostEqual(values["stft"], 7.8, delta=0.1)
+
+    def test_misfire_monitor_points_at_cylinder_3(self):
+        counts = obd.misfire_counts(self.engine)
+        self.assertEqual(counts[3][1], 47)                  # ten-cycle average from earlier drives
+        self.assertEqual([counts[c][1] for c in (1, 2, 4)], [0, 0, 0])
+        time.sleep(4)                                        # cold idle: the weak cylinder misfires
+        counts = obd.misfire_counts(self.engine)
+        self.assertGreater(counts[3][0], 0)
+        self.assertEqual([counts[c][0] for c in (1, 2, 4)], [0, 0, 0])
+        self.assertEqual(counts[0][0], counts[3][0])
+
+    def test_uds_snapshot_and_counters(self):
+        p0303 = bytes([0x03, 0x03, 0x00])
+        snaps = self.engine.dtc_snapshots(p0303, sizes=obd.SNAPSHOT_SIZES)
+        values = obd.decode_snapshot(snaps[1])
+        self.assertEqual(values["rpm"], 812)
+        self.assertEqual(self.engine.dtc_extended(p0303), bytes([0x01, 6, 0x02, 0]))
+        self.assertEqual(self.engine.dtc_count(0x08), 3)
+        with self.assertRaises(NegativeResponse):
+            self.engine.dtc_snapshots(bytes([0x01, 0x23, 0x00]))
+
+    def test_simos18_values(self):
+        self.assertIn("knock_cyl_4", simos18.VALUES)
+        self.assertEqual(simos18.read(self.engine, "knock_cyl_3")[0], 0)
+        rpm = simos18.read(self.engine, "engine_speed")[0]
+        self.assertGreater(rpm, 600)
+        self.assertLess(simos18.read(self.engine, "ign_avg")[0], 0)   # catalyst heating after the cold start
+
+    def test_clearing_resets_the_monitor(self):
+        time.sleep(2)
+        self.engine.request([0x04])
+        counts = obd.misfire_counts(self.engine)
+        self.assertEqual(counts[3], (0, 0))
+        self.assertEqual(obd.emission_dtcs(self.engine), [])
+
+    def test_formula_parser_refuses_code(self):
+        with self.assertRaises(ValueError):
+            simos18._compile("__import__('os').system('true')")
+        self.assertEqual(simos18._compile("(x - 2731.4) / 10")(3631.4), 90)
+
+
+class Session(unittest.TestCase):
+    def test_session_runs_and_saves_everything(self):
+        card = tempfile.mkdtemp()
+        out = tempfile.mkdtemp()
+        os.environ["VWDIAG_SD"] = card
+        self.addCleanup(os.environ.pop, "VWDIAG_SD", None)
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            cli.main(["--sim", "--sim-profile", "gti", "--transmit", "session", "--yes",
+                      "--listen", "1", "--idle", "3", "--drive", "2", "--out", out])
+        import json
+        with open(os.path.join(out, "session.json")) as f:
+            data = json.load(f)
+        self.assertEqual(data["steps"]["listen"]["off"]["frames"], 0)
+        self.assertEqual(data["steps"]["scan"]["modules"]["radar"]["state"], "no answer")
+        self.assertEqual(data["steps"]["scan"]["identification"]["engine"]["Engine code"], "DKFA")
+        codes = [c["code"] for c in data["steps"]["faults"]["engine"]]
+        self.assertIn("P0303", codes)
+        self.assertEqual(data["steps"]["faults"]["engine_obd"]["freeze_frame"]["code"], "P0303")
+        self.assertGreaterEqual(data["steps"]["idle"]["rows"], 2)
+        self.assertGreater(data["steps"]["drive"]["frames"], 0)
+        for name in ("report.txt", "idle.csv", "listen_off.log", "listen_on.log"):
+            self.assertTrue(os.path.exists(os.path.join(out, name)), name)
+        self.assertIn("gateway keeps it in", buf.getvalue())
+        self.assertTrue(os.listdir(card))
 
 
 if __name__ == "__main__":
