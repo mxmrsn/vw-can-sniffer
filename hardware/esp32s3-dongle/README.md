@@ -1,4 +1,4 @@
-# OBD dongle (v0.4.0, schematics drawn)
+# OBD dongle (v0.4.0, laid out on a temporary outline)
 
 | Path | What it is |
 |---|---|
@@ -7,4 +7,5 @@
 
 The low-profile version of the [XIAO board](../xiao-esp32s3/README.md): same firmware core, protocol and tools,
 plugged straight into the OBD port, and switching itself off when the car is parked. **The schematics are drawn**
-and ERC clean; the layout follows once the enclosure and the J1962 plug are chosen.
+and ERC clean, and both boards are routed (0 DRC errors) on a temporary outline, with STEP files for the
+enclosure. The real outline follows the enclosure.

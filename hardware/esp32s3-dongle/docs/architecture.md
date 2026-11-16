@@ -11,7 +11,7 @@ once the first car session has answered the questions it depends on (see "Decisi
 ## What changes from v0.3.0, and why
 | | v0.3.0 bench board | v0.4.0 dongle | Why |
 |---|---|---|---|
-| OBD connection | Pigtail to a 4-pin header | J1962 plug on the bottom board | Low profile, nothing to snag |
+| OBD connection | Pigtail to a 4-pin header | J1962 plug held by the enclosure, four short wires to pads on the bottom board | Low profile, nothing to snag; the plug's position is the enclosure's job, not the board's |
 | Processor | XIAO ESP32-S3 module on sockets | ESP32-S3-MINI-1 module soldered to the top board | The XIAO's 11 pins are all used; the MINI-1 has about 30 free, is smaller (15.4 x 20.5 mm), and has its antenna on the module |
 | CAN transceiver | TJA1051T/3 (silent pin) | **TJA1043T** (sleep, wake, listen-only, INH) | A dongle stays plugged in; it has to switch itself off and wake again |
 | Off switch | Slide switch on the buck enable | None: the transceiver's INH output switches the buck | No mechanical part to reach behind the dash |
@@ -30,7 +30,7 @@ once the first car session has answered the questions it depends on (see "Decisi
    |  AP2112K-3.3 . IMU (optional) . GPS / sync connector         |
    +----------------------- board-to-board ----------------------+
    | BOTTOM BOARD (power and CAN)                                 |
-   |  J1962 male plug . fuse . TVS . reverse-blocking diode       |
+   |  wire pads from the J1962 plug . fuse . TVS . diode          |
    |  TJA1043T transceiver . AP63301 buck 12 V -> 5 V             |
    |  engine-running detector . OBD voltage divider               |
    +--------------------------------------------------------------+
@@ -154,8 +154,8 @@ About 27 pins, inside what the module has free.
 ## Mechanical interface: what I need from you, what you get from me
 **From you, before layout:**
 1. The enclosure envelope: maximum length, width and height behind the plug, and where the boards sit.
-2. The J1962 plug: which part (see "Decisions waiting on the car"), so the bottom board's outline and holes
-   follow it.
+2. The J1962 plug or shell you settle on (see "The J1962 plug"), and where its four wires reach the bottom
+   board.
 3. How the stack is held: screws through both boards, a clip, or the enclosure halves clamping them.
 4. Where the user-facing parts go: LEDs (right-angle at the edge, or top-emitting under light pipes), USB-C,
    card slot (reachable, or behind a cover), button.
@@ -173,10 +173,24 @@ connector and LED positions, heights), and board outlines that follow a DXF or S
 - **Physical fit** of a J1962 plug in the car's socket, with samples in hand.
 
 ## The J1962 plug
-PCB-mount male J1962 connectors exist (right-angle and straight, solder pins), sold mostly by Asian connector
-houses, without published drawings. The plan: buy samples of two or three types, measure them, and design the
-bottom board around the best. Fallbacks: a short molded pigtail inside the enclosure, or a printed housing around
-stamped pins. This is the item most likely to need your mechanical judgement.
+**Decision: the enclosure holds the plug; four short wires (pins 4/5 ground, 6 CAN-H, 14 CAN-L, 16 battery) run
+to solder pads on the bottom board.** Not a PCB-mount plug, and not an external pigtail.
+
+Why:
+- PCB-mount male J1962 parts exist, but only from connector houses that build to order and publish no drawings
+  (for example Jiatel's custom OBD2 connectors, jiatelcn.com). A board outline designed around an unmeasured
+  part is a guess, and the plug's mating forces would go through the solder joints.
+- Commodity ELM327-style dongle shells come as a J1962 plug moulded into one half of a small housing, with
+  stamped pins that take a wire or a board edge (for example Elecbee's J1962M "mini shell", elecbee.com). That
+  is the right reference for your enclosure: the plug and its latch are the enclosure, the boards float behind it.
+- Wires decouple the board outline from the plug. The boards can be laid out now, on a temporary outline, and
+  the plug can move anywhere in the enclosure without a respin.
+- An external pigtail (SparkFun's OBD-II to DB9 cable, sparkfun.com product 9911, as on v0.3.0) stays the bench
+  option; it is not low-profile.
+
+Next: buy two or three shells or loose plugs (an ELM327 shell, a loose J1962M with pins), measure them, and
+model the enclosure around the one that latches best in the car. If one of them takes a board edge cleanly, the
+pads can become an edge connector in a later revision.
 
 ## Firmware impact
 The application core, protocol, logging and tools do not change. New platform code:
@@ -216,12 +230,32 @@ Things the schematics settle that the architecture left open:
 - **Processor pins**: CAN on 4 to 7 and 15, the card on the SPI pins 10 to 13, LEDs on 48, button on 2, OBD
   sense on 1 (ADC), IMU on 8, 9 and 16, GPS and sync on 17, 18, 34 and 35, expansion on 14, 21, 47 and 33.
 
+## Layout (temporary outline)
+Both boards are placed and routed on a stand-in outline, 56 x 44 mm with 3 mm corners, until the enclosure
+gives the real one. Two layers, 0.15 mm minimum track and clearance, ground poured on both sides.
+
+| Board | DRC | Notes |
+|---|---|---|
+| Bottom | 0 errors, 0 unconnected | Wire pads for the plug at the bottom edge; no copper under the top board's antenna |
+| Top | 0 errors, 0 unconnected | Antenna along the top edge, USB-C out of the left edge, card in from the right, LEDs along the bottom edge |
+
+- Two M2 holes at the same places on both boards; the 2 x 7 1.27 mm stacking pair sits at the same XY (header on
+  the bottom board's top side, socket on the top board's underside). A script checks that every mated pin carries
+  the same net on both boards.
+- STEP files with every part: [`../pcb/step/`](../pcb/step/). The module, fuse and LEDs use placeholder boxes
+  (true outlines, nominal heights) where KiCad has no model.
+- Rebuild everything, schematics to STEP: `hardware/esp32s3-dongle/pcb/scripts/route.sh` (needs KiCad 10,
+  Freerouting and a recent Java; see the script's header).
+- Not yet done, deliberately: silkscreen tidy-up, fab outputs, and any placement for the enclosure's real
+  constraints (LED and USB-C positions, button reach, card access).
+
 ## Effort
 | Step | Estimate |
 |---|---|
 | Confirm the transceiver modes, the INH-to-buck connection and the sleep currents from datasheets | Part of the schematic session |
 | Schematics for both boards | **Done** |
-| Layout of both boards, once outlines and the plug are known (the v0.3.0 scripts and autorouter carry over) | 1 to 2 sessions |
+| Layout of both boards on a temporary outline | **Done** |
+| Re-layout on the enclosure's real outline | 1 session |
 | Firmware: transceiver modes, sleep manager, new pin map | 1 session |
 | Mechanical iterations with your enclosure | As many as it takes |
 
@@ -235,4 +269,4 @@ Things the schematics settle that the architecture left open:
 | TPS3700 (wake detector) | Chosen; pinout, 18 V supply limit and 6 uA from TI's datasheet. Symbol drawn for this project. Stock to check |
 | IMU | Candidates in KiCad: LSM6DSM, LSM6DSL. To choose |
 | 2 x 7 1.27 mm header and socket | To choose with the enclosure |
-| J1962 PCB plug | Samples needed |
+| J1962 plug or shell | Samples to buy and measure (see "The J1962 plug") |

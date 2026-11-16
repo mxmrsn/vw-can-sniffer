@@ -140,6 +140,11 @@ b.part('Connector_Generic:Conn_02x05_Odd_Even', 'J4', 'EXPANSION', 'Connector_Pi
         '8': 'EXP_INT1', '9': 'EXP_INT2', '10': 'GND'},
        notes='Not fitted unless a third board is used', dnp=True)
 
+# ---------------------------------------------------------------- mechanical
+b = s.block('MECHANICAL', 'M2 holes at the same positions on both boards; the stack is screwed through them.')
+for ref in ('H1', 'H2'):
+    b.part('Mechanical:MountingHole', ref, 'M2', 'MountingHole:MountingHole_2.2mm_M2', {})
+
 # ---------------------------------------------------------------- to the bottom board
 b = s.block('TO THE BOTTOM BOARD', 'Socket; same pin numbering as the bottom board header.')
 b.part('Connector_Generic:Conn_02x07_Odd_Even', 'J5', 'TO BOTTOM', 'Connector_PinSocket_1.27mm:PinSocket_2x07_P1.27mm_Vertical_SMD',

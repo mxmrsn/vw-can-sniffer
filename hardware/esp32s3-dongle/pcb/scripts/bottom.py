@@ -16,8 +16,8 @@ PCB = os.path.join(HERE, '..')
 R0603, C0603, C0805 = 'Resistor_SMD:R_0603_1608Metric', 'Capacitor_SMD:C_0603_1608Metric', 'Capacitor_SMD:C_0805_2012Metric'
 
 s = Sheet('VW OBD dongle - bottom board', '0.4.0',
-          ['J1962 plug, protection, TJA1043T CAN with sleep/wake, INH-switched 5 V buck, wake detector',
-           'Not built. Parts marked "to verify" need a stock check; the J1962 footprint waits on samples'],
+          ['OBD wires from the J1962 plug, protection, TJA1043T CAN with sleep/wake, INH-switched 5 V buck, wake detector',
+           'Not built. Parts marked to verify need a stock check. The plug sits in the enclosure, not on this board'],
           seed='dongle-bottom')
 s.add_library('dongle', os.path.join(PCB, 'lib', 'dongle.kicad_sym'))
 
@@ -31,13 +31,12 @@ def C(b, ref, val, a, c, mpn, dk, mfr, notes='', fp=C0603):
 
 
 # ---------------------------------------------------------------- OBD plug and protection
-b = s.block('OBD PLUG AND PROTECTION',
-            'Pin 16 is always live. Fuse, then a clamp, then a diode against reverse polarity.\n'
-            'J1962 footprint left open until plug samples are measured.')
-plug = {str(n): None for n in range(1, 17)}
-plug.update({'4': 'GND', '5': 'GND', '6': 'CAN_H', '14': 'CAN_L', '16': 'VOBD'})
-b.part('Connector_Generic:Conn_02x08_Top_Bottom', 'J1', 'J1962 male', '', plug,
-       notes='OBD-II plug, PCB mount. Part and footprint chosen after measuring samples')
+b = s.block('OBD WIRES AND PROTECTION',
+            'The J1962 plug is held by the enclosure; four wires from its pins land on J1.\n'
+            'Pin 16 is always live: fuse, then a clamp, then a diode against reverse polarity.')
+b.part('Connector_Generic:Conn_01x04', 'J1', 'OBD WIRES', 'Connector_Wire:SolderWire-0.25sqmm_1x04_P4.2mm_D0.65mm_OD1.7mm_Relief2x',
+       {'1': 'VOBD', '2': 'CAN_H', '3': 'CAN_L', '4': 'GND'},
+       notes='Solder pads with strain-relief holes, 24 AWG. 1: OBD pin 16, 2: pin 6, 3: pin 14, 4: pins 4 and 5 joined at the plug')
 b.part('Device:Polyfuse', 'F1', 'PTC 0.75A 33V', 'Fuse:Fuse_1812_4532Metric', {'1': 'VOBD', '2': 'VOBD_F'},
        mpn='1812L075/33DR', manufacturer='Littelfuse', digikey='F3355CT-ND')
 b.part('Device:D_Zener', 'D1', 'SMBJ18A', 'Diode_SMD:D_SMB', {'1': 'VOBD_F', '2': 'GND'},
@@ -115,6 +114,11 @@ b = s.block('OBD VOLTAGE SENSE',
 R(b, 'R11', '1M', 'VBAT', 'OBD_SENSE', 'CRCW06031M00FKEA', '', notes='To verify: stock')
 R(b, 'R12', '220k', 'OBD_SENSE', 'GND', 'CRCW0603220KFKEA', '', notes='To verify: stock')
 C(b, 'C11', '100n', 'OBD_SENSE', 'GND', 'CC0603KRX7R9BB104', '311-1344-1-ND', 'YAGEO')
+
+# ---------------------------------------------------------------- mechanical
+b = s.block('MECHANICAL', 'M2 holes at the same positions on both boards; the stack is screwed through them.')
+for ref in ('H1', 'H2'):
+    b.part('Mechanical:MountingHole', ref, 'M2', 'MountingHole:MountingHole_2.2mm_M2', {})
 
 # ---------------------------------------------------------------- to the top board
 b = s.block('TO THE TOP BOARD', 'Pin header; the top board carries the matching socket.')
