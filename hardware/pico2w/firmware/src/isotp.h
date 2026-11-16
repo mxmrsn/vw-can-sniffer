@@ -42,6 +42,8 @@ struct isotp_link {
     bool pad;          // pad every frame to 8 bytes
     uint8_t pad_byte;
     uint32_t timeout_ms; // N_Bs / N_Cr / N_As
+    uint8_t rx_bs;       // block size we ask a sender for (0 = no limit)
+    uint8_t rx_stmin;    // separation time we ask a sender for, raw ISO-TP byte
     isotp_send_fn send;
     isotp_now_fn now;
     void *ctx;
@@ -57,7 +59,7 @@ struct isotp_link {
     uint8_t rx_state;
     uint8_t rx_buf[ISOTP_MAX_PAYLOAD];
     uint16_t rx_len, rx_off;
-    uint8_t rx_sn;
+    uint8_t rx_sn, rx_bs_count;
     uint32_t rx_deadline;
 
     int error; // sticky until isotp_take_error()

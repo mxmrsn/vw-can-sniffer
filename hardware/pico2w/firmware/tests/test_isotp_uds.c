@@ -270,6 +270,23 @@ static void test_multi_frame_response(void)
     CHECK(ecu_log[1].data[0] == 0x21 && ecu_log[2].data[0] == 0x22);
 }
 
+static void test_receiver_paces_sender(void)
+{
+    setup("receiver asks for block size 1 and STmin 4 ms");
+    ecu_handler = h_basic;
+    tester.rx_bs = 1;
+    tester.rx_stmin = 4;
+    uint8_t out[32];
+    size_t n = 0;
+    CHECK(uds_read_did(&client, 0xF190, out, sizeof(out), &n) == UDS_OK);
+    CHECK(n == 17 && memcmp(out, VIN, 17) == 0);
+    // request, a flow control after the first frame, another after the one-frame block
+    static const uint8_t fc[3] = { 0x30, 0x01, 0x04 };
+    CHECK(tester_log_n == 3);
+    CHECK(memcmp(tester_log[1].data, fc, 3) == 0 && memcmp(tester_log[2].data, fc, 3) == 0);
+    CHECK(ecu_log_n == 3 && ecu_log[2].data[0] == 0x22);
+}
+
 static void test_multi_frame_request(void)
 {
     setup("multi-frame request with block size 2 and STmin 5 ms");
@@ -437,6 +454,7 @@ int main(void)
     test_single_frame();
     test_multi_frame_response();
     test_multi_frame_request();
+    test_receiver_paces_sender();
     test_negative_response();
     test_response_pending();
     test_timeout();

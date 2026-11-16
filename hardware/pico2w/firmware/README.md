@@ -22,7 +22,7 @@ Paths in this file are relative to this folder (`hardware/pico2w/firmware/`) unl
 | `tests/` | Host tests for the transport, diagnostic, packet framing and logging layers |
 
 ## Status
-- Transport and diagnostic layers: 54 host checks against a simulated ECU (`make -C tests`), sanitizers on.
+- Transport and diagnostic layers: 59 host checks against a simulated ECU (`make -C tests`), sanitizers on.
 - Packet framing: 73 host checks, logger: 21, Bluetooth buffers: 886, in the same run.
 - Console, commands and both tool protocols (text and binary): tested end to end through the simulator by the
   Python suite in `tools/tests` (repo root), 105 tests. Everything runs over the text console, the binary
@@ -39,9 +39,29 @@ make -C sim
 ./sim/vw_diag_sim        # same console as the board, on stdin/stdout
 ```
 Seven simulated control modules (engine, transmission, ABS, cluster, airbag, gateway, steering; radar and camera
-are deliberately missing) answer identification, fault-code and OBD live-data requests, including multi-frame and
-"response pending" replies, and the bus carries a few broadcast frames laid out as in the public VW MQB database.
-Part numbers and software versions are real Golf MK7 values from opendbc; the rest is made up for testing.
+are deliberately missing) answer identification, fault-code, OBD and engine measuring-value requests. Part numbers
+and software versions are real Golf MK7 values from opendbc; the engine code is this car's (DKFA).
+
+**It is pessimistic by default**, in the ways a real car is: modules take 5 to 50 ms to answer and pace long
+requests (block size 8, 5 ms apart); an extended session drops back after 5 s without a request; the engine and
+the transmission both answer a functional (7DF) OBD request; the gateway keeps broadcast traffic off the OBD port;
+with the ignition off only the gateway answers, and while cranking the engine says "busy, ask again".
+
+Live values come from a small engine model (`sim/sim_engine.c`): rpm, load, airflow, manifold pressure, timing,
+fuel trims, lambda and temperatures move together along a throttle trace, a cold start idles fast with retarded
+spark, and a cylinder with low compression misfires most at idle and when cold, pushing the trims rich and setting
+P030x with a freeze frame. The misfire shows up in OBD service 06 (per-cylinder counts), service 02 (freeze frame),
+services 03/07 (codes), UDS 19 01/02/04/06 (count, codes, snapshot, counters) and the Simos 18 measuring values.
+
+The scenario comes from the `VWSIM` environment variable (all settings in `sim/sim_config.c`):
+
+| `VWSIM=` | Scenario |
+|---|---|
+| (unset), `realistic` | As above, engine warm and idling |
+| `ideal` | Instant answers, broadcast visible, sessions never expire: the old behaviour |
+| `gti` | Realistic, plus this car: cylinder 3 low on compression, P0303 stored from earlier drives, cold start |
+| `lossy` | Realistic, plus frames the interface misses, error frames and arbitration delays |
+| e.g. `realistic,gateway=open,drive=1,ignition=off:0/on:2000/crank:5000/run:5600,busoff=8000:500` | Any mix of settings |
 
 ## Build
 Needs the Pico SDK (2.1 or newer, with the `lib/tinyusb` submodule) and the Arm GNU toolchain.

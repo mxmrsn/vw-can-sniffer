@@ -75,14 +75,36 @@ The file is written for the whole MQB platform, so some messages belong to varia
 (hybrid, diesel, driver assistance).
 
 ## Live data through the OBD port
-The 15 live values in `tools/vwdiag/obd.py` are standard OBD-II (SAE J1979) requests with their standard
+The 20 live values in `tools/vwdiag/obd.py` are standard OBD-II (SAE J1979) requests with their standard
 formulas. Every car sold in the US since 2008 must answer these on CAN, so they are the safest bet for first
 contact, independent of anything VW-specific.
 
+## Engine measuring values (Simos 18)
+`tools/vwdiag/data/simos18_parameters_22.csv` is the service-0x22 list from Brian Ledbetter's VW_Flash project
+(github.com/bri3d/VW_Flash, BSD 2-clause): 53 values with identifier, length and formula, as its logger reads them
+from Simos 18 engine modules (EA888 Gen 3, as in this car). It covers knock retard per cylinder (200A to 200D), a
+total misfire count (2904), lambda, manifold pressure, cam positions, rail pressures, torque and more. Per-cylinder
+misfire counts are not in it; those come from OBD service 06. Confidence: used in practice on Simos 18 cars by
+that project, not yet seen on this car.
+
+## Real data for calibrating the simulator (found 2026-11-15, not yet used)
+- **comma.ai commaCarSegments** (huggingface.co/datasets/commaai/commaCarSegments, MIT): raw CAN from openpilot
+  users; platform `VOLKSWAGEN_GOLF_MK7` has about 1,760 one-minute segments (about 1.1 MB each, `rlog.zst`).
+  Golf, GTI, R and TDI are mixed: keep segments whose engine part number starts 5G0906259 or 8V0906264. Captured
+  at the gateway harness, not the OBD port, so useful for broadcast timing and warm-up curves (Motor messages),
+  not for diagnostics.
+- **ECUxPlot test data** (github.com/nyetwurk/ecuxplot, GPL-3.0): two tiny real MK7 logs (a Cobb log of a cold
+  idle with spark retard; a SimosTools log with per-cylinder misfire and knock columns). Format references only.
+- **vagcode.info**: real VCDS auto-scans with freeze frames; a template for scan text, no GTI misfire found yet.
+- **Ross-Tech wiki, Misfire Diagnosis**: VW's own misfire measuring values (per cylinder, last cycle, total).
+- Reference values used for the engine model's warm idle (about 700 rpm, 2.5 to 4 g/s calculated airflow (this
+  engine meters air from manifold pressure; it has no airflow sensor), 30 to 38 kPa, trims within about 5 %) are
+  forum-level estimates; the car's own idle log replaces them.
+
 ## What is still invented in the simulator
-The VIN, the fault codes, all live values, and every identification string not listed above.
+The VIN, the fault codes, the engine model's numbers (shaped by the estimates above), and every identification
+string not listed above.
 
 ## Not found
-I did not find a public, trustworthy list of VW-specific measuring-value identifiers (the equivalent of VCDS
-measuring blocks) for this engine, or VW's mapping from fault codes to its own five-digit numbers. Those would
-have to come from logging a commercial tool on the car, or from the car itself by trial.
+A public datalog of a stock DKFA GTI at idle and driving, a GTI mode 06 dump, and VW's mapping from fault codes to
+its own five-digit numbers. The first car session will produce the first two.

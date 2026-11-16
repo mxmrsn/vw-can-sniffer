@@ -35,8 +35,8 @@ static int send_frame(struct isotp_link *l, const uint8_t *bytes, uint8_t n)
 
 static void send_flow_control(struct isotp_link *l, uint8_t status)
 {
-    // Block size 0 and STmin 0: send everything, as fast as you like.
-    uint8_t fc[3] = { (uint8_t)((PCI_FC << 4) | status), 0, 0 };
+    // By default block size 0 and STmin 0: send everything, as fast as you like.
+    uint8_t fc[3] = { (uint8_t)((PCI_FC << 4) | status), l->rx_bs, l->rx_stmin };
     (void)send_frame(l, fc, sizeof(fc));
 }
 
@@ -178,6 +178,7 @@ void isotp_on_frame(struct isotp_link *l, const struct can_frame *f)
         l->rx_len = len;
         l->rx_off = 6;
         l->rx_sn = 1;
+        l->rx_bs_count = 0;
         l->rx_state = RX_IN_PROGRESS;
         l->rx_deadline = now + l->timeout_ms;
         send_flow_control(l, FC_CTS);
@@ -206,6 +207,10 @@ void isotp_on_frame(struct isotp_link *l, const struct can_frame *f)
             l->rx_state = RX_IDLE;
         } else {
             l->rx_deadline = now + l->timeout_ms;
+            if (l->rx_bs && ++l->rx_bs_count >= l->rx_bs) {
+                l->rx_bs_count = 0;
+                send_flow_control(l, FC_CTS);   // the block is done: allow the next one
+            }
         }
         break;
     }
