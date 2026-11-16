@@ -1,12 +1,12 @@
 %TF.GenerationSoftware,KiCad,Pcbnew,10.0.5*%
-%TF.CreationDate,2026-11-15T16:53:29-08:00*%
+%TF.CreationDate,2026-11-15T17:01:34-08:00*%
 %TF.ProjectId,xiao-esp32s3-can-sniffer,7869616f-2d65-4737-9033-3273332d6361,0.2.0*%
 %TF.SameCoordinates,Original*%
 %TF.FileFunction,Paste,Bot*%
 %TF.FilePolarity,Positive*%
 %FSLAX46Y46*%
 G04 Gerber Fmt 4.6, Leading zero omitted, Abs format (unit mm)*
-G04 Created by KiCad (PCBNEW 10.0.5) date 2026-11-15 16:53:29*
+G04 Created by KiCad (PCBNEW 10.0.5) date 2026-11-15 17:01:34*
 %MOMM*%
 %LPD*%
 G01*

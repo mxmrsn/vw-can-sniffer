@@ -44,7 +44,7 @@ pcbnew.ExportSpecctraDSN(b, 'build/board.dsn')
 PY
 $PY scripts/dsn_classes.py build/board.dsn
 rm -f build/board.ses
-"$JAVA" -jar "$FREEROUTING_JAR" --gui.enabled=false -de build/board.dsn -do build/board.ses -mp 60 -mt 4 > build/freerouting.log 2>&1
+"$JAVA" -jar "$FREEROUTING_JAR" --gui.enabled=false -de build/board.dsn -do build/board.ses -mp 120 -mt 4 > build/freerouting.log 2>&1
 grep -E "Auto-routing stage completed" build/freerouting.log | sed 's/.*INFO *\[[^]]*\] //'
 $KPY - <<'PY' 2>&1 | quiet
 import pcbnew
@@ -52,7 +52,7 @@ b = pcbnew.LoadBoard('xiao-esp32s3-can-sniffer.kicad_pcb')
 pcbnew.ImportSpecctraSES(b, 'build/board.ses')
 # the router leaves room for only one thermal spoke at these; they are also tied in by a trace
 for f in list(b.GetFootprints()):
-    if f.GetReference() in ('C12', 'C13', 'C14', 'C15'):
+    if f.GetReference() in ('C12', 'C13', 'C14', 'C15', 'C16', 'U5'):
         for p in f.Pads():
             if p.GetNetname() == 'GND':
                 p.SetLocalZoneConnection(pcbnew.ZONE_CONNECTION_FULL)

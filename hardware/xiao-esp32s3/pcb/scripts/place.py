@@ -88,12 +88,25 @@ for r, f in keep.items():
         key = (r, p.GetNumber())
         p.SetNet(net(padnet[key]) if key in padnet else b.FindNet(''))
 
-# ---- outline
+# ---- outline: rounded corners, kinder to hands and to an enclosure
 W0, H0, W1, H1 = 100.0, 100.0, 168.0, 138.0
-for (x1, y1, x2, y2) in ((W0, H0, W1, H0), (W1, H0, W1, H1), (W1, H1, W0, H1), (W0, H1, W0, H0)):
+R = 3.0
+def edge(shape):
+    shape.SetLayer(pcbnew.Edge_Cuts); shape.SetWidth(MM(0.1)); b.Add(shape)
+for (x1, y1, x2, y2) in ((W0 + R, H0, W1 - R, H0), (W1, H0 + R, W1, H1 - R),
+                         (W1 - R, H1, W0 + R, H1), (W0, H1 - R, W0, H0 + R)):
     s = pcbnew.PCB_SHAPE(b); s.SetShape(pcbnew.SHAPE_T_SEGMENT)
     s.SetStart(VECTOR2I(MM(x1), MM(y1))); s.SetEnd(VECTOR2I(MM(x2), MM(y2)))
-    s.SetLayer(pcbnew.Edge_Cuts); s.SetWidth(MM(0.1)); b.Add(s)
+    edge(s)
+k = R * (1 - 0.5 ** 0.5)   # how far the arc's midpoint sits in from the corner
+for (sx, sy), (mx, my), (ex, ey) in (
+        ((W0, H0 + R), (W0 + k, H0 + k), (W0 + R, H0)),
+        ((W1 - R, H0), (W1 - k, H0 + k), (W1, H0 + R)),
+        ((W1, H1 - R), (W1 - k, H1 - k), (W1 - R, H1)),
+        ((W0 + R, H1), (W0 + k, H1 - k), (W0, H1 - R))):
+    a = pcbnew.PCB_SHAPE(b); a.SetShape(pcbnew.SHAPE_T_ARC)
+    a.SetArcGeometry(VECTOR2I(MM(sx), MM(sy)), VECTOR2I(MM(mx), MM(my)), VECTOR2I(MM(ex), MM(ey)))
+    edge(a)
 
 # ---- ground on both layers
 for layer in (pcbnew.F_Cu, pcbnew.B_Cu):
