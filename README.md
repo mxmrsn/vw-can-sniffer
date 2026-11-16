@@ -14,6 +14,7 @@ data. The longer-term aim is an iOS app with custom dashboards talking to a low-
 | [`tools/vwdiag/`](tools/vwdiag/README.md) | Host tools: scan, identification, fault codes, live data, logging, frame decoding |
 | [`tools/tests/`](tools/tests) | End-to-end tests for the tools, run against the firmware simulator |
 | [`docs/roadmap.md`](docs/roadmap.md) | **What comes next, in order**: hardware, simulator, iOS app, data, tuning |
+| [`ios/`](ios/README.md) | The iOS app (SwiftUI) and its protocol package, running against the simulator |
 | [`docs/`](docs/vw_can_data_sources.md) | Project-wide notes, including where the VW-specific data came from |
 
 Each board folder holds everything specific to that board: `pcb/` (KiCad project, BOM, fab files), `firmware/`
