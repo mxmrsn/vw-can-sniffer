@@ -52,7 +52,7 @@ b = pcbnew.LoadBoard('xiao-esp32s3-can-sniffer.kicad_pcb')
 pcbnew.ImportSpecctraSES(b, 'build/board.ses')
 # the router leaves room for only one thermal spoke at these; they are also tied in by a trace
 for f in list(b.GetFootprints()):
-    if f.GetReference() in ('C12', 'C13', 'C14', 'C15', 'C16', 'U5'):
+    if f.GetReference() in ('C12', 'C13', 'C14', 'C15', 'C16', 'U5', 'J3'):
         for p in f.Pads():
             if p.GetNetname() == 'GND':
                 p.SetLocalZoneConnection(pcbnew.ZONE_CONNECTION_FULL)
@@ -60,5 +60,12 @@ pcbnew.ZONE_FILLER(b).Fill(b.Zones())
 pcbnew.SaveBoard('xiao-esp32s3-can-sniffer.kicad_pcb', b)
 PY
 $PY scripts/rules.py     # last: saving a board rewrites the project file
-$CLI pcb drc xiao-esp32s3-can-sniffer.kicad_pcb -o build/drc.rpt --severity-error 2>&1 | quiet >/dev/null
+drc() { $CLI pcb drc xiao-esp32s3-can-sniffer.kicad_pcb -o build/drc.rpt --severity-error 2>&1 | quiet >/dev/null; }
+drc
+for pass in 1 2 3; do
+    grep -q "starved_thermal" build/drc.rpt || break
+    $KPY scripts/solid_starved.py 2>&1 | quiet
+    $PY scripts/rules.py >/dev/null
+    drc
+done
 grep "Found" build/drc.rpt
