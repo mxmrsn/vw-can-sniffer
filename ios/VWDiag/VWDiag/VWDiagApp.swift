@@ -23,7 +23,7 @@ struct ContentView: View {
             NeedsConnection { AutoscanView() }.tabItem { Label("Modules", systemImage: "square.grid.2x2") }
             NeedsConnection { LiveDataView() }.tabItem { Label("Live", systemImage: "waveform.path.ecg") }
             NeedsConnection { MisfireView() }.tabItem { Label("Misfire", systemImage: "flame") }
-            NeedsConnection { LogsView() }.tabItem { Label("Logs", systemImage: "list.bullet.rectangle") }
+            NeedsConnection { VisitView() }.tabItem { Label("Visit", systemImage: "car") }
         }
         .alert("Something went wrong", isPresented: Binding(get: { model.message != nil }, set: { if !$0 { model.message = nil } })) {
             Button("OK") { model.message = nil }

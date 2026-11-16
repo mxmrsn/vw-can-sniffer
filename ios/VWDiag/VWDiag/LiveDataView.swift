@@ -2,7 +2,27 @@ import Charts
 import SwiftUI
 import VWDiagKit
 
-/// Poll chosen OBD values from the engine, show them as numbers and a graph, and record to CSV.
+/// One value the Live tab can read: a standard OBD value or an engine measuring value.
+struct Reading: Hashable {
+    let key: String
+    let label: String
+    let unit: String
+    let pid: PID?
+    let simos: SimosValue?
+
+    static func named(_ key: String) -> Reading? {
+        if let p = OBD.byName[key] { return Reading(key: key, label: p.label, unit: p.unit, pid: p, simos: nil) }
+        if let v = Simos18.byKey[key] { return Reading(key: key, label: v.name, unit: v.unit, pid: nil, simos: v) }
+        return nil
+    }
+
+    func read(_ c: UDSClient) async throws -> Double {
+        if let pid { return try await OBD.read(c, pid) }
+        return try await Simos18.read(c, simos!)
+    }
+}
+
+/// Poll chosen values from the engine, show them as numbers and a graph, and record to CSV.
 struct LiveDataView: View {
     @Environment(AppModel.self) private var model
     @State private var chosen: [String] = ["rpm", "load", "stft", "ltft", "coolant"]
@@ -35,8 +55,8 @@ struct LiveDataView: View {
                 }
                 Section("Values") {
                     ForEach(chosen, id: \.self) { name in
-                        if let p = OBD.byName[name] {
-                            LabeledContent(p.label, value: latest[name].map { "\(fmt($0)) \(p.unit)" } ?? "–")
+                        if let r = Reading.named(name) {
+                            LabeledContent(r.label, value: latest[name].map { "\(fmt($0)) \(r.unit)" } ?? "–")
                         }
                     }
                 }
@@ -60,19 +80,32 @@ struct LiveDataView: View {
 
     private var picker: some View {
         NavigationStack {
-            List(OBD.pids) { p in
-                Button {
-                    if let i = chosen.firstIndex(of: p.name) { chosen.remove(at: i) } else { chosen.append(p.name) }
-                } label: {
-                    HStack {
-                        Text(p.label)
-                        Spacer()
-                        if chosen.contains(p.name) { Image(systemName: "checkmark") }
-                    }
+            List {
+                Section("Standard OBD") {
+                    ForEach(OBD.pids) { p in pickRow(p.name, p.label) }
+                }
+                Section {
+                    ForEach(Simos18.values) { v in pickRow(v.key, v.name) }
+                } header: {
+                    Text("Engine (Simos 18)")
+                } footer: {
+                    Text("From the list the open-source VW_Flash logger reads on Simos 18 engines. Whether this car answers each one is checked by the identify experiment.")
                 }
             }
             .navigationTitle("Values to read")
             .toolbar { Button("Done") { picking = false } }
+        }
+    }
+
+    private func pickRow(_ key: String, _ label: String) -> some View {
+        Button {
+            if let i = chosen.firstIndex(of: key) { chosen.remove(at: i) } else { chosen.append(key) }
+        } label: {
+            HStack {
+                Text(label)
+                Spacer()
+                if chosen.contains(key) { Image(systemName: "checkmark") }
+            }
         }
     }
 
@@ -84,15 +117,15 @@ struct LiveDataView: View {
         let start = Date()
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("live-\(Int(start.timeIntervalSince1970)).csv")
-        var csv = "time_s," + chosen.map { "\($0)_\(OBD.byName[$0]?.unit ?? "")" }.joined(separator: ",") + "\n"
+        var csv = "time_s," + chosen.map { "\($0)_\(Reading.named($0)?.unit ?? "")" }.joined(separator: ",") + "\n"
         recording = url
         while !Task.isCancelled {
             var row: [String] = []
             let t = Date().timeIntervalSince(start)
             for name in chosen {
-                guard let p = OBD.byName[name] else { continue }
+                guard let r = Reading.named(name) else { continue }
                 do {
-                    let v = try await OBD.read(engine, p)
+                    let v = try await r.read(engine)
                     latest[name] = v
                     samples.append(Sample(t: t, name: name, value: v))
                     row.append(fmt(v, 3))

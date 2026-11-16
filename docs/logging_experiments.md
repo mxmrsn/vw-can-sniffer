@@ -13,6 +13,10 @@ python3 -m vwdiag calibrate experiments/*                       # the simulator 
 python3 -m vwdiag calibrate experiments/* --verify              # ... and the simulator rerun side by side
 ```
 
+**From the phone:** the app's Visit tab runs the same experiments, guided, and saves the same folders (in the
+Files app, under the app's Experiments folder). Share one as a zip, unzip it on the Mac, and `vwdiag calibrate`
+reads it like the tools' own.
+
 Use `--binary` (the packet protocol): it timestamps frames on the interface and catches the modules' flow control,
 which the text console cannot. Each run saves `experiments/<date-time>-<name>/` with `meta.json`, `summary.json`,
 the sample CSVs and `notes.txt`. Every experiment also runs against the simulator (`--sim`), which is how all of

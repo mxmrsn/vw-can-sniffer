@@ -6,7 +6,7 @@ tested on their own.
 
 | Path | What it is |
 |---|---|
-| `VWDiagKit/` | Swift package: packet framing, the protocol client, UDS / OBD / misfire decoding, TCP and Bluetooth transports |
+| `VWDiagKit/` | Swift package: packet framing, the protocol client, UDS / OBD / misfire decoding, engine measuring values (Simos 18), the logging experiments, TCP and Bluetooth transports |
 | `VWDiag/` | The app. `project.yml` is an XcodeGen spec; the Xcode project is generated, not checked in |
 
 ## Screens
@@ -14,9 +14,9 @@ tested on their own.
 |---|---|
 | Interface | Connect to the simulator (host and port) or scan for a board over Bluetooth; listen-only switch; counters |
 | Modules | Autoscan: every known module, present or not, part number, fault count. Tap in for identification, fault codes with status and freeze frame, and Clear (asks first; it changes the car) |
-| Live | Pick OBD values, see them and a graph, recorded to CSV and shareable |
+| Live | Pick standard OBD values and engine measuring values (the Simos 18 list: knock retard per cylinder, misfire total, cams, rail pressures...), see them and a graph, recorded to CSV and shareable |
 | Misfire | Misfires per cylinder (this drive and the ten-drive average), trims, warning lamp, stored and pending codes, freeze frame |
-| Logs | Start and stop recording on the interface's card, optionally polling the misfire set; marks; list the card's files and copy them to the phone (Files app), then share |
+| Visit | The logging experiments of `docs/logging_experiments.md`, guided: what state the car should be in, a Ready prompt at each step, progress, marks and Finish for the drive. Results are saved in the same folder format as `vwdiag experiment` and shared as a zip, so `vwdiag calibrate` reads them unchanged. Also the card: recording, marks, and copying files to the phone |
 
 The interface powers up listen-only; the app turns sending on when a screen first needs to read from a module.
 Nothing writes to the car except Clear fault codes, behind a confirmation.
@@ -41,8 +41,12 @@ cd ios/VWDiagKit && swift test
 - Replay: byte streams recorded from the simulator (`Tests/VWDiagKitTests/Fixtures/record.py` writes
   `simulator.json`) played back in random pieces: hello, status, listen-only refusal, multi-frame VIN, negative and
   missing answers, fault codes, snapshot, OBD services 01/02/03/06, monitored frames between replies.
-- Simulator: on the Mac the tests also start the real simulator and run a scan and the misfire scenario over TCP
-  (skipped if it is not built).
+- Simulator: on the Mac the tests also start the real simulator and run a scan, the misfire scenario, the engine
+  measuring values and card copying over TCP (skipped if it is not built).
+- Experiments: identify, listen and warm-idle run from Swift against a stand-in car with known numbers, then
+  `vwdiag calibrate` (Python) reads the folders the app wrote and must recover those numbers.
+
+`make_simos18.py` regenerates `Simos18.swift` from the tools' list (`tools/vwdiag/data/simos18_parameters_22.csv`).
 
 ## Not yet
 - **Bluetooth on a board.** `BLETransport` follows the board's service (Nordic UART layout, pairing with a
