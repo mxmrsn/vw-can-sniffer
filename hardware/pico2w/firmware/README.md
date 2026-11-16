@@ -68,7 +68,8 @@ faster engine clock); `vwdiag calibrate` sets them from experiments on the car (
 
 The simulator is built with the dongle's power manager and sleeps like it: with `VWDIAG_USB=0` (no computer on
 USB) it ends the process when nothing keeps it awake, which an app sees as the link dropping. The battery voltage
-is the engine model's; `VWDIAG_WAKE=can|engine|button|power-on` sets the wake reason it reports.
+is the engine model's; `VWDIAG_WAKE=can|engine|button|power-on` sets the wake reason it reports, and
+`VWDIAG_SETTINGS=<file>` keeps the power settings across runs, as the dongle keeps them in flash.
 
 The car itself (`sim/car.c`, `sim_engine.c`, `sim_config.c`) does not depend on the host: `sim/sim_bus.c` puts it
 on a pretend bus with fault injection, and the XIAO bench car (`hardware/xiao-esp32s3/bench-car`) puts the same

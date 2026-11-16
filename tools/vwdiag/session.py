@@ -167,7 +167,8 @@ class Session:
             for code, status in codes:
                 text = dtcfmt.format_dtc(code, status)
                 details = dtc_details(client, code)
-                entries.append({"code": dtcfmt.sae_code(code), "raw": code.hex().upper(), "status": status,
+                entries.append({"code": dtcfmt.sae_code(code), "description": dtcfmt.describe(code),
+                                "raw": code.hex().upper(), "status": status,
                                 "text": text, "details": details})
                 self.note("  " + text)
                 for line in details:

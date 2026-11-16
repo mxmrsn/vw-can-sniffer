@@ -73,9 +73,12 @@ struct ModuleView: View {
                             Button("Read freeze frame") { Task { await readSnapshot(c) } }
                         }
                     } label: {
-                        HStack {
-                            Text(c.code).font(.body.monospaced())
-                            if c.status & 0x80 != 0 { Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange) }
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                Text(c.code).font(.body.monospaced())
+                                if c.status & 0x80 != 0 { Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange) }
+                            }
+                            Text(c.description).font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }

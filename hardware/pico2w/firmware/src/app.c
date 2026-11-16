@@ -718,12 +718,14 @@ bool app_power_set(uint8_t op, uint32_t value)
 {
     struct power_settings *s = power_settings();
     switch (op) {
-    case 1: s->stay_awake = value != 0; return true;
-    case 2: if (value < 30 || value > 86400) return false; s->idle_s = value; return true;
-    case 3: if (value < 10500 || value > 13000) return false; s->cutoff_mv = (uint16_t)value; return true;
+    case 1: s->stay_awake = value != 0; break;
+    case 2: if (value < 30 || value > 86400) return false; s->idle_s = value; break;
+    case 3: if (value < 10500 || value > 13000) return false; s->cutoff_mv = (uint16_t)value; break;
     case 4: power_request_sleep(); return true;
     default: return false;
     }
+    plat_settings_save(s);   // kept across sleeps
+    return true;
 }
 
 static void cmd_power(char *rest)
@@ -793,6 +795,9 @@ void app_init(void)
 {
 #ifdef APP_POWER
     power_init(plat_wake_reason(), plat_now_ms());
+    struct power_settings saved = *power_settings();
+    if (plat_settings_load(&saved))
+        power_settings_adopt(&saved);
 #endif
     plat_led(PLAT_LED_SILENT, true);
     plat_led(PLAT_LED_USB, true);

@@ -12,6 +12,7 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_rom_sys.h"
 #include "esp_sleep.h"
+#include "nvs.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -104,6 +105,46 @@ void power_boot(void)
     else
         wake = POWER_WAKE_UNKNOWN;
     gpio_reset_pin(CAN_TX_PIN);   // the CAN controller takes it from here
+}
+
+// ---- settings in NVS, so a sleep (a power cycle for the processor) keeps them
+#define NVS_NAMESPACE "power"
+#define NVS_KEY "settings"
+#define SETTINGS_VERSION 1
+
+struct saved {
+    uint8_t version;
+    uint8_t stay;
+    uint16_t cutoff_mv;
+    uint32_t idle_s;
+};
+
+bool plat_settings_load(struct power_settings *s)
+{
+    nvs_handle_t h;
+    struct saved v;
+    size_t n = sizeof(v);
+    if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &h) != ESP_OK)
+        return false;
+    bool ok = nvs_get_blob(h, NVS_KEY, &v, &n) == ESP_OK && n == sizeof(v) && v.version == SETTINGS_VERSION;
+    nvs_close(h);
+    if (ok) {
+        s->idle_s = v.idle_s;
+        s->cutoff_mv = v.cutoff_mv;
+        s->stay_awake = v.stay != 0;
+    }
+    return ok;
+}
+
+void plat_settings_save(const struct power_settings *s)
+{
+    nvs_handle_t h;
+    struct saved v = { .version = SETTINGS_VERSION, .stay = s->stay_awake, .cutoff_mv = s->cutoff_mv, .idle_s = s->idle_s };
+    if (nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h) != ESP_OK)
+        return;
+    if (nvs_set_blob(h, NVS_KEY, &v, sizeof(v)) == ESP_OK)
+        nvs_commit(h);
+    nvs_close(h);
 }
 
 void plat_power_sleep(enum power_sleep_reason why)

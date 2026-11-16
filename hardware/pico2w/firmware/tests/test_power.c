@@ -138,6 +138,23 @@ int main(void)
     in.usb_host = false;
     CHECK(power_poll(&in) == POWER_SLEEP_NONE);   // the request does not linger
 
+    printf("saved settings: plausible ones are taken, others ignored, hardware limits never\n");
+    struct power_settings saved = *power_settings();
+    saved.idle_s = 900;
+    saved.cutoff_mv = 11800;
+    saved.stay_awake = true;
+    saved.running_mv = 9000;   // not a setting: must not be taken
+    CHECK(power_settings_adopt(&saved));
+    CHECK(power_settings()->idle_s == 900 && power_settings()->cutoff_mv == 11800 && power_settings()->stay_awake);
+    CHECK(power_settings()->running_mv == 13200);
+    saved.idle_s = 5;          // corrupt or from a future version
+    CHECK(!power_settings_adopt(&saved));
+    CHECK(power_settings()->idle_s == 900);
+    saved.idle_s = 600;
+    saved.cutoff_mv = 9000;    // would let the battery go flat
+    CHECK(!power_settings_adopt(&saved));
+    power_settings()->stay_awake = false;
+
     CHECK(!strcmp(power_wake_name(POWER_WAKE_ENGINE), "engine"));
     CHECK(!strcmp(power_sleep_name(POWER_SLEEP_BATTERY), "battery low"));
 

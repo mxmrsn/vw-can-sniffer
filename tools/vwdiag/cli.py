@@ -230,14 +230,16 @@ def misfire_report(engine):
         try:
             codes = [dtcfmt.sae_code(c) for c in obd.emission_dtcs(engine, pending)]
             out["pending" if pending else "stored"] = codes
-            lines.append("%s codes: %s" % ("pending" if pending else "stored", ", ".join(codes) or "none"))
+            lines.append("%s codes: %s" % ("pending" if pending else "stored", "none" if not codes else ""))
+            for c in codes:
+                lines.append("  %s  %s" % (c, dtcfmt.description(c)[0]))
         except UdsError as e:
             lines.append("%s codes: %s" % ("pending" if pending else "stored", e))
     try:
         code, values = obd.freeze_frame(engine)
         out["freeze_frame"] = {"code": dtcfmt.sae_code(code) if code else None, "values": values}
         if code:
-            lines.append("freeze frame (%s): %s" % (dtcfmt.sae_code(code), ", ".join(
+            lines.append("freeze frame (%s, %s): %s" % (dtcfmt.sae_code(code), dtcfmt.describe(code), ", ".join(
                 "%s %s %s" % (n, fmt(v), obd.PIDS[n][1]) for n, v in values.items())))
         else:
             lines.append("freeze frame: none stored")

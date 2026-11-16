@@ -49,6 +49,15 @@ class Decoders(unittest.TestCase):
         self.assertEqual(dtc.sae_code(bytes([0x9A, 0xBC, 0x00])), "B1ABC")
         self.assertEqual(dtc.sae_code(bytes([0xC1, 0x21, 0x00])), "U0121")
 
+    def test_descriptions(self):
+        self.assertEqual(dtc.description("P0303"), ("Cylinder 3 Misfire Detected", "list"))
+        self.assertEqual(dtc.description("P0300")[0], "Random/Multiple Cylinder Misfire Detected")
+        self.assertEqual(dtc.description("p0299")[1], "added")
+        self.assertIn("not public", dtc.description("P130A")[0])          # VW's own code
+        self.assertIn("Ignition system or misfire", dtc.description("P03FF")[0])
+        self.assertIn("ABS", dtc.describe(bytes([0xC1, 0x21, 0x00])))     # U0121
+        self.assertGreater(len(dtc.GENERIC), 400)
+
     def test_status_bits(self):
         self.assertEqual(dtc.describe_status(0x09), ["test failed", "confirmed"])
         self.assertEqual(dtc.describe_status(0x00), [])
@@ -945,6 +954,18 @@ class Power(unittest.TestCase):
         time.sleep(32)
         with self.assertRaises(LinkError):
             link.status(timeout=2)
+
+    def test_settings_survive_a_sleep(self):
+        path = os.path.join(tempfile.mkdtemp(), "settings")
+        os.environ["VWDIAG_SETTINGS"] = path
+        self.addCleanup(os.environ.pop, "VWDIAG_SETTINGS", None)
+        link = self.open("realistic")
+        link.power(2, 900)
+        link.power(1, 1)
+        link.close()
+        link = self.open("realistic")                    # woken again: a fresh start
+        p = link.power()
+        self.assertEqual((p["idle_s"], p["stay_awake"]), (900, True))
 
     def test_boards_without_it_say_so(self):
         # the text console answers on every build; the simulator is built with power management

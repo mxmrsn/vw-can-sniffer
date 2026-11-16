@@ -72,6 +72,9 @@ struct power_status {
 
 void power_init(enum power_wake wake, uint32_t now_ms);
 struct power_settings *power_settings(void); // change them in place
+// Take saved settings, keeping only values inside the ranges the commands allow. Returns false
+// (and changes nothing) if they are not plausible.
+bool power_settings_adopt(const struct power_settings *saved);
 void power_request_sleep(void);
 
 // Call regularly. Returns the reason to sleep now, or POWER_SLEEP_NONE to stay awake.

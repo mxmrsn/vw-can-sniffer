@@ -58,7 +58,9 @@ The XIAO board's commands, plus:
 | `power sleep` | Sleep now (not while a computer is on USB) |
 
 The packet protocol has the same as command 0x10 (`../../pico2w/docs/link_protocol.md`); `vwdiag power` and the
-app's Interface tab use it. Settings are kept in RAM: a wake starts from the defaults.
+app's Interface tab use it. The settings (idle time, cutoff, stay awake) are saved in flash (NVS) whenever they
+change and loaded at every wake; values outside the allowed ranges are ignored, so a damaged record falls back to
+the defaults.
 
 ## Build
 ```bash

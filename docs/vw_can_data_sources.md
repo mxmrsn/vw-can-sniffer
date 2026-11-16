@@ -79,6 +79,14 @@ The 20 live values in `tools/vwdiag/obd.py` are standard OBD-II (SAE J1979) requ
 formulas. Every car sold in the US since 2008 must answer these on CAN, so they are the safest bet for first
 contact, independent of anything VW-specific.
 
+## Fault-code descriptions
+`tools/vwdiag/data/dtc_generic.csv` holds about 470 generic powertrain code titles from the dtcdb project
+(github.com/todrobbins/dtcdb, MIT licence); spot-checked against the SAE titles (P0300, P0301 to P0304, P0171,
+P0420). A second open list (mytrile/obd-trouble-codes) was rejected: its descriptions are shifted against the
+codes (P0300 described as a cylinder 12 fault, P0303 as cylinder 2). `dtc_extra.csv` adds 37 codes that matter on
+this car (P0299 underboost, cam timing, fuel pressure, idle trims, lost-communication U-codes), written for this
+project from the SAE J2012 titles. VW's own codes are described only by their SAE group.
+
 ## Engine measuring values (Simos 18)
 `tools/vwdiag/data/simos18_parameters_22.csv` is the service-0x22 list from Brian Ledbetter's VW_Flash project
 (github.com/bri3d/VW_Flash, BSD 2-clause): 53 values with identifier, length and formula, as its logger reads them

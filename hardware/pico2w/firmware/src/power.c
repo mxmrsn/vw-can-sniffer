@@ -29,6 +29,16 @@ struct power_settings *power_settings(void)
     return &settings;
 }
 
+bool power_settings_adopt(const struct power_settings *s)
+{
+    if (s->idle_s < 30 || s->idle_s > 86400 || s->cutoff_mv < 10500 || s->cutoff_mv > 13000)
+        return false;
+    settings.idle_s = s->idle_s;
+    settings.cutoff_mv = s->cutoff_mv;
+    settings.stay_awake = s->stay_awake;
+    return true;   // running_mv and low_battery_s are the hardware's: not settable, not taken
+}
+
 void power_request_sleep(void)
 {
     asked = true;
