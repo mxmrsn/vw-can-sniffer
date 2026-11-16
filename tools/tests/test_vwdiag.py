@@ -17,7 +17,7 @@ from contextlib import redirect_stdout
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "tools"))
 
-from vwdiag import cli, dbc, dtc, logfile, obd, simos18, vw   # noqa: E402
+from vwdiag import cli, dbc, dtc, logfile, obd, replay, simos18, vw   # noqa: E402
 from vwdiag import binlink                      # noqa: E402
 from vwdiag.binlink import BinaryLink, BleSimLink   # noqa: E402
 from vwdiag.link import Link, LinkError         # noqa: E402
@@ -1038,6 +1038,21 @@ class Gps(unittest.TestCase):
         self.assertAlmostEqual(log.epoch(log.marks[0][0]), time.time(), delta=2)
         self.assertEqual(log.gpx().count("<trkpt"), len(log.fixes))
 
+        # Drive replay: GPS speed and the track on the timeline; free-text marks cannot break the page.
+        link = self.open(drift="80", card=card)
+        link.log_start()
+        time.sleep(1.5)
+        link.log_mark("odd </script><b>note")
+        link.log_stop()
+        log2 = logfile.Log(os.path.join(card, "LOG00002.VWL"))
+        data = replay.collect(log2)
+        self.assertEqual([s["name"] for s in data["series"]], ["gps_speed"])
+        self.assertEqual(len(data["track"]), sum(f.valid for f in log2.fixes))
+        self.assertEqual(data["marks"][0][1], "odd </script><b>note")
+        page = replay.render(log2)
+        self.assertEqual(page.count("</script>"), 2)                 # the page's own two script elements
+        self.assertIn("odd <\\/script><b>note", page)
+
         out = os.path.join(card, "sync.csv")
         buf = io.StringIO()
         with redirect_stdout(buf):
@@ -1045,6 +1060,31 @@ class Gps(unittest.TestCase):
         self.assertIn("clock +80.0", buf.getvalue())
         with open(out) as f:
             self.assertEqual(len(f.read().strip().split("\n")), len(log.syncs) + 1)
+
+    def test_replay_of_a_log_with_engine_values_only(self):
+        card = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", card]))
+        link = self.open(gps="0", card=card)
+        link.set_silent(False)
+        for pid in (0x0D, 0x0C, 0x05):
+            link.poll_add(0x7E0, 0x7E8, 100, [0x01, pid])
+        link.log_start()
+        time.sleep(1.5)
+        link.log_stop()
+        link.poll_clear()
+        path = os.path.join(card, "LOG00001.VWL")
+        data = replay.collect(logfile.Log(path))
+        self.assertEqual([s["name"] for s in data["series"]], ["rpm", "speed", "coolant"])   # rpm and speed first
+        self.assertTrue(all(len(s["points"]) >= 5 for s in data["series"]))
+        self.assertEqual(data["track"], [])
+        self.assertIsNone(data["drift_ppm"])
+        out = os.path.join(card, "drive.html")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            cli.main(["replay", path, "--out", out])
+        self.assertIn("3 charts, 0 track points", buf.getvalue())
+        with open(out) as f:
+            self.assertIn('id="data"', f.read())
 
     def test_reader_handles_pulses_without_gps_and_cut_files(self):
         def rec(kind, ms, payload):

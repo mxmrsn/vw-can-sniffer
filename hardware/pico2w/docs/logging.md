@@ -59,6 +59,7 @@ python3 -m vwdiag logread LOG00003.VWL --decode              # VW broadcast mess
 python3 -m vwdiag logread LOG00003.VWL --ids --frames        # per-ID counts, and every frame
 python3 -m vwdiag logread LOG00003.VWL --gpx drive.gpx       # the GPS track (dongle with a GPS receiver)
 python3 -m vwdiag logread LOG00003.VWL --sync-csv sync.csv   # each camera sync edge with its UTC time
+python3 -m vwdiag replay LOG00003.VWL                        # drive replay: charts, GPS track and marks as one HTML page
 ```
 
 From the console: `log on`, `log off`, `log`, `log mark <text>`, `log ls`, `log get <file> <offset> <length>`,
