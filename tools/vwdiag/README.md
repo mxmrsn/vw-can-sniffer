@@ -17,7 +17,7 @@ With one board plugged in, `--port` can be omitted.
 | `status` | Interface state and frame counters | no |
 | `monitor [--seconds N] [--out FILE] [--decode]` | Capture raw CAN frames, optionally decoded | no |
 | `decode FILE [--summary]` | Decode a saved capture; needs no board | no |
-| `log start [--poll VALUE ...] [--interval S]` | Start recording to the board's microSD card, optionally polling live values | only with `--poll` |
+| `log start [--poll VALUE ...] [--interval S]` | Start recording to the board's microSD card, optionally polling live values: OBD values or the engine's Simos 18 measuring values (`misfires`, `knock_cyl_3`, ...; up to 8) | only with `--poll` |
 | `log stop`, `log status`, `log mark TEXT` | Stop, check, or add a note to the log | no |
 | `power [--stay on\|off] [--idle S] [--cutoff MV] [--sleep]` | The dongle's power state: why it woke, the battery, what keeps it awake; set how and when it sleeps | no |
 | `gps [--sync HZ\|off] [--watch S]` | The dongle's GPS receiver: fix, position, pulse lock, how far its clock drifts from GPS; set the camera sync output | no |

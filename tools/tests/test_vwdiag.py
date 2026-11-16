@@ -1086,6 +1086,41 @@ class Gps(unittest.TestCase):
         with open(out) as f:
             self.assertIn('id="data"', f.read())
 
+    def test_measuring_values_in_a_log_and_its_replay(self):
+        card = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", card]))
+        link = self.open(gps="0", card=card)
+        link.set_silent(False)
+        names = ["rpm", "engine_speed", "misfires", "knock_cyl_3", "coolant_temp"]
+        for n in names:
+            link.poll_add(0x7E0, 0x7E8, 100, cli.poll_payload(n))
+        link.log_start()
+        time.sleep(1.5)
+        link.log_stop()
+        link.poll_clear()
+        path = os.path.join(card, "LOG00001.VWL")
+        log = logfile.Log(path)
+        got = {}
+        for t, name, value, unit in log.measure_samples():
+            got.setdefault(name, []).append((value, unit))
+        self.assertEqual(sorted(got), sorted(names[1:]))
+        self.assertTrue(all(len(v) >= 5 for v in got.values()))
+        # The engine's own speed agrees with the OBD value read alongside it.
+        obd_rpm = [v for _, n, v, _ in log.obd_samples() if n == "rpm"]
+        self.assertAlmostEqual(got["engine_speed"][-1][0], obd_rpm[-1], delta=60)
+        self.assertEqual(got["knock_cyl_3"][0][1], "\u00b0")
+        data = replay.collect(log)
+        self.assertEqual([s["name"] for s in data["series"]][:1], ["rpm"])
+        self.assertEqual(sorted(s["name"] for s in data["series"][1:]), sorted(names[1:]))
+        out = os.path.join(card, "values.csv")
+        with redirect_stdout(io.StringIO()):
+            cli.main(["logread", path, "--csv", out])
+        with open(out) as f:
+            head = f.readline().strip().split(",")
+        self.assertEqual(head[:2], ["time_s", "rpm_rpm"])
+        self.assertIn("misfires", head)
+        self.assertEqual(cli.poll_payload("knock_cyl_3"), [0x22, 0x20, 0x0C])
+
     def test_reader_handles_pulses_without_gps_and_cut_files(self):
         def rec(kind, ms, payload):
             return struct.pack("<BI", kind, ms) + payload

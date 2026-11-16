@@ -29,6 +29,8 @@ With the Python tools (the board must be connected; the simulator also works wit
 ```bash
 python3 -m vwdiag log start                                         # record what is on the bus
 python3 -m vwdiag --transmit log start --poll rpm speed coolant --interval 0.2   # plus live data
+python3 -m vwdiag --transmit log start --poll rpm load misfires knock_cyl_3 ign_avg --interval 0.2
+                                    # the engine's own measuring values (vwdiag measure --list) mix in freely
 python3 -m vwdiag log mark "on the highway"
 python3 -m vwdiag log status
 python3 -m vwdiag log stop
@@ -78,6 +80,10 @@ poll 7E0 7E8 500 01 0D
 poll 7E0 7E8 2000 01 05
 log on
 ```
+
+Measuring values from the engine module poll the same way, as ReadDataByIdentifier: `22` and the identifier
+from `vwdiag measure --list`, for example `poll 7E0 7E8 500 22 29 04` for the misfire count or
+`poll 7E0 7E8 200 22 20 0C` for cylinder 3's knock retard. `logread --csv` and `replay` decode both kinds.
 
 Leave `silent off` and the `poll` lines out to log by listening only. Remember the board stays powered (and so
 keeps polling the engine module) for as long as OBD pin 16 is live, which on most cars is always: switch it off

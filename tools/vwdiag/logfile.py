@@ -14,7 +14,7 @@ import bisect
 import struct
 import time
 
-from . import obd
+from . import obd, simos18
 
 REC_CAN, REC_LOST, REC_MARK, REC_TIME, REC_PPS, REC_FIX, REC_SYNC = 1, 2, 3, 4, 5, 6, 7
 FIX_LEN = 29
@@ -196,6 +196,27 @@ class Log:
             stamp = t if t is not None else self.seconds(f.ms)
             ident = ("%08X" if f.extended else "%03X") % f.can_id
             yield "(%.6f) %s %s#%s" % (stamp, interface, ident, f.data.hex().upper())
+
+    def measure_samples(self):
+        """Simos 18 measuring values found in the engine module's answers (service 0x22, one value per request,
+        as the poll list asks for them), as (seconds, name, value, unit)."""
+        by_did = {did: (name, length, signed, unit, decode)
+                  for name, (did, length, signed, unit, decode, _) in simos18.VALUES.items()}
+        for f in self.frames:
+            d = f.data
+            # A single-frame positive answer from the engine module: length, 0x62, identifier (2), value.
+            if f.sent or f.extended or f.can_id != 0x7E8 or len(d) < 5 or d[0] > 7 or d[1] != 0x62:
+                continue
+            entry = by_did.get(d[2] << 8 | d[3])
+            if not entry:
+                continue
+            name, length, signed, unit, decode = entry
+            if d[0] == 3 + length and len(d) >= 4 + length:
+                yield self.seconds(f.ms), name, decode(int.from_bytes(d[4:4 + length], "big", signed=signed)), unit
+
+    def samples(self):
+        """Every live value in the log, OBD and measuring values together, in time order."""
+        return sorted(list(self.obd_samples()) + list(self.measure_samples()), key=lambda s: s[0])
 
     def obd_samples(self):
         """Service-01 live values found in the answers, as (seconds, name, value, unit)."""
