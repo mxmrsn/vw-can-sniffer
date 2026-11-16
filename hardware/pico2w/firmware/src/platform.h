@@ -30,3 +30,13 @@ void plat_power_sleep(enum power_sleep_reason why); // switch off; on the dongle
 // Keep the power settings across sleeps (flash on the dongle). Load returns false if none were saved.
 bool plat_settings_load(struct power_settings *s);
 void plat_settings_save(const struct power_settings *s);
+
+// Boards with the GPS / sync connector (built with APP_GNSS: the OBD dongle, and the simulator).
+uint64_t plat_now_us(void);                      // the clock plat_now_ms() comes from, in microseconds
+size_t plat_gnss_read(uint8_t *buf, size_t cap); // bytes from the GPS receiver, 0 if none waiting
+bool plat_gnss_baud(uint32_t baud);              // the receiver's serial speed (default 9600)
+bool plat_pps_take(uint64_t *edge_us);           // the next pulse edge, stamped when it happened
+// The sync output for a camera or IMU rig: a square wave at hz (0 = off, 1 to 100). With GPS pulses
+// coming in, each pulse restarts it, so a rising edge falls on every GPS second.
+bool plat_sync_set(uint32_t hz);
+bool plat_sync_take(uint64_t *edge_us);          // the next rising edge sent, stamped when it was sent

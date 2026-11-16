@@ -13,6 +13,7 @@ final class AppModel {
     var info: InterfaceInfo?
     var state: InterfaceState?
     var power: Interface.PowerState?   // nil on boards that do not sleep
+    var gps: Interface.GPSState?       // nil on boards without the GPS connector
     var simulatorHost = UserDefaults.standard.string(forKey: "simHost") ?? "127.0.0.1"
     var simulatorPort = UserDefaults.standard.string(forKey: "simPort") ?? "5555"
     var found: [BLETransport.Found] = []
@@ -98,7 +99,13 @@ final class AppModel {
         do {
             state = try await ifc.state()
             power = try await ifc.power()
+            gps = try await ifc.gps()
         } catch { fail(error) }
+    }
+
+    func setSync(_ hz: Int) async {
+        guard let ifc = interface else { return }
+        do { gps = try await ifc.gps(syncHz: hz) } catch { fail(error) }
     }
 
     /// The interface powers up listen-only; reading from modules needs sending allowed.

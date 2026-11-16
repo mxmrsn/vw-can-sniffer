@@ -149,7 +149,8 @@ About 27 pins, inside what the module has free.
   socket is not rigidly fixed to the car, so for sensor fusion your own rigidly mounted IMU is the better source.
   The footprint goes on; whether it is fitted is your call.
 - **Time sync:** CAN frames, IMU samples and GPS fixes are all timestamped by the same microsecond timer, with the
-  pulse-per-second edge as the absolute reference. The log format gains microsecond stamps and sync records.
+  pulse-per-second edge as the absolute reference. Done in firmware (log format version 2: pulse, fix and sync
+  records; `../firmware/README.md`, "GPS and camera sync"); the IMU is not.
 
 ## Mechanical interface: what I need from you, what you get from me
 **From you, before layout:**

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Convert every tracked Markdown write-up to a PDF next to it.
-# Needs pandoc and Google Chrome. Usage: tools/md_to_pdf.sh
+# Needs pandoc and Google Chrome. Usage: tools/md_to_pdf.sh [file.md ...]  (no files: all of them)
 set -e
 ROOT="$(git rev-parse --show-toplevel)"
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
@@ -23,7 +23,7 @@ blockquote { border-left: 3px solid #bbb; margin-left: 0; padding-left: 12px; co
 a { color: #1a4f8b; text-decoration: none; }
 CSSEOF
 cd "$ROOT"
-git ls-files '*.md' | while read -r md; do
+{ if [ $# -gt 0 ]; then printf "%s\n" "$@"; else git ls-files '*.md'; fi; } | while read -r md; do
     dir="$(dirname "$md")"; base="$(basename "$md" .md)"
     html="$(mktemp -t mdpdf).html"
     title="$(grep -m1 '^# ' "$md" | sed 's/^# //')"

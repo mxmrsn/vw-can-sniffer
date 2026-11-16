@@ -13,6 +13,7 @@ Paths in this file are relative to this folder (`hardware/pico2w/firmware/`) unl
 | `src/isotp.c`, `src/uds.c` | Transport and diagnostic layers, platform independent |
 | `src/app.c` | Console and commands, platform independent |
 | `src/logger.c` | Logging to a file, platform independent; see `../docs/logging.md` |
+| `src/gnss.c`, `sim/gps_host.c` | GPS input and time sync for the dongle: NMEA, pulse pairing, clock drift; a simulated receiver |
 | `src/storage_pico.c`, `sim/storage_host.c` | microSD card on the board; a folder in the simulator |
 | `src/ble_link.c`, `src/ble_pico.c` | Bluetooth LE: buffers, and BTstack on the CYW43439 |
 | `src/vw_diag.gatt`, `src/btstack_config.h` | Bluetooth service definition and stack configuration |
@@ -70,6 +71,11 @@ The simulator is built with the dongle's power manager and sleeps like it: with 
 USB) it ends the process when nothing keeps it awake, which an app sees as the link dropping. The battery voltage
 is the engine model's; `VWDIAG_WAKE=can|engine|button|power-on` sets the wake reason it reports, and
 `VWDIAG_SETTINGS=<file>` keeps the power settings across runs, as the dongle keeps them in flash.
+
+It also has the dongle's GPS / sync connector. `VWDIAG_GPS=1` connects a simulated receiver: NMEA at 10 Hz, a
+pulse every GPS second, the car driving east from a fixed point at the engine model's road speed. Its time runs
+against the computer's clock with a known error, `VWDIAG_GPS_DRIFT` ppm (default 25), which `gps` should report
+as the clock drift. The sync output (`sync <hz>`) works with or without it.
 
 The car itself (`sim/car.c`, `sim_engine.c`, `sim_config.c`) does not depend on the host: `sim/sim_bus.c` puts it
 on a pretend bus with fault injection, and the XIAO bench car (`hardware/xiao-esp32s3/bench-car`) puts the same

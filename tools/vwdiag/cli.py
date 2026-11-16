@@ -369,6 +369,37 @@ def cmd_power(link, args):
         p["idle_s"], p["cutoff_mv"] / 1000.0, p["running_mv"] / 1000.0, "on" if p["stay_awake"] else "off"))
 
 
+def print_gnss(g):
+    print("GPS: %s, %s, pulse %s" % ("receiver present" if g["present"] else "no receiver",
+                                     "fix" if g["fix"] else "no fix", "locked" if g["pulse_locked"] else "not locked"))
+    if g["present"]:
+        print("  %.7f, %.7f, %.1f m; %d satellites, quality %d, hdop %.2f" % (
+            g["lat"], g["lon"], g["alt_m"], g["sats"], g["quality"], g["hdop"]))
+        print("  %.2f m/s heading %.1f deg; UTC %s" % (
+            g["speed_ms"], g["course_deg"],
+            time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(g["utc"])) if g["utc"] else "not known"))
+    if g["drift_ppb"] is not None:
+        print("  the interface's clock runs %+.2f ppm against GPS" % (g["drift_ppb"] / 1000.0))
+    print("  log clock %s; %d sentences (%d bad), %d pulses (%d paired)" % (
+        "from GPS" if g["log_clock_from_gps"] else "not from GPS", g["sentences"], g["bad_sentences"],
+        g["pulses"], g["paired"]))
+    print("sync output: %s, %d edges sent" % ("%d Hz" % g["sync_hz"] if g["sync_hz"] else "off", g["sync_edges"]))
+
+
+def cmd_gps(link, args):
+    """The dongle's GPS receiver, pulse lock and clock drift; the camera sync output."""
+    sync = None if args.sync is None else (0 if args.sync == "off" else int(args.sync))
+    g = link.gnss(sync)
+    print_gnss(g)
+    end = time.monotonic() + (args.watch or 0)
+    while time.monotonic() < end:
+        time.sleep(1.0)
+        g = link.gnss()
+        print("%s  %s %d sats  %.7f %.7f  %.2f m/s  drift %s" % (
+            time.strftime("%H:%M:%S"), "fix" if g["fix"] else "no fix", g["sats"], g["lat"], g["lon"], g["speed_ms"],
+            "%+.2f ppm" % (g["drift_ppb"] / 1000.0) if g["drift_ppb"] is not None else "-"))
+
+
 def cmd_raw(link, args):
     enable_transmit(link, args)
     payload = [int(b, 16) for b in args.bytes]
@@ -494,6 +525,26 @@ def cmd_logread(args):
         print("note      the file ends mid-record (power was removed while logging); everything before that is intact")
     for ms, text in log.marks:
         print("mark      %8.3f s  %s" % (log.seconds(ms), text))
+    if log.pulses or log.fixes or log.syncs:
+        paired = sum(1 for _, utc in log.pulses if utc)
+        drift = log.clock_drift_ppm()
+        print("gps       %d fixes (%d valid), %d pulses (%d paired with UTC)%s" % (
+            len(log.fixes), sum(f.valid for f in log.fixes), len(log.pulses), paired,
+            ", clock %+.2f ppm against GPS" % drift if drift is not None else ""))
+        if log.syncs:
+            print("sync      %d edges sent on the sync output" % len(log.syncs))
+    if args.gpx:
+        with open(args.gpx, "w") as f:
+            f.write(log.gpx())
+        print("wrote %d track points to %s" % (sum(f.valid for f in log.fixes), args.gpx))
+    if args.sync_csv:
+        with open(args.sync_csv, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["edge", "local_us", "utc_s"])
+            for us, count in log.syncs:
+                t = log.utc_of_us(us)
+                w.writerow([count, us, "%.6f" % t if t is not None else ""])
+        print("wrote %d sync edges to %s" % (len(log.syncs), args.sync_csv))
     if args.candump:
         with open(args.candump, "w") as f:
             f.write("\n".join(log.candump_lines()) + "\n")
@@ -565,6 +616,10 @@ def build_parser():
     s.add_argument("--cutoff", type=int, metavar="MV", help="battery cutoff, engine off (10500-13000 mV)")
     s.add_argument("--sleep", action="store_true", help="sleep now")
     s.set_defaults(fn=cmd_power)
+    s = sub.add_parser("gps", help="the dongle's GPS fix, pulse lock and clock drift; the camera sync output")
+    s.add_argument("--sync", metavar="HZ", help="set the sync output: 1-100 Hz, or off")
+    s.add_argument("--watch", type=float, metavar="SECONDS", help="then follow the fix once a second")
+    s.set_defaults(fn=cmd_gps)
     s = sub.add_parser("measure", help="engine measuring values (Simos 18 list), e.g. knock_cyl_1 misfires")
     s.add_argument("value", nargs="*"); s.add_argument("--list", action="store_true")
     s.add_argument("--count", type=int, default=1); s.add_argument("--interval", type=float, default=0.5)
@@ -603,6 +658,8 @@ def build_parser():
     s = sub.add_parser("logread", help="read a log file from the card (no board needed)"); s.add_argument("file")
     s.add_argument("--candump", metavar="OUT", help="convert to can-utils format, for SavvyCAN and others")
     s.add_argument("--csv", metavar="OUT", help="extract OBD live values to a spreadsheet file")
+    s.add_argument("--gpx", metavar="OUT", help="write the GPS track (dongle with a GPS receiver)")
+    s.add_argument("--sync-csv", metavar="OUT", help="write each sync-output edge with its UTC time, for a camera rig")
     s.add_argument("--ids", action="store_true", help="count frames per CAN ID")
     s.add_argument("--frames", action="store_true", help="print every frame")
     s.add_argument("--decode", action="store_true", help="latest decoded value of each known broadcast message")

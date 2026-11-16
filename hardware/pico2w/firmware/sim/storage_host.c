@@ -81,8 +81,8 @@ int storage_list(storage_list_fn fn, void *ctx)
     for (struct dirent *e; (e = readdir(d));) {
         char path[1024];
         struct stat st;
-        snprintf(path, sizeof(path), "%s/%s", dir, e->d_name);
-        if (e->d_name[0] == '.' || stat(path, &st) || !S_ISREG(st.st_mode))
+        int n = snprintf(path, sizeof(path), "%s/%s", dir, e->d_name);
+        if (n < 0 || (size_t)n >= sizeof(path) || e->d_name[0] == '.' || stat(path, &st) || !S_ISREG(st.st_mode))
             continue;
         fn(e->d_name, (uint32_t)st.st_size, ctx);
         count++;

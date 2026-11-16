@@ -343,6 +343,50 @@ static void handle(struct proto_port *port, const uint8_t *in, size_t len)
         break;
     }
 
+    case PROTO_CMD_GNSS: {
+        struct app_gnss a;
+        if (nargs != 0 && nargs != 2) {
+            respond(PROTO_BAD_ARGS, 0);
+            break;
+        }
+        if (!app_gnss_get(&a)) {
+            respond(PROTO_UNKNOWN_CMD, 0);
+            break;
+        }
+        if (nargs == 2 && !app_sync_set((uint32_t)(args[0] | args[1] << 8))) {
+            respond(PROTO_BAD_ARGS, 0);
+            break;
+        }
+        app_gnss_get(&a);
+        // [flags: 1 present, 2 fix, 4 pulse locked, 8 drift valid, 16 log clock from GPS][quality][sats][0]
+        // [utc u32][utc ms u16][lat i32][lon i32][alt cm i32][speed cm/s u16][course cdeg u16][hdop x100 u16]
+        // [drift ppb i32][sync hz u16][pulses u32][paired u32][sync edges u32][sentences u32][bad u32]
+        const struct gnss_status *g = &a.gps;
+        const struct gnss_fix *x = &g->last;
+        data[0] = (uint8_t)((g->present ? 1 : 0) | (g->fix ? 2 : 0) | (g->pps_locked ? 4 : 0) |
+                            (g->drift_valid ? 8 : 0) | (a.time_from_gps ? 16 : 0));
+        data[1] = x->quality;
+        data[2] = x->sats;
+        data[3] = 0;
+        put_u32(data + 4, x->utc);
+        data[8] = (uint8_t)x->utc_ms; data[9] = (uint8_t)(x->utc_ms >> 8);
+        put_u32(data + 10, (uint32_t)x->lat_e7);
+        put_u32(data + 14, (uint32_t)x->lon_e7);
+        put_u32(data + 18, (uint32_t)x->alt_cm);
+        data[22] = (uint8_t)x->speed_cms; data[23] = (uint8_t)(x->speed_cms >> 8);
+        data[24] = (uint8_t)x->course_cdeg; data[25] = (uint8_t)(x->course_cdeg >> 8);
+        data[26] = (uint8_t)x->hdop_c; data[27] = (uint8_t)(x->hdop_c >> 8);
+        put_u32(data + 28, (uint32_t)g->drift_ppb);
+        data[32] = (uint8_t)a.sync_hz; data[33] = (uint8_t)(a.sync_hz >> 8);
+        put_u32(data + 34, g->pulses);
+        put_u32(data + 38, g->paired);
+        put_u32(data + 42, a.sync_edges);
+        put_u32(data + 46, g->sentences);
+        put_u32(data + 50, g->bad_sentences);
+        respond(PROTO_OK, 54);
+        break;
+    }
+
     case PROTO_CMD_EXIT:
         respond(PROTO_OK, 0);
         app_leave_binary();

@@ -13,6 +13,10 @@ compiles with the microSD driver, but **nothing has been run on a real card yet*
 - The wall-clock time, if a computer or phone told the board the time. The board has no clock of its own; without
   this, times are relative to power-up only.
 - A count of any frames that could not be recorded, at the point where they were lost.
+- On the dongle with a GPS receiver on its GPS / sync connector: every GPS pulse with the UTC second it marks,
+  every fix (position, speed, course, satellites), and every edge sent on the camera sync output. Pulses and
+  edges carry microsecond stamps, and the first paired pulse sets the wall-clock time, so a phone is not needed
+  for that (see "GPS time" below).
 
 **Live data needs requests.** The OBD port sits behind the car's gateway, which may pass little or nothing except
 answers to diagnostic requests (see `docs/vw_can_data_sources.md`). So a log taken purely by listening may be
@@ -53,6 +57,8 @@ python3 -m vwdiag logread LOG00003.VWL --csv drive.csv       # OBD live values a
 python3 -m vwdiag logread LOG00003.VWL --candump drive.log   # can-utils format for SavvyCAN, python-can, cantools
 python3 -m vwdiag logread LOG00003.VWL --decode              # VW broadcast messages, via the MQB database
 python3 -m vwdiag logread LOG00003.VWL --ids --frames        # per-ID counts, and every frame
+python3 -m vwdiag logread LOG00003.VWL --gpx drive.gpx       # the GPS track (dongle with a GPS receiver)
+python3 -m vwdiag logread LOG00003.VWL --sync-csv sync.csv   # each camera sync edge with its UTC time
 ```
 
 From the console: `log on`, `log off`, `log`, `log mark <text>`, `log ls`, `log get <file> <offset> <length>`,
@@ -92,15 +98,35 @@ and logging stops; start it again after reinserting the card.
 - FAT32 and exFAT cards both work. Files can be copied off over the link (above) or by taking the card out.
   Only plain 8.3 names in the top folder can be read that way: no paths.
 
-## File format (version 1)
-All numbers are little-endian. Times are milliseconds since the board powered up.
+## GPS time
+The dongle stamps everything with one microsecond clock: CAN frames (to the millisecond), GPS pulses and sync
+edges (to the microsecond, as the interrupt saw them). Each GPS pulse marks the start of a UTC second, and the
+receiver's time sentence for that second follows within a second; the firmware pairs the two. In a log, each
+paired pulse is an exact (local microseconds, UTC) point, and between them the reader draws straight lines, so
+any stamp in the file converts to UTC to within the pulse stamp's accuracy (a few microseconds, plus the
+receiver's own pulse error, typically tens of nanoseconds). The local crystal's drift (tens of ppm, changing with
+temperature) drops out, because each second is measured. `logread` prints that drift.
+
+The **sync output** is a square wave at 1 to 100 Hz (`sync <hz>` on the console, `vwdiag gps --sync <hz>`, or the
+app). Each GPS pulse restarts it with a rising edge, so with a fix the rising edges fall on the GPS second and
+equal divisions of it; every rising edge is logged with its number. A camera or IMU rig that triggers on it, or
+records it, can then be lined up with the CAN data exactly: `--sync-csv` lists edge number, local microseconds
+and UTC for each edge. Without GPS it runs from the local clock and the edges are still logged.
+
+The receiver is any module that sends NMEA RMC (and ideally GGA) at 9600 baud by default (`gps baud <n>` to
+change, for example in `AUTORUN.TXT`) and has a pulse-per-second output: u-blox M8 or M10 modules are typical.
+Set its rate (10 Hz suits drive replay) once with the maker's tool; it keeps it.
+
+## File format (version 2)
+All numbers are little-endian. Times are milliseconds since the board powered up, cut to 32 bits (they wrap after
+49.7 days). Version 2 added records 05 to 07; readers of version 1 files need nothing new.
 
 Header, 32 bytes:
 
 | Offset | Size | Content |
 |---|---|---|
 | 0 | 4 | `VWLG` |
-| 4 | 1 | Format version, 1 |
+| 4 | 1 | Format version, 2 |
 | 5 | 1 | Header length, 32. Readers skip to this offset, so later versions can add fields |
 | 6 | 2 | Zero |
 | 8 | 4 | CAN bit rate |
@@ -116,5 +142,8 @@ Then records, each `type (1 byte)`, `time (4 bytes)`, payload:
 | 02 | Lost | Number of frames that could not be recorded since the previous record (4 bytes) |
 | 03 | Mark | Text length (1 byte), text (UTF-8, up to 200 bytes) |
 | 04 | Time | Wall-clock time, Unix seconds, at this record's time (4 bytes) |
+| 05 | GPS pulse | Edge time in microseconds since power-up (8 bytes), the UTC second it marks (4 bytes, 0 if it could not be paired with a time sentence). The record's time is the edge time / 1000 |
+| 06 | GPS fix | UTC second (4), milliseconds (2), flags (1: bit 0 valid), quality (1), satellites (1), latitude and longitude (4 each, degrees x 10^7, signed), altitude cm (4, signed), speed cm/s (2), course 0.01 degree (2), HDOP x 100 (2), zero (2): 29 bytes. The record's time is when the sentences were read |
+| 07 | Sync edge | Edge time in microseconds since power-up (8 bytes), edge number (4 bytes, from 1 at power-up) |
 
 Files are named `LOG00001.VWL` upward; the board picks the number after the highest one on the card.

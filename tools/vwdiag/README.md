@@ -20,10 +20,11 @@ With one board plugged in, `--port` can be omitted.
 | `log start [--poll VALUE ...] [--interval S]` | Start recording to the board's microSD card, optionally polling live values | only with `--poll` |
 | `log stop`, `log status`, `log mark TEXT` | Stop, check, or add a note to the log | no |
 | `power [--stay on\|off] [--idle S] [--cutoff MV] [--sleep]` | The dongle's power state: why it woke, the battery, what keeps it awake; set how and when it sleeps | no |
+| `gps [--sync HZ\|off] [--watch S]` | The dongle's GPS receiver: fix, position, pulse lock, how far its clock drifts from GPS; set the camera sync output | no |
 | `experiment NAME [--seconds S] [--yes]` | A scripted logging experiment: listen, identify, timing, cold-start, warm-idle, rev-holds, drive (`docs/logging_experiments.md`) | after listen |
 | `calibrate FOLDER ... [--verify]` | Simulator settings that match the car, from experiment results; with --verify, the simulator rerun side by side | no |
 | `files [NAME ... \| all] [--out DIR]` | List the card's files, or copy them here over USB or Bluetooth | no |
-| `logread FILE [--csv OUT] [--candump OUT] [--decode] [--ids] [--frames]` | Read a log copied off the card; needs no board | no |
+| `logread FILE [--csv OUT] [--candump OUT] [--gpx OUT] [--sync-csv OUT] [--decode] [--ids] [--frames]` | Read a log copied off the card; needs no board | no |
 | `scan` | Find which control modules answer | yes |
 | `info [module ...]` | VIN, part number, software and hardware versions, system name | yes |
 | `dtc [module ...] [--mask HEX]` | Read and decode fault codes | yes |

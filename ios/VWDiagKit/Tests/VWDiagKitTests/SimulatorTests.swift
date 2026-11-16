@@ -167,6 +167,25 @@ final class SimulatorTests: XCTestCase {
         await ifc.close()
     }
 
+    func testGPSAndCameraSync() async throws {
+        let ifc = try await connect(try startSimulator("realistic", env: ["VWDIAG_GPS": "1", "VWDIAG_GPS_DRIFT": "-30"]))
+        try await Task.sleep(nanoseconds: 3_300_000_000)
+        let g = try await ifc.gps(syncHz: 10)
+        XCTAssertEqual(g?.present, true)
+        XCTAssertEqual(g?.fix, true)
+        XCTAssertEqual(g?.pulseLocked, true)
+        XCTAssertEqual(g?.logClockFromGPS, true)
+        XCTAssertEqual(g?.satellites, 12)
+        XCTAssertEqual(g?.latitude ?? 0, 52.4227, accuracy: 1e-5)
+        XCTAssertEqual(g?.driftPpm ?? 0, -30, accuracy: 0.6)
+        XCTAssertEqual(g?.syncHz, 10)
+        try await Task.sleep(nanoseconds: 400_000_000)
+        let h = try await ifc.gps(syncHz: 0)
+        XCTAssertGreaterThanOrEqual(h?.syncEdges ?? 0, 3)
+        XCTAssertEqual(h?.syncHz, 0)
+        await ifc.close()
+    }
+
     func testScanFindsSevenModules() async throws {
         let ifc = try await connect(try startSimulator("realistic"))
         try await ifc.setListenOnly(false)

@@ -4,7 +4,8 @@
 //   header  = "VWLG" version(1) header_len(32) 0 0 bitrate(u32) start_ms(u32) start_epoch(u32) zeros
 //   record  = type(u8) time_ms(u32) payload
 //
-// Numbers are little-endian; time_ms is milliseconds since power-up.
+// Numbers are little-endian; time_ms is milliseconds since power-up. The GPS and sync records
+// also carry the microsecond time of their edge, from the same clock (time_ms = us / 1000).
 #pragma once
 
 #include <stdbool.h>
@@ -12,7 +13,7 @@
 
 #include "isotp.h"
 
-#define LOG_VERSION 1
+#define LOG_VERSION 2   // 2 added the GPS and sync records; the rest is unchanged
 #define LOG_HEADER_LEN 32
 
 enum log_record {
@@ -20,7 +21,14 @@ enum log_record {
     LOG_REC_LOST = 0x02, // count(u32): frames that could not be recorded since the last record
     LOG_REC_MARK = 0x03, // length(u8) text
     LOG_REC_TIME = 0x04, // epoch(u32): the wall-clock time (Unix seconds) at this record's time_ms
+    LOG_REC_PPS = 0x05,  // us(u64) utc(u32): a GPS pulse edge and the UTC second it marks (0 = unpaired)
+    LOG_REC_FIX = 0x06,  // utc(u32) utc_ms(u16) flags(u8: bit 0 valid) quality(u8) sats(u8) lat(i32) lon(i32)
+                         // alt_cm(i32) speed_cms(u16) course_cdeg(u16) hdop_c(u16) reserved(u16);
+                         // degrees x 10^7; time_ms is when the sentences were read
+    LOG_REC_SYNC = 0x07, // us(u64) count(u32): a rising edge sent on the sync output
 };
+
+#define LOG_FIX_LEN 29
 
 struct logger_stats {
     bool active;
@@ -35,6 +43,13 @@ void logger_stop(void);
 bool logger_active(void);
 void logger_can(const struct can_frame *f, uint32_t time_ms, bool sent);
 void logger_mark(const char *text, uint32_t time_ms);
+
+// GPS and sync records (the dongle's GPS / sync connector): see gnss.h. Stamped with their own
+// microsecond time; the fix with the time its sentences were read.
+struct gnss_fix;
+void logger_pps(uint64_t edge_us, uint32_t utc);
+void logger_fix(const struct gnss_fix *fix, uint64_t read_us);
+void logger_sync(uint64_t edge_us, uint32_t count);
 
 // The interface has no clock of its own; a phone or computer can tell it the time.
 void logger_set_time(uint32_t epoch, uint32_t now_ms);

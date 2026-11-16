@@ -272,6 +272,37 @@ class Link:
                 "battery_low_for_s": int(low.group(1)) if low else 0, "idle_s": int(s.group(1)),
                 "cutoff_mv": int(s.group(2)), "running_mv": int(s.group(3)), "stay_awake": s.group(4) == "on"}
 
+    def gnss(self, sync_hz=None):
+        """GPS and sync-output state of the dongle, from the console's  gps  command."""
+        from .binlink import gnss_dict
+        if sync_hz is not None:
+            lines = self.command("sync %s" % (sync_hz if sync_hz else "off"))
+            if lines and lines[-1].startswith("-"):
+                raise LinkError("the interface refused that sync rate (1-100 Hz, or 0 for off)")
+        lines = self.command("gps")
+        text = "\n".join(lines)
+        if lines and lines[-1].startswith("-"):
+            raise LinkError(lines[-1].lstrip("- "))
+        head = re.search(r"gps (receiver present|no receiver), (fix|no fix), pulse (locked|not locked)", text)
+        counts = re.search(r"sentences (\d+) bad (\d+) pulses (\d+) paired (\d+)", text)
+        sync = re.search(r"sync (\d+) Hz, (\d+) edges", text)
+        if not (head and counts and sync):
+            raise LinkError("could not read the GPS state")
+        q = re.search(r"quality (\d+), (\d+) satellites, hdop ([\d.]+)", text)
+        pos = re.search(r"position: ([\d.]+) ([NS]), ([\d.]+) ([EW]), altitude (-?[\d.]+) m", text)
+        mv = re.search(r"speed ([\d.]+) m/s, course ([\d.]+) deg", text)
+        utc = re.search(r"utc ([\d.]+)", text)
+        drift = re.search(r"clock drift (-?\d+) ppb", text)
+        lat = float(pos.group(1)) * (-1 if pos.group(2) == "S" else 1) if pos else 0.0
+        lon = float(pos.group(3)) * (-1 if pos.group(4) == "W" else 1) if pos else 0.0
+        return gnss_dict(head.group(1) == "receiver present", head.group(2) == "fix", head.group(3) == "locked",
+                         "log clock from GPS" in text, int(q.group(1)) if q else 0, int(q.group(2)) if q else 0,
+                         float(utc.group(1)) if utc else 0.0, lat, lon, float(pos.group(5)) if pos else 0.0,
+                         float(mv.group(1)) if mv else 0.0, float(mv.group(2)) if mv else 0.0,
+                         float(q.group(3)) if q else 0.0, int(drift.group(1)) if drift else None, int(sync.group(1)),
+                         int(counts.group(3)), int(counts.group(4)), int(sync.group(2)), int(counts.group(1)),
+                         int(counts.group(2)))
+
     # ---- copying files off the card
     READ_CHUNK = 1024   # what one "log get" returns on the text console
 

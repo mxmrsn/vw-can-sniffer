@@ -4,7 +4,7 @@ import Foundation
 public enum Command: UInt8, Sendable {
     case hello = 0x01, status = 0x02, setSilent = 0x03, setMonitor = 0x04, uds = 0x05, setKeepalive = 0x06
     case setLog = 0x08, setTime = 0x09, logStatus = 0x0A, pollAdd = 0x0B, pollClear = 0x0C, logMark = 0x0D
-    case logList = 0x0E, logRead = 0x0F, power = 0x10
+    case logList = 0x0E, logRead = 0x0F, power = 0x10, gnss = 0x11
     case exit = 0x7F
 }
 
@@ -330,6 +330,43 @@ public actor Interface {
         return PowerState(holds: holds, wake: Int(d[1]) < Self.powerWakes.count ? Self.powerWakes[Int(d[1])] : "unknown",
                           batteryMv: Int(d.u16(4)), sleepsInS: Int(d.u16(6)), batteryLowForS: Int(d.u16(8)),
                           idleS: Int(d.u32(10)), cutoffMv: Int(d.u16(14)), runningMv: Int(d.u16(16)), stayAwake: d[3] != 0)
+    }
+
+    // MARK: GPS and camera sync (the dongle's GPS / sync connector; other boards answer unknownCommand)
+    public struct GPSState: Sendable, Equatable {
+        public let present: Bool            // a receiver is sending sentences
+        public let fix: Bool
+        public let pulseLocked: Bool        // its pulse-per-second is paired with GPS time
+        public let logClockFromGPS: Bool
+        public let quality: Int
+        public let satellites: Int
+        public let utc: Double              // Unix seconds of the latest fix (0 = not known)
+        public let latitude: Double
+        public let longitude: Double
+        public let altitudeM: Double
+        public let speedMs: Double
+        public let courseDeg: Double
+        public let hdop: Double
+        public let driftPpm: Double?        // the interface's clock against GPS (positive: fast)
+        public let syncHz: Int              // the sync output (0 = off)
+        public let pulses: Int
+        public let paired: Int
+        public let syncEdges: Int
+    }
+
+    /// The GPS state, after optionally setting the sync output (0 off, 1-100 Hz). nil: this board has no GPS connector.
+    public func gps(syncHz: Int? = nil) async throws -> GPSState? {
+        let args = syncHz.map { le16(UInt16($0)) } ?? []
+        let (status, d) = try await exchange(.gnss, args)
+        if status == .unknownCommand { return nil }
+        guard status == .ok, d.count >= 54 else { throw InterfaceError.refused(.gnss, status) }
+        func i32(_ at: Int) -> Double { Double(Int32(bitPattern: d.u32(at))) }
+        return GPSState(present: d[0] & 1 != 0, fix: d[0] & 2 != 0, pulseLocked: d[0] & 4 != 0,
+                        logClockFromGPS: d[0] & 16 != 0, quality: Int(d[1]), satellites: Int(d[2]),
+                        utc: Double(d.u32(4)) + Double(d.u16(8)) / 1000, latitude: i32(10) / 1e7, longitude: i32(14) / 1e7,
+                        altitudeM: i32(18) / 100, speedMs: Double(d.u16(22)) / 100, courseDeg: Double(d.u16(24)) / 100,
+                        hdop: Double(d.u16(26)) / 100, driftPpm: d[0] & 8 != 0 ? i32(28) / 1000 : nil,
+                        syncHz: Int(d.u16(32)), pulses: Int(d.u32(34)), paired: Int(d.u32(38)), syncEdges: Int(d.u32(42)))
     }
 
     // MARK: copying files off the card

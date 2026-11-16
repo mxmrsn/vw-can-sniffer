@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "gnss.h"
 #include "storage.h"
 
 #define BUFFER_SIZE 8192
@@ -57,6 +58,18 @@ static void flush(uint32_t now_ms)
         unsynced = true;
     }
     flushed_at = now_ms;
+}
+
+static void put_u16(uint8_t *p, uint16_t v)
+{
+    p[0] = (uint8_t)v;
+    p[1] = (uint8_t)(v >> 8);
+}
+
+static void put_u64(uint8_t *p, uint64_t v)
+{
+    put_u32(p, (uint32_t)v);
+    put_u32(p + 4, (uint32_t)(v >> 32));
 }
 
 static uint32_t epoch_at(uint32_t now_ms)
@@ -149,6 +162,49 @@ void logger_mark(const char *text, uint32_t time_ms)
     if (p) {
         p[0] = (uint8_t)len;
         memcpy(p + 1, text, len);
+    }
+}
+
+void logger_pps(uint64_t edge_us, uint32_t utc)
+{
+    if (!stats.active)
+        return;
+    uint8_t *p = record(LOG_REC_PPS, (uint32_t)(edge_us / 1000), 12);
+    if (p) {
+        put_u64(p, edge_us);
+        put_u32(p + 8, utc);
+    }
+}
+
+void logger_fix(const struct gnss_fix *x, uint64_t read_us)
+{
+    if (!stats.active)
+        return;
+    uint8_t *p = record(LOG_REC_FIX, (uint32_t)(read_us / 1000), LOG_FIX_LEN);
+    if (!p)
+        return;
+    put_u32(p, x->utc);
+    put_u16(p + 4, x->utc_ms);
+    p[6] = x->valid ? 1 : 0;
+    p[7] = x->quality;
+    p[8] = x->sats;
+    put_u32(p + 9, (uint32_t)x->lat_e7);
+    put_u32(p + 13, (uint32_t)x->lon_e7);
+    put_u32(p + 17, (uint32_t)x->alt_cm);
+    put_u16(p + 21, x->speed_cms);
+    put_u16(p + 23, x->course_cdeg);
+    put_u16(p + 25, x->hdop_c);
+    put_u16(p + 27, 0); // reserved
+}
+
+void logger_sync(uint64_t edge_us, uint32_t count)
+{
+    if (!stats.active)
+        return;
+    uint8_t *p = record(LOG_REC_SYNC, (uint32_t)(edge_us / 1000), 12);
+    if (p) {
+        put_u64(p, edge_us);
+        put_u32(p + 8, count);
     }
 }
 
