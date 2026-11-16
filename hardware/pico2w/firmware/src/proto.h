@@ -34,6 +34,7 @@ enum proto_command {
     PROTO_CMD_LOG_MARK = 0x0D,      // [text...]
     PROTO_CMD_LOG_LIST = 0x0E,      // [first index u16, optional] -> [total u16][count] then count x [size u32][name length][name]
     PROTO_CMD_LOG_READ = 0x0F,      // [offset u32][max length u16][name...] -> [file size u32][data...]
+    PROTO_CMD_POWER = 0x10,         // [] or [op][value u32] -> power state; UNKNOWN_CMD on boards without it
     PROTO_CMD_EXIT = 0x7F,          // back to the text console
 };
 

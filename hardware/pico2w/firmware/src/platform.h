@@ -20,3 +20,10 @@ void plat_ble_poll(void);         // called often from the main loop
 void plat_ble_kick(void);         // packets were queued: start sending them
 bool plat_ble_open_pairing(void); // allow a new phone to pair for a while
 bool plat_ble_forget(void);       // delete every bonded phone
+
+// Boards that switch themselves off (built with APP_POWER: the OBD dongle, and the simulator).
+#include "power.h"
+uint16_t plat_battery_mv(void);   // the OBD port's battery voltage; under ~6 V means none
+bool plat_usb_host(void);         // a computer is attached to the USB port
+enum power_wake plat_wake_reason(void);
+void plat_power_sleep(enum power_sleep_reason why); // switch off; on the dongle it does not return

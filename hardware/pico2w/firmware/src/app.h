@@ -25,6 +25,12 @@ void app_log_mark(const char *text);
 bool app_poll_add(uint32_t request_id, uint32_t response_id, uint32_t period_ms, const uint8_t *req, size_t len);
 void app_poll_clear(void);
 
+// Power management, on boards built with APP_POWER (the OBD dongle). Both return false elsewhere.
+#include "power.h"
+bool app_power_get(struct power_status *st, struct power_settings *set);
+// op: 1 stay awake (0/1), 2 idle seconds, 3 battery cutoff mV, 4 sleep now
+bool app_power_set(uint8_t op, uint32_t value);
+
 // One UDS request to any address. timeout_ms 0 uses the console's setting.
 // Returns a uds.h result; *detail is the NRC or the ISO-TP error code.
 int app_uds_request(uint32_t request_id, uint32_t response_id, uint32_t timeout_ms,

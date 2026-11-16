@@ -6,7 +6,7 @@ import XCTest
 final class SimulatorTests: XCTestCase {
     var proc: Process?
 
-    func startSimulator(_ scenario: String, card: String = "") throws -> UInt16 {
+    func startSimulator(_ scenario: String, card: String = "", env: [String: String] = [:]) throws -> UInt16 {
         let here = URL(fileURLWithPath: #filePath)
         let repo = here.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
@@ -17,7 +17,7 @@ final class SimulatorTests: XCTestCase {
         let port = UInt16.random(in: 20000...40000)
         let p = Process()
         p.executableURL = sim
-        p.environment = ["VWDIAG_BLE_PORT": String(port), "VWSIM": scenario, "VWDIAG_SD": card]
+        p.environment = ["VWDIAG_BLE_PORT": String(port), "VWSIM": scenario, "VWDIAG_SD": card].merging(env) { $1 }
         p.standardInput = Pipe()
         p.standardOutput = FileHandle.nullDevice
         try p.run()
@@ -146,6 +146,24 @@ final class SimulatorTests: XCTestCase {
         let ign = try await Simos18.read(engine, Simos18.byKey["ign_avg"]!)
         XCTAssertLessThan(ign, 0)            // a cold start retards the spark
         XCTAssertEqual(Simos18.byKey["oil_temp"]!.decode([0x0E, 0x2F])!, 89.96, accuracy: 0.001)   // (3631 - 2731.4) / 10
+        await ifc.close()
+    }
+
+    func testDongleSleepsAndTheLinkDrops() async throws {
+        let ifc = try await connect(try startSimulator("realistic,ignition=off:0", env: ["VWDIAG_USB": "0", "VWDIAG_WAKE": "button"]))
+        try await Task.sleep(nanoseconds: 700_000_000)     // the power manager looks twice a second
+        let p = try await ifc.power()
+        XCTAssertEqual(p?.wake, "button")
+        XCTAssertEqual(p?.holds, ["phone", "activity"])     // the app is connected: a phone
+        XCTAssertEqual(Double(p?.batteryMv ?? 0), 12500, accuracy: 50)
+        let q = try await ifc.power(.idle(seconds: 120))
+        XCTAssertEqual(q?.idleS, 120)
+        _ = try? await ifc.power(.sleepNow)
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        do {
+            _ = try await ifc.state()
+            XCTFail("a sleeping dongle does not answer")
+        } catch InterfaceError.disconnected {}
         await ifc.close()
     }
 

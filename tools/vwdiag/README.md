@@ -19,6 +19,7 @@ With one board plugged in, `--port` can be omitted.
 | `decode FILE [--summary]` | Decode a saved capture; needs no board | no |
 | `log start [--poll VALUE ...] [--interval S]` | Start recording to the board's microSD card, optionally polling live values | only with `--poll` |
 | `log stop`, `log status`, `log mark TEXT` | Stop, check, or add a note to the log | no |
+| `power [--stay on\|off] [--idle S] [--cutoff MV] [--sleep]` | The dongle's power state: why it woke, the battery, what keeps it awake; set how and when it sleeps | no |
 | `experiment NAME [--seconds S] [--yes]` | A scripted logging experiment: listen, identify, timing, cold-start, warm-idle, rev-holds, drive (`docs/logging_experiments.md`) | after listen |
 | `calibrate FOLDER ... [--verify]` | Simulator settings that match the car, from experiment results; with --verify, the simulator rerun side by side | no |
 | `files [NAME ... \| all] [--out DIR]` | List the card's files, or copy them here over USB or Bluetooth | no |

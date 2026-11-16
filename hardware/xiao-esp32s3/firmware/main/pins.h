@@ -24,6 +24,8 @@
 // as the v0.2.0 board. GPIO3 is a strapping pin, and the pull-down also gives it
 // a defined level at reset.
 #define BTN_MODE_PIN 3    // D2
+#define BTN_MODE_PRESSED 1              // pressed reads high
+#define BTN_MODE_PULL GPIO_FLOATING     // the board's 10k pull-down does it
 
 // microSD, SPI mode. No external pull-up on CS: drive it high before mounting.
 // GPIO43/44 are UART0 during the ROM boot log, before app_main takes them over.

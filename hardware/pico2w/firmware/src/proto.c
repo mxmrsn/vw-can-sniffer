@@ -309,6 +309,40 @@ static void handle(struct proto_port *port, const uint8_t *in, size_t len)
         break;
     }
 
+    case PROTO_CMD_POWER: {
+        struct power_status st;
+        struct power_settings set;
+        if (nargs != 0 && nargs != 5) {
+            respond(PROTO_BAD_ARGS, 0);
+            break;
+        }
+        if (!app_power_get(&st, &set)) {
+            respond(PROTO_UNKNOWN_CMD, 0);
+            break;
+        }
+        if (nargs == 5 && !app_power_set(args[0], get_u32(args + 1))) {
+            respond(PROTO_BAD_ARGS, 0);
+            break;
+        }
+        app_power_get(&st, &set);
+        // [holds][wake][sleeping][stay][vbat mV u16][sleeps in s u16][battery low for s u16]
+        // [idle s u32][cutoff mV u16][running mV u16]
+        data[0] = st.holds;
+        data[1] = (uint8_t)st.wake;
+        data[2] = (uint8_t)st.sleeping;
+        data[3] = set.stay_awake;
+        data[4] = (uint8_t)st.vbat_mv; data[5] = (uint8_t)(st.vbat_mv >> 8);
+        uint16_t in = st.sleep_in_s > 0xFFFF ? 0xFFFF : (uint16_t)st.sleep_in_s;
+        uint16_t low = st.low_battery_for_s > 0xFFFF ? 0xFFFF : (uint16_t)st.low_battery_for_s;
+        data[6] = (uint8_t)in; data[7] = (uint8_t)(in >> 8);
+        data[8] = (uint8_t)low; data[9] = (uint8_t)(low >> 8);
+        put_u32(data + 10, set.idle_s);
+        data[14] = (uint8_t)set.cutoff_mv; data[15] = (uint8_t)(set.cutoff_mv >> 8);
+        data[16] = (uint8_t)set.running_mv; data[17] = (uint8_t)(set.running_mv >> 8);
+        respond(PROTO_OK, 18);
+        break;
+    }
+
     case PROTO_CMD_EXIT:
         respond(PROTO_OK, 0);
         app_leave_binary();

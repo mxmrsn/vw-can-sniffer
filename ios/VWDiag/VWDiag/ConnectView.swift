@@ -59,6 +59,27 @@ struct ConnectView: View {
     }
 
     @ViewBuilder
+    private func powerSection(_ p: Interface.PowerState) -> some View {
+        Section {
+            LabeledContent("Woke by", value: p.wake)
+            LabeledContent("Battery", value: String(format: "%.2f V", Double(p.batteryMv) / 1000))
+            LabeledContent("Kept awake by", value: p.holds.isEmpty ? "nothing" : p.holds.joined(separator: ", "))
+            if p.sleepsInS > 0 { LabeledContent("Sleeps in", value: "\(p.sleepsInS) s") }
+            if p.batteryLowForS > 0 { LabeledContent("Battery low for", value: "\(p.batteryLowForS) s") }
+            Toggle("Stay awake", isOn: Binding(get: { p.stayAwake }, set: { on in Task { await model.changePower(.stayAwake(on)) } }))
+            Stepper(value: Binding(get: { p.idleS / 60 }, set: { m in Task { await model.changePower(.idle(seconds: max(1, m) * 60)) } }),
+                    in: 1...60) {
+                LabeledContent("Sleep after", value: "\(p.idleS / 60) min idle")
+            }
+            Button("Sleep now") { Task { await model.changePower(.sleepNow) } }
+        } header: {
+            Text("Power")
+        } footer: {
+            Text("The dongle switches itself off when nothing needs it (no phone, no requests, engine off, no bus traffic), and always when the battery stays below \(String(format: "%.1f", Double(p.cutoffMv) / 1000)) V with the engine off. It wakes when the engine starts, on bus traffic, or on its button. Asleep, the phone cannot see it.")
+        }
+    }
+
+    @ViewBuilder
     private func connectedSection(_ info: InterfaceInfo) -> some View {
         Section("Connected") {
             LabeledContent("Interface", value: info.name)
@@ -82,6 +103,7 @@ struct ConnectView: View {
                 Button("Refresh") { Task { await model.refresh() } }
             }
         }
+        if let p = model.power { powerSection(p) }
         Section {
             Button("Disconnect", role: .destructive) { Task { await model.disconnect() } }
         }

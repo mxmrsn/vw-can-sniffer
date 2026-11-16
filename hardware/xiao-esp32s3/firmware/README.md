@@ -16,8 +16,9 @@ Paths in this file are relative to this folder (`hardware/xiao-esp32s3/firmware/
 |---|---|
 | `main/main.c` | Entry point and platform.h hooks: clock, console, LEDs |
 | `main/can_port_twai.c` | can_port.h on the ESP32-S3's TWAI controller and a TJA1051T/3 |
-| `main/storage_esp32.c` | storage.h on a microSD card over SPI (sdmmc + FATFS) |
-| `main/ble_esp32.c` | Nordic UART Service on NimBLE, with the Pico board's pairing rules |
+| `../../esp32s3-common/storage_esp32.c` | storage.h on a microSD card over SPI (sdmmc + FATFS); shared with the dongle |
+| `../../esp32s3-common/ble_esp32.c` | Nordic UART Service on NimBLE, with the Pico board's pairing rules; shared with the dongle |
+| `../../esp32s3-common/leds.c` | The LED chain; shared with the dongle |
 | `main/pins.h` | Pin map for this board, from `../docs/design_notes.md` |
 | `sdkconfig.defaults` | Console on USB Serial/JTAG, NimBLE, 1 kHz tick, 8 MB flash |
 | `../../pico2w/firmware/src/*.c` | Everything else, shared and unchanged; see that board's README |

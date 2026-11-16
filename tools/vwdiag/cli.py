@@ -344,6 +344,29 @@ def cmd_experiment(link, args):
     run_experiment(link, args)
 
 
+def cmd_power(link, args):
+    """The dongle's power state, and its settings."""
+    if args.stay:
+        link.power(1, args.stay == "on")
+    if args.idle is not None:
+        link.power(2, args.idle)
+    if args.cutoff is not None:
+        link.power(3, args.cutoff)
+    if args.sleep:
+        link.power(4)
+        print("asked to sleep (it stays awake while a computer is on USB)")
+        return
+    p = link.power()
+    print("woke by %s; battery %.2f V" % (p["wake"], p["battery_mv"] / 1000.0))
+    print("held awake by: %s" % (", ".join(p["holds"]) or "nothing (it sleeps now)"))
+    if p["sleeps_in_s"]:
+        print("sleeps in %d s unless something holds it" % p["sleeps_in_s"])
+    if p["battery_low_for_s"]:
+        print("battery low for %d s" % p["battery_low_for_s"])
+    print("idle %d s, battery cutoff %.2f V, engine running above %.2f V, stay awake %s" % (
+        p["idle_s"], p["cutoff_mv"] / 1000.0, p["running_mv"] / 1000.0, "on" if p["stay_awake"] else "off"))
+
+
 def cmd_raw(link, args):
     enable_transmit(link, args)
     payload = [int(b, 16) for b in args.bytes]
@@ -534,6 +557,12 @@ def build_parser():
     s.add_argument("--out", help="parent folder (default ./experiments)")
     s.add_argument("--yes", action="store_true", help="do not wait at the prompts")
     s.set_defaults(fn=cmd_experiment)
+    s = sub.add_parser("power", help="the dongle's power state; set how and when it sleeps")
+    s.add_argument("--stay", choices=["on", "off"], help="never sleep for idleness (battery protection still applies)")
+    s.add_argument("--idle", type=int, metavar="SECONDS", help="sleep after this long with nothing holding it (30-86400)")
+    s.add_argument("--cutoff", type=int, metavar="MV", help="battery cutoff, engine off (10500-13000 mV)")
+    s.add_argument("--sleep", action="store_true", help="sleep now")
+    s.set_defaults(fn=cmd_power)
     s = sub.add_parser("measure", help="engine measuring values (Simos 18 list), e.g. knock_cyl_1 misfires")
     s.add_argument("value", nargs="*"); s.add_argument("--list", action="store_true")
     s.add_argument("--count", type=int, default=1); s.add_argument("--interval", type=float, default=0.5)
