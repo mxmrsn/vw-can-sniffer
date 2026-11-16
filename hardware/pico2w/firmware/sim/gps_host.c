@@ -96,7 +96,7 @@ static void emit_epoch(uint64_t e)
     time_t t = (time_t)(utc0 + e / RATE_HZ);
     struct tm tm;
     gmtime_r(&t, &tm);
-    char tod[16], date[8], la[16], lo[16], body[120];
+    char tod[32], date[32], la[32], lo[32], body[200]; // roomy: GCC checks the worst case of every field
     snprintf(tod, sizeof(tod), "%02d%02d%02d.%02u", tm.tm_hour, tm.tm_min, tm.tm_sec, (unsigned)(e % RATE_HZ) * 10);
     snprintf(date, sizeof(date), "%02d%02d%02d", tm.tm_mday, tm.tm_mon + 1, tm.tm_year % 100);
     angle(la, sizeof(la), lat, 2);
