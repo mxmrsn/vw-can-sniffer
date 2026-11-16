@@ -32,6 +32,8 @@ enum proto_command {
     PROTO_CMD_POLL_ADD = 0x0B,      // [req id u32][resp id u32][period ms u32][request, 1-7 bytes]
     PROTO_CMD_POLL_CLEAR = 0x0C,
     PROTO_CMD_LOG_MARK = 0x0D,      // [text...]
+    PROTO_CMD_LOG_LIST = 0x0E,      // [first index u16, optional] -> [total u16][count] then count x [size u32][name length][name]
+    PROTO_CMD_LOG_READ = 0x0F,      // [offset u32][max length u16][name...] -> [file size u32][data...]
     PROTO_CMD_EXIT = 0x7F,          // back to the text console
 };
 
@@ -47,8 +49,12 @@ enum proto_status {
     PROTO_TIMEOUT = 4,   // the control module did not answer
     PROTO_NEGATIVE = 5,  // data = [NRC]
     PROTO_TRANSPORT = 6, // data = [ISO-TP error code, signed]
-    PROTO_STORAGE = 7,   // no card, or the log file could not be written
+    PROTO_STORAGE = 7,   // no card, or the file could not be written or read
+    PROTO_BUSY = 8,      // that file is being recorded: stop logging first
 };
+
+#define PROTO_LOG_LIST_BYTES 1000 // a listing page stays small, for slow Bluetooth links
+#define PROTO_LOG_READ_MAX 4000   // the most one LOG_READ returns (fits the response buffer with its header)
 
 enum { PROTO_FLAG_SILENT = 1, PROTO_FLAG_MONITOR = 2, PROTO_FLAG_KEEPALIVE = 4, PROTO_FLAG_LOGGING = 8 };
 

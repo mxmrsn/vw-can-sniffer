@@ -372,8 +372,69 @@ class Logging(unittest.TestCase):
         self.assertGreater(len(rows), 4)
 
 
+    def test_copy_logs_off_the_card(self):
+        link = self.open()
+        link.log_start()
+        with open(os.path.join(self.card, "AUTORUN.TXT"), "w") as f:
+            f.write("poll 7E0 7E8 500 01 0C\n")
+        with self.assertRaises(LinkError) as cm:            # still being recorded
+            link.log_read("LOG00001.VWL", 0, 100)
+        self.assertIn("recorded", str(cm.exception))
+        link.read_frames(1.0)
+        link.log_stop()
+        link.log_start()                                     # a second file, longer than one read
+        link.read_frames(2.5)
+        link.log_stop()
+        files = dict(link.log_files())
+        self.assertEqual(sorted(files), ["AUTORUN.TXT", "LOG00001.VWL", "LOG00002.VWL"])
+        for name in ("LOG00001.VWL", "LOG00002.VWL", "AUTORUN.TXT"):
+            with open(os.path.join(self.card, name), "rb") as f:
+                on_card = f.read()
+            self.assertEqual(files[name], len(on_card))
+            self.assertEqual(link.fetch(name), on_card, name)
+        big = bytes((i * 7919) % 251 for i in range(9001))   # several reads on either link
+        with open(os.path.join(self.card, "BIG.BIN"), "wb") as f:
+            f.write(big)
+        self.assertEqual(link.fetch("BIG.BIN"), big)
+        size, tail = link.log_read("LOG00002.VWL", files["LOG00002.VWL"] - 5, 100)
+        self.assertEqual((size, len(tail)), (files["LOG00002.VWL"], 5))
+        self.assertEqual(link.log_read("LOG00002.VWL", files["LOG00002.VWL"] + 10, 100)[1], b"")
+        for bad in ("../x", "A/B.TXT", "NOSUCH.VWL"):
+            with self.assertRaises(LinkError):
+                link.log_read(bad, 0, 10)
+
+    def test_files_command(self):
+        link = self.open()
+        link.log_start()
+        link.read_frames(0.5)
+        link.log_stop()
+        link.close()
+        out = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", out]))
+        buf = io.StringIO()
+        mode = ["--sim", "--binary"] if self.LINK is BinaryLink else ["--sim"]
+        with redirect_stdout(buf):
+            cli.main(mode + ["files"])
+            cli.main(mode + ["files", "all", "--out", out])
+            cli.main(mode + ["files", "all", "--out", out])
+        self.assertIn("LOG00001.VWL", buf.getvalue())
+        self.assertIn("already here", buf.getvalue())
+        with open(os.path.join(out, "LOG00001.VWL"), "rb") as a, open(os.path.join(self.card, "LOG00001.VWL"), "rb") as b:
+            self.assertEqual(a.read(), b.read())
+
+
 class LoggingBinary(Logging):
     LINK = BinaryLink
+
+    def test_listing_pages(self):
+        # more files than fit one listing packet: the tools ask for the rest
+        for i in range(120):
+            with open(os.path.join(self.card, "F%05d.TXT" % i), "w") as f:
+                f.write("x" * i)
+        link = self.open()
+        files = dict(link.log_files())
+        self.assertEqual(len(files), 120)
+        self.assertEqual(files["F00099.TXT"], 99)
 
 
 class BinaryAgainstSimulator(AgainstSimulator):

@@ -4,11 +4,12 @@ import Foundation
 public enum Command: UInt8, Sendable {
     case hello = 0x01, status = 0x02, setSilent = 0x03, setMonitor = 0x04, uds = 0x05, setKeepalive = 0x06
     case setLog = 0x08, setTime = 0x09, logStatus = 0x0A, pollAdd = 0x0B, pollClear = 0x0C, logMark = 0x0D
+    case logList = 0x0E, logRead = 0x0F
     case exit = 0x7F
 }
 
 public enum InterfaceStatus: UInt8, Sendable {
-    case ok = 0, badArgs, unknownCommand, silent, timeout, negative, transport, storage
+    case ok = 0, badArgs, unknownCommand, silent, timeout, negative, transport, storage, busy
 
     public var text: String {
         switch self {
@@ -19,7 +20,8 @@ public enum InterfaceStatus: UInt8, Sendable {
         case .timeout: return "the control module did not answer"
         case .negative: return "refused by the control module"
         case .transport: return "transport error"
-        case .storage: return "no card, or the log file could not be written"
+        case .storage: return "no card, or the file could not be written or read"
+        case .busy: return "that file is being recorded: stop recording first"
         }
     }
 }
@@ -273,4 +275,56 @@ public actor Interface {
     }
 
     public func pollClear() async throws { try await call(.pollClear) }
+
+    // MARK: copying files off the card
+    public struct CardFile: Sendable, Hashable, Identifiable {
+        public let name: String
+        public let size: Int
+        public var id: String { name }
+    }
+
+    /// Every file on the card (asked for in pages, as the interface sends them).
+    public func cardFiles() async throws -> [CardFile] {
+        var out: [CardFile] = []
+        var first: UInt16 = 0
+        while true {
+            let d = try await call(.logList, le16(first))
+            guard d.count >= 3 else { throw InterfaceError.malformed("file list") }
+            let total = Int(d.u16(0)), count = Int(d[2])
+            var pos = 3
+            for _ in 0..<count {
+                guard pos + 5 <= d.count else { throw InterfaceError.malformed("file list") }
+                let size = Int(d.u32(pos)), n = Int(d[pos + 4])
+                guard pos + 5 + n <= d.count else { throw InterfaceError.malformed("file list") }
+                out.append(CardFile(name: String(decoding: d[(pos + 5)..<(pos + 5 + n)], as: UTF8.self), size: size))
+                pos += 5 + n
+            }
+            first += UInt16(count)
+            if count == 0 || Int(first) >= total { return out }
+        }
+    }
+
+    public static let readChunk = 4000
+
+    /// Part of a file: its size and up to `length` bytes from `offset`.
+    public func readCardFile(_ name: String, offset: Int, length: Int = readChunk) async throws -> (size: Int, data: [UInt8]) {
+        let d = try await call(.logRead, le32(UInt32(offset)) + le16(UInt16(min(length, Self.readChunk))) + Array(name.utf8))
+        guard d.count >= 4 else { throw InterfaceError.malformed("file read") }
+        return (Int(d.u32(0)), Array(d[4...]))
+    }
+
+    /// A whole file. `progress(done, total)` after each piece.
+    public func copyCardFile(_ name: String, progress: (@Sendable (Int, Int) -> Void)? = nil) async throws -> Data {
+        var data = Data()
+        var size = Int.max
+        while data.count < size {
+            try Task.checkCancellation()
+            let piece = try await readCardFile(name, offset: data.count)
+            size = piece.size
+            if piece.data.isEmpty { break }
+            data.append(contentsOf: piece.data)
+            progress?(data.count, size)
+        }
+        return data
+    }
 }

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "../src/storage.h"
@@ -66,6 +67,49 @@ int storage_read_file(const char *name, char *buf, size_t cap)
     if (!f)
         return -1;
     size_t n = fread(buf, 1, cap, f);
+    fclose(f);
+    return (int)n;
+}
+
+int storage_list(storage_list_fn fn, void *ctx)
+{
+    const char *dir = card();
+    DIR *d = dir ? opendir(dir) : NULL;
+    if (!d)
+        return -1;
+    int count = 0;
+    for (struct dirent *e; (e = readdir(d));) {
+        char path[1024];
+        struct stat st;
+        snprintf(path, sizeof(path), "%s/%s", dir, e->d_name);
+        if (e->d_name[0] == '.' || stat(path, &st) || !S_ISREG(st.st_mode))
+            continue;
+        fn(e->d_name, (uint32_t)st.st_size, ctx);
+        count++;
+    }
+    closedir(d);
+    return count;
+}
+
+int storage_read_at(const char *name, uint32_t offset, uint8_t *buf, size_t cap, uint32_t *size)
+{
+    const char *dir = card();
+    if (!dir)
+        return -1;
+    char path[1024];
+    snprintf(path, sizeof(path), "%s/%s", dir, name);
+    FILE *f = fopen(path, "rb");
+    if (!f)
+        return -1;
+    struct stat st;
+    if (fstat(fileno(f), &st)) {
+        fclose(f);
+        return -1;
+    }
+    *size = (uint32_t)st.st_size;
+    size_t n = 0;
+    if (offset < *size && fseek(f, (long)offset, SEEK_SET) == 0)
+        n = fread(buf, 1, cap, f);
     fclose(f);
     return (int)n;
 }

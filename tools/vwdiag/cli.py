@@ -411,6 +411,32 @@ def cmd_log(link, args):
         print_log_state(link.log_status())
 
 
+def cmd_files(link, args):
+    """List the card's files, or copy some of them to this computer."""
+    files = link.log_files()
+    if not args.name:
+        for name, size in sorted(files):
+            print("%-14s %10d bytes" % (name, size))
+        print("%d file(s)" % len(files))
+        return
+    sizes = dict(files)
+    names = [n for n, _ in sorted(files) if n.upper().endswith(".VWL")] if args.name == ["all"] else args.name
+    os.makedirs(args.out, exist_ok=True)
+    for name in names:
+        if name not in sizes:
+            sys.exit("no file %s on the card" % name)
+        path = os.path.join(args.out, name)
+        if os.path.exists(path) and os.path.getsize(path) == sizes[name]:
+            print("%s: already here" % name)
+            continue
+        start = time.monotonic()
+        data = link.fetch(name, progress=lambda done, total: print("\r%s: %d of %d bytes" % (name, done, total), end="", flush=True))
+        with open(path, "wb") as f:
+            f.write(data)
+        rate = len(data) / max(time.monotonic() - start, 1e-6)
+        print("\r%s: %d bytes to %s (%.1f kB/s)" % (name, len(data), path, rate / 1000))
+
+
 def cmd_logread(args):
     try:
         log = logfile.Log(args.file)
@@ -510,6 +536,10 @@ def build_parser():
     s.add_argument("--poll", nargs="+", metavar="VALUE", help="also request these OBD live values on a timer")
     s.add_argument("--interval", type=float, default=0.5, help="seconds between requests for each value")
     s.set_defaults(fn=cmd_log)
+    s = sub.add_parser("files", help="list the card's files, or copy them here (no SD card reader needed)")
+    s.add_argument("name", nargs="*", help="files to copy, or 'all' for every log")
+    s.add_argument("--out", default="logs", help="folder to copy into (default ./logs)")
+    s.set_defaults(fn=cmd_files)
     s = sub.add_parser("logread", help="read a log file from the card (no board needed)"); s.add_argument("file")
     s.add_argument("--candump", metavar="OUT", help="convert to can-utils format, for SavvyCAN and others")
     s.add_argument("--csv", metavar="OUT", help="extract OBD live values to a spreadsheet file")

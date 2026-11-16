@@ -6,6 +6,7 @@
 #include "can_port.h"
 #include "frame.h"
 #include "logger.h"
+#include "storage.h"
 #include "uds.h"
 
 #define HEADER 3 // seq, command, status
@@ -93,6 +94,34 @@ void proto_send_can_event(const struct can_frame *f, uint32_t time_ms)
         if (!p->write(enc, n, true))
             p->events_dropped++;
     }
+}
+
+// One page of the card listing: entries from `first` on, while they fit.
+struct list_page {
+    uint16_t index, first, total;
+    uint8_t count;
+    size_t pos;
+    bool full;
+    uint8_t *data;
+};
+
+static void list_entry(const char *name, uint32_t size, void *ctx)
+{
+    struct list_page *p = ctx;
+    size_t n = strlen(name);
+    if (p->total < 0xFFFF)
+        p->total++;
+    if (p->index++ < p->first || p->full)
+        return;
+    if (p->count == 255 || p->pos + 5 + n > PROTO_LOG_LIST_BYTES) {
+        p->full = true;
+        return;
+    }
+    put_u32(p->data + p->pos, size);
+    p->data[p->pos + 4] = (uint8_t)n;
+    memcpy(p->data + p->pos + 5, name, n);
+    p->pos += 5 + n;
+    p->count++;
 }
 
 static void handle(struct proto_port *port, const uint8_t *in, size_t len)
@@ -232,6 +261,51 @@ static void handle(struct proto_port *port, const uint8_t *in, size_t len)
         text[n] = 0;
         app_log_mark(text);
         respond(PROTO_OK, 0);
+        break;
+    }
+
+    case PROTO_CMD_LOG_LIST: {
+        if (nargs != 0 && nargs != 2) {
+            respond(PROTO_BAD_ARGS, 0);
+            break;
+        }
+        struct list_page page = { .first = nargs ? (uint16_t)(args[0] | args[1] << 8) : 0, .pos = 3, .data = data };
+        if (storage_list(list_entry, &page) < 0) {
+            respond(PROTO_STORAGE, 0);
+            break;
+        }
+        data[0] = (uint8_t)page.total;
+        data[1] = (uint8_t)(page.total >> 8);
+        data[2] = page.count;
+        respond(PROTO_OK, page.pos);
+        break;
+    }
+
+    case PROTO_CMD_LOG_READ: {
+        char name[13];
+        if (nargs < 7 || nargs - 6 > 12) {
+            respond(PROTO_BAD_ARGS, 0);
+            break;
+        }
+        uint32_t offset = get_u32(args);
+        size_t want = (size_t)(args[4] | args[5] << 8);
+        if (want == 0 || want > PROTO_LOG_READ_MAX)
+            want = PROTO_LOG_READ_MAX;
+        memcpy(name, args + 6, nargs - 6);
+        name[nargs - 6] = 0;
+        _Static_assert(4 + PROTO_LOG_READ_MAX <= ISOTP_MAX_PAYLOAD, "LOG_READ answer must fit the response buffer");
+        uint32_t size = 0;
+        int n = logger_read_file(name, offset, data + 4, want, &size);
+        if (n == LOGGER_READ_BAD_NAME) {
+            respond(PROTO_BAD_ARGS, 0);
+        } else if (n == LOGGER_READ_BUSY) {
+            respond(PROTO_BUSY, 0);
+        } else if (n < 0) {
+            respond(PROTO_STORAGE, 0);
+        } else {
+            put_u32(data, size);
+            respond(PROTO_OK, 4 + (size_t)n);
+        }
         break;
     }
 

@@ -16,10 +16,11 @@ from .uds import InterfaceRefused, NegativeResponse, NoResponse
 
 CMD_HELLO, CMD_STATUS, CMD_SET_SILENT, CMD_SET_MONITOR, CMD_UDS, CMD_SET_KEEPALIVE, CMD_EXIT = 1, 2, 3, 4, 5, 6, 0x7F
 CMD_SET_LOG, CMD_SET_TIME, CMD_LOG_STATUS, CMD_POLL_ADD, CMD_POLL_CLEAR, CMD_LOG_MARK = 8, 9, 10, 11, 12, 13
+CMD_LOG_LIST, CMD_LOG_READ = 0x0E, 0x0F
 EVT_CAN_FRAME = 1
-OK, BAD_ARGS, UNKNOWN_CMD, SILENT, TIMEOUT, NEGATIVE, TRANSPORT, STORAGE = range(8)
+OK, BAD_ARGS, UNKNOWN_CMD, SILENT, TIMEOUT, NEGATIVE, TRANSPORT, STORAGE, BUSY = range(9)
 STATUS_NAMES = ["ok", "bad arguments", "unknown command", "silent", "timeout", "negative response", "transport error",
-                "no card, or the log file could not be written"]
+                "no card, or the file could not be written or read", "that file is being recorded: stop logging first"]
 MAX_PAYLOAD = 4160
 
 
@@ -205,6 +206,26 @@ class BinaryLink(Link):
 
     def poll_clear(self):
         self._call(CMD_POLL_CLEAR)
+
+    READ_CHUNK = 4000
+
+    def log_files(self):
+        out, first = [], 0
+        while True:
+            data = self._call(CMD_LOG_LIST, struct.pack("<H", first))
+            total, count = struct.unpack_from("<HB", data)
+            pos = 3
+            for _ in range(count):
+                size, n = struct.unpack_from("<IB", data, pos)
+                out.append((data[pos + 5:pos + 5 + n].decode("ascii", "replace"), size))
+                pos += 5 + n
+            first += count
+            if count == 0 or first >= total:
+                return out
+
+    def log_read(self, name, offset, length):
+        data = self._call(CMD_LOG_READ, struct.pack("<IH", offset, min(length, self.READ_CHUNK)) + name.encode("ascii"))
+        return struct.unpack_from("<I", data)[0], bytes(data[4:])
 
     def read_frames(self, seconds):
         deadline = time.monotonic() + seconds

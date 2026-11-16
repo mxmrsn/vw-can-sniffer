@@ -114,6 +114,7 @@ Open the Pico's USB serial port (any baud rate) and type `help`.
 | `x <req> <resp> <hex bytes>` | One request to any address; replies `+ <hex>` or `- <reason>` |
 | `log on` / `log off` / `log` | Record every CAN frame to the microSD card; `log` alone shows the state |
 | `log mark <text>` | Put a note in the log |
+| `log ls`, `log get <file> <offset> <length>` | List the card's files; read up to 1024 bytes of one, as hex |
 | `time <unix seconds>` | Tell the board the time, for log timestamps |
 | `poll <req> <resp> <ms> <hex>` | Repeat a short request on a timer (up to 8); `poll list`, `poll clear` |
 | `mode m` / `mode h` | Machine mode for programs (no echo, each reply ends with `$`), or human mode |

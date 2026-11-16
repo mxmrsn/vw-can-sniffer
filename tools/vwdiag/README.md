@@ -19,6 +19,7 @@ With one board plugged in, `--port` can be omitted.
 | `decode FILE [--summary]` | Decode a saved capture; needs no board | no |
 | `log start [--poll VALUE ...] [--interval S]` | Start recording to the board's microSD card, optionally polling live values | only with `--poll` |
 | `log stop`, `log status`, `log mark TEXT` | Stop, check, or add a note to the log | no |
+| `files [NAME ... \| all] [--out DIR]` | List the card's files, or copy them here over USB or Bluetooth | no |
 | `logread FILE [--csv OUT] [--candump OUT] [--decode] [--ids] [--frames]` | Read a log copied off the card; needs no board | no |
 | `scan` | Find which control modules answer | yes |
 | `info [module ...]` | VIN, part number, software and hardware versions, system name | yes |
