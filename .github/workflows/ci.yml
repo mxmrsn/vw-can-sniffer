@@ -15,8 +15,8 @@ jobs:
           - { os: ubuntu-24.04, python: "3.9" }   # what macOS ships; the tools must keep working on it
           - { os: ubuntu-latest, python: "3.13" }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
       - name: Firmware unit tests (sanitizers on)
@@ -32,7 +32,7 @@ jobs:
     env:
       PICO_SDK_PATH: ${{ github.workspace }}/pico-sdk
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install the Arm toolchain
         run: |
           sudo apt-get update
@@ -51,25 +51,56 @@ jobs:
             echo "::endgroup::"
           done
           cp "build-pico2_w/vw_diag.uf2" .
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: vw_diag-uf2
           path: hardware/pico2w/firmware/vw_diag.uf2
 
   esp32:
-    name: XIAO ESP32-S3 firmware build
+    # Every ESP32-S3 project: the XIAO board, the bench car (the XIAO pretending to be the car), and the dongle.
+    name: ESP32-S3 build (${{ matrix.name }})
     runs-on: ubuntu-latest
     container: espressif/idf:v5.5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: XIAO board, dir: hardware/xiao-esp32s3/firmware, bin: vw_diag }
+          - { name: bench car, dir: hardware/xiao-esp32s3/bench-car, bin: bench_car }
+          - { name: dongle, dir: hardware/esp32s3-dongle/firmware, bin: vw_diag_dongle }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build
         shell: bash
-        working-directory: hardware/xiao-esp32s3/firmware
+        working-directory: ${{ matrix.dir }}
         run: |
           . $IDF_PATH/export.sh
           idf.py set-target esp32s3
           idf.py build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
-          name: vw_diag-esp32s3-bin
-          path: hardware/xiao-esp32s3/firmware/build/vw_diag.bin
+          name: ${{ matrix.bin }}-esp32s3-bin
+          path: ${{ matrix.dir }}/build/${{ matrix.bin }}.bin
+
+  apple:
+    name: VWDiagKit tests and iOS app build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Use the newest Xcode on the runner
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          xcodebuild -version
+      - name: Build the simulator (the package's end-to-end tests talk to it)
+        run: make -C hardware/pico2w/firmware/sim
+      - name: Package tests
+        working-directory: ios/VWDiagKit
+        run: swift test
+      - name: Build the app for the iOS Simulator (no signing)
+        working-directory: ios/VWDiag
+        run: |
+          set -o pipefail
+          brew install xcodegen
+          xcodegen generate
+          xcodebuild -project VWDiag.xcodeproj -scheme VWDiag -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -5

@@ -568,6 +568,20 @@ def cmd_logread(args):
         print("\n".join(decode_lines([f.text() for f in log.frames], summary=True)))
 
 
+def cmd_replay(args):
+    from . import replay
+    try:
+        log = logfile.Log(args.file)
+    except (OSError, logfile.LogError) as e:
+        sys.exit("error: %s" % e)
+    out = args.out or os.path.splitext(os.path.basename(args.file))[0] + ".html"
+    with open(out, "w") as f:
+        f.write(replay.render(log))
+    data = replay.collect(log)
+    print("wrote %s: %d charts, %d track points, %d marks, %.1f s" % (
+        out, len(data["series"]), len(data["track"]), len(data["marks"]), data["duration"]))
+
+
 def cmd_decode(args):
     with open(args.log) as f:
         lines = f.read().split("\n")
@@ -664,6 +678,9 @@ def build_parser():
     s.add_argument("--frames", action="store_true", help="print every frame")
     s.add_argument("--decode", action="store_true", help="latest decoded value of each known broadcast message")
     s.set_defaults(fn=None, offline=cmd_logread)
+    s = sub.add_parser("replay", help="a log as an HTML page: engine values, GPS speed and track on one timeline")
+    s.add_argument("file"); s.add_argument("--out", help="output file (default: the log's name with .html)")
+    s.set_defaults(fn=None, offline=cmd_replay)
     s = sub.add_parser("decode", help="decode a saved monitor log (no board needed)"); s.add_argument("log")
     s.add_argument("--summary", action="store_true", help="only the latest value of each message")
     s.set_defaults(fn=None, offline=cmd_decode)

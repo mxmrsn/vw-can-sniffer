@@ -24,6 +24,7 @@ With one board plugged in, `--port` can be omitted.
 | `experiment NAME [--seconds S] [--yes]` | A scripted logging experiment: listen, identify, timing, cold-start, warm-idle, rev-holds, drive (`docs/logging_experiments.md`) | after listen |
 | `calibrate FOLDER ... [--verify]` | Simulator settings that match the car, from experiment results; with --verify, the simulator rerun side by side | no |
 | `files [NAME ... \| all] [--out DIR]` | List the card's files, or copy them here over USB or Bluetooth | no |
+| `replay FILE [--out OUT]` | A log as one HTML page: each engine value and GPS speed on its own chart over a shared timeline, the GPS track, the marks; a cursor and time slider move through all of them. Needs no network (the track is drawn without map tiles) | no |
 | `logread FILE [--csv OUT] [--candump OUT] [--gpx OUT] [--sync-csv OUT] [--decode] [--ids] [--frames]` | Read a log copied off the card; needs no board | no |
 | `scan` | Find which control modules answer | yes |
 | `info [module ...]` | VIN, part number, software and hardware versions, system name | yes |

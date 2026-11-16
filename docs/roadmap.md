@@ -213,7 +213,8 @@ wrong direction for a cylinder that is already not sealing.
   designing around it.
 - **Lap timing**: GPS plus IMU, with CAN data overlaid; track and sector definitions in the app.
 - **Drive replay**: map trace, speed, inputs (pedal, brake, steering), engine data and the camera, all on one
-  timeline.
+  timeline. First step done: `vwdiag replay` puts a log's engine values, GPS speed and track, and marks on one
+  timeline as an HTML page; broadcast inputs (needs the gateway tap), map tiles and the camera are still to come.
 
 ## Data worth capturing for drive replay and later projects
 | Source | Values | Rate |
