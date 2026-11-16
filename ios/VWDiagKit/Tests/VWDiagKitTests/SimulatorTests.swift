@@ -87,6 +87,68 @@ final class SimulatorTests: XCTestCase {
         await ifc.close()
     }
 
+    func testExperimentsFeedTheToolsCalibration() async throws {
+        // a stand-in car with known numbers; the phone's results must calibrate back to them
+        let car = "realistic,gateway=closed,latency=10-30,fc=4/2,misfire=2,idle=680,mis_idle=1.2,trim_idle=4.5,history=0"
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("vwdiag-exp-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        var folders: [URL] = []
+        for (name, scenario, seconds, speed) in [("identify", car, 0.0, 1.0), ("listen", car, 1.0, 1.0),
+                                                 ("warm-idle", car + ",start=warm,speed=10", 20.0, 10.0)] {
+            let ifc = try await connect(try startSimulator(scenario))
+            var settings = ExperimentSettings()
+            settings.seconds = seconds
+            settings.interval = 0.3
+            settings.target = "simulator"
+            settings.scenario = scenario
+            settings.speed = speed
+            let runner = ExperimentRunner(interface: ifc, experiment: Experiments.byName[name]!, settings: settings,
+                                          root: root, hooks: ExperimentHooks())
+            let summary = await runner.run()
+            XCTAssertNil(summary["error"], "\(name): \(summary["error"] ?? "")")
+            folders.append(runner.folder)
+            await ifc.close()
+            proc?.terminate()
+            proc?.waitUntilExit()
+        }
+        let ident = try JSONSerialization.jsonObject(with: Data(contentsOf: folders[0].appendingPathComponent("summary.json"))) as! [String: Any]
+        let abs = (ident["modules"] as! [String: Any])["abs"] as! [String: Any]
+        XCTAssertEqual((abs["flow_control"] as! [[String: Int]]).first, ["bs": 4, "stmin": 2])
+        XCTAssertEqual(ident["functional_obd_answers"] as? [String], ["7E8", "7E9"])
+
+        // the tools read the phone's folders unchanged
+        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let py = Process()
+        py.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        py.arguments = ["python3", "-m", "vwdiag", "calibrate"] + folders.map(\.path) + ["--out", root.appendingPathComponent("calib").path]
+        py.currentDirectoryURL = repo.appendingPathComponent("tools")
+        py.standardOutput = FileHandle.nullDevice
+        try py.run()
+        py.waitUntilExit()
+        XCTAssertEqual(py.terminationStatus, 0)
+        let scenario = try String(contentsOf: root.appendingPathComponent("calib/scenario.txt"), encoding: .utf8)
+        for expected in ["gateway=closed", "fc=4/2", "trans_obd=1", "misfire=2"] {
+            XCTAssertTrue(scenario.contains(expected), "\(expected) in \(scenario)")
+        }
+        let idle = scenario.split(separator: ",").first { $0.hasPrefix("idle=") }.flatMap { Double($0.dropFirst(5)) } ?? 0
+        XCTAssertEqual(idle, 680, accuracy: 15)
+    }
+
+    func testEngineMeasuringValues() async throws {
+        let ifc = try await connect(try startSimulator("gti"))
+        try await ifc.setListenOnly(false)
+        let engine = UDSClient(ifc, VW.engine)
+        let rpm = try await Simos18.read(engine, Simos18.byKey["engine_speed"]!)
+        XCTAssertGreaterThan(rpm, 600)
+        let knock = try await Simos18.read(engine, Simos18.byKey["knock_cyl_3"]!)
+        XCTAssertEqual(knock, 0)
+        let ign = try await Simos18.read(engine, Simos18.byKey["ign_avg"]!)
+        XCTAssertLessThan(ign, 0)            // a cold start retards the spark
+        XCTAssertEqual(Simos18.byKey["oil_temp"]!.decode([0x0E, 0x2F])!, 89.96, accuracy: 0.001)   // (3631 - 2731.4) / 10
+        await ifc.close()
+    }
+
     func testScanFindsSevenModules() async throws {
         let ifc = try await connect(try startSimulator("realistic"))
         try await ifc.setListenOnly(false)

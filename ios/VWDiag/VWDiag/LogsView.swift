@@ -24,8 +24,7 @@ struct LogsView: View {
     static let pollSet = ["rpm", "load", "speed", "stft", "ltft", "timing", "coolant", "map"]
 
     var body: some View {
-        NavigationStack {
-            Form {
+        Form {
                 Section("Card") {
                     if let log {
                         LabeledContent("Recording", value: log.active ? "on" : "off")
@@ -64,7 +63,7 @@ struct LogsView: View {
                     Text("Copies go to this app's folder in the Files app. Over Bluetooth expect a few kB a second: a minute of a busy bus takes a while. The file being recorded can only be copied once recording stops.")
                 }
             }
-            .navigationTitle("Logs")
+            .navigationTitle("Card")
             .task {
                 // keep the counters current while the card is recording
                 while !Task.isCancelled {
@@ -72,7 +71,6 @@ struct LogsView: View {
                     try? await Task.sleep(nanoseconds: 2_000_000_000)
                 }
             }
-        }
     }
 
     @ViewBuilder

@@ -112,6 +112,8 @@ public actor Interface {
     private var closed = false
     private var frameContinuation: AsyncStream<CANFrame>.Continuation?
     public private(set) var info: InterfaceInfo?
+    private var collecting = false
+    private var collected: [CANFrame] = []
 
     /// Monitored CAN frames, while monitoring is on.
     public nonisolated let frames: AsyncStream<CANFrame>
@@ -150,6 +152,20 @@ public actor Interface {
 
     public var damagedPackets: Int { decoder.damaged }
 
+    /// Keep monitored frames in a buffer as well as the stream, for measurements that want
+    /// them afterwards (the stream is for live display and ends if its reader is cancelled).
+    public func startCollecting() {
+        collected.removeAll()
+        collecting = true
+    }
+
+    /// The frames since startCollecting(); collection stops.
+    public func stopCollecting() -> [CANFrame] {
+        collecting = false
+        defer { collected.removeAll() }
+        return collected
+    }
+
     // MARK: packets in
     private func received(_ chunk: [UInt8]) {
         for p in decoder.feed(chunk) {
@@ -169,8 +185,9 @@ public actor Interface {
         let raw = p.u32(6)
         let len = Int(p[10])
         guard p.count >= 11 + len else { return }
-        frameContinuation?.yield(CANFrame(timeMs: p.u32(2), id: raw & 0x1FFF_FFFF, extended: raw >> 31 != 0,
-                                          data: Array(p[11..<(11 + len)])))
+        let frame = CANFrame(timeMs: p.u32(2), id: raw & 0x1FFF_FFFF, extended: raw >> 31 != 0, data: Array(p[11..<(11 + len)]))
+        if collecting && collected.count < 50_000 { collected.append(frame) }
+        frameContinuation?.yield(frame)
     }
 
     private func linkClosed() {

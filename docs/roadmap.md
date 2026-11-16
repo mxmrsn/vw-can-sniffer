@@ -109,8 +109,9 @@ useful result.
 
 ## Phase 2: iOS app skeleton (while boards are being made)
 **Done (2026-11-15):** `ios/` (see `ios/README.md`). Runs in the iOS Simulator against the simulator's Bluetooth
-stand-in, with a Misfire tab added for the live question. Open: Bluetooth against a real board. Copying logs off the
-card over the link (commands 0E and 0F) was added afterwards.
+stand-in, with a Misfire tab added for the live question. Open: Bluetooth against a real board. Added afterwards: copying logs
+off the card (commands 0E and 0F), the engine measuring values in Live, and the logging experiments, guided, in a
+Visit tab, so a car visit needs only the phone.
 SwiftUI app, CoreBluetooth, with the packet protocol in a Swift package that has its own tests against recorded
 byte streams. During development it talks to the simulator's Bluetooth stand-in over TCP from the iOS Simulator,
 so it is exercised against the same control-module models as the Python tools.
