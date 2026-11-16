@@ -25,14 +25,16 @@ def _thin(points):
 def collect(log):
     """What the page shows, as plain data (also what the tests look at)."""
     series = {}
-    for t, name, value, unit in log.obd_samples():
+    for t, name, value, unit in log.samples():
         series.setdefault(name, {"name": name, "unit": unit, "points": []})["points"].append((round(t, 3), value))
     fixes = [f for f in log.fixes if f.valid]
     if fixes:
         series["gps_speed"] = {"name": "gps_speed", "unit": "km/h",
                                "points": [(round(log.seconds(f.ms), 3), round(f.speed_ms * 3.6, 2)) for f in fixes]}
     # Engine speed and road speed first, then the rest in the OBD list's order.
+    # Measuring values follow, in the order they first appear.
     order = ["rpm", "speed", "gps_speed"] + [n for n in obd.PIDS if n not in ("rpm", "speed")]
+    order += [n for n in series if n not in order]
     out = sorted(series.values(), key=lambda s: order.index(s["name"]) if s["name"] in order else len(order))
     for s in out:
         s["points"] = _thin(s["points"])

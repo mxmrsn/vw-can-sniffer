@@ -451,18 +451,30 @@ def print_log_state(s):
                                                  ", %d frames lost" % s["lost"] if s["lost"] else ""))
 
 
+def poll_payload(name):
+    """The engine-module request that asks for one value: an OBD value (service 01), or a Simos 18 measuring
+    value (ReadDataByIdentifier, whose answer fits a single frame, as the poll list needs)."""
+    if name in obd.PIDS:
+        return [0x01, obd.PIDS[name][0]]
+    did = simos18.VALUES[name][0]
+    return [0x22, did >> 8, did & 0xFF]
+
+
 def cmd_log(link, args):
     if args.action == "start":
         link.set_time(int(time.time()))
         if args.poll:
             for n in args.poll:
-                if n not in obd.PIDS:
-                    sys.exit("unknown value %r; choose from: %s" % (n, ", ".join(obd.PIDS)))
+                if n not in obd.PIDS and n not in simos18.VALUES:
+                    sys.exit("unknown value %r; choose from the OBD values (%s) or the engine's measuring values "
+                             "(vwdiag measure --list)" % (n, ", ".join(obd.PIDS)))
+            if len(args.poll) > 8:
+                sys.exit("the interface repeats at most 8 requests; choose 8 values or fewer")
             enable_transmit(link, args)
             req, resp, _ = vw.ECUS["engine"]
             link.poll_clear()
             for n in args.poll:
-                link.poll_add(req, resp, int(args.interval * 1000), [0x01, obd.PIDS[n][0]])
+                link.poll_add(req, resp, int(args.interval * 1000), poll_payload(n))
         print_log_state(link.log_start())
         if args.poll:
             print("polling %s every %g s; this continues after the tools disconnect" % (", ".join(args.poll), args.interval))
@@ -550,11 +562,13 @@ def cmd_logread(args):
             f.write("\n".join(log.candump_lines()) + "\n")
         print("wrote %d frames to %s (can-utils format)" % (len(log.frames), args.candump))
     if args.csv:
-        samples = list(log.obd_samples())
-        names = sorted({s[1] for s in samples}, key=list(obd.PIDS).index)
+        samples = log.samples()
+        units = {s[1]: s[3] for s in samples}
+        order = list(obd.PIDS)
+        names = sorted(units, key=lambda n: (order.index(n) if n in order else len(order), n))
         with open(args.csv, "w", newline="") as f:
             w = csv.writer(f)
-            w.writerow(["time_s"] + ["%s_%s" % (n, obd.PIDS[n][1]) for n in names])
+            w.writerow(["time_s"] + ["%s_%s" % (n, units[n]) if units[n] else n for n in names])
             for t, name, value, _ in samples:
                 w.writerow(["%.3f" % t] + ["%g" % value if n == name else "" for n in names])
         print("wrote %d live-data samples to %s" % (len(samples), args.csv))
@@ -656,7 +670,9 @@ def build_parser():
     s.set_defaults(fn=cmd_monitor)
     s = sub.add_parser("log", help="record CAN frames to the board's microSD card")
     s.add_argument("action", choices=["start", "stop", "status", "mark"]); s.add_argument("text", nargs="*")
-    s.add_argument("--poll", nargs="+", metavar="VALUE", help="also request these OBD live values on a timer")
+    s.add_argument("--poll", nargs="+", metavar="VALUE",
+                   help="also request these values on a timer: OBD values (rpm, speed, ...) or the engine's "
+                        "measuring values (misfires, knock_cyl_3, ...: vwdiag measure --list); 8 at most")
     s.add_argument("--interval", type=float, default=0.5, help="seconds between requests for each value")
     s.set_defaults(fn=cmd_log)
     s = sub.add_parser("files", help="list the card's files, or copy them here (no SD card reader needed)")
