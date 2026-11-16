@@ -335,6 +335,15 @@ def cmd_session(link, args):
     Session(link, args, out).run()
 
 
+def cmd_experiment(link, args):
+    from .experiments import EXPERIMENTS, run_experiment
+    if args.name not in EXPERIMENTS:
+        sys.exit("unknown experiment; choose from: %s" % ", ".join(EXPERIMENTS))
+    if EXPERIMENTS[args.name][1] and not args.transmit:
+        sys.exit("this experiment sends requests to the car (read only); add --transmit to allow it")
+    run_experiment(link, args)
+
+
 def cmd_raw(link, args):
     enable_transmit(link, args)
     payload = [int(b, 16) for b in args.bytes]
@@ -437,6 +446,11 @@ def cmd_files(link, args):
         print("\r%s: %d bytes to %s (%.1f kB/s)" % (name, len(data), path, rate / 1000))
 
 
+def cmd_calibrate(args):
+    from .calibrate import run
+    run(args.folders, base=args.base, do_verify=args.verify, out=args.out)
+
+
 def cmd_logread(args):
     try:
         log = logfile.Log(args.file)
@@ -511,6 +525,15 @@ def build_parser():
     s.add_argument("--sweep", action="store_true", help="also try every other diagnostic address 700-795")
     s.add_argument("--yes", action="store_true", help="do not wait at the prompts")
     s.set_defaults(fn=cmd_session)
+    s = sub.add_parser("experiment", help="a scripted logging experiment (read only), saved for vwdiag calibrate")
+    s.add_argument("name", help="listen, identify, timing, cold-start, warm-idle, rev-holds or drive")
+    s.add_argument("--seconds", type=float, help="how long to capture (each phase); defaults per experiment")
+    s.add_argument("--interval", type=float, default=0.5, help="seconds between samples")
+    s.add_argument("--holds", default="0,1500,2500,3500", help="rev-holds: the engine speeds to hold")
+    s.add_argument("--session-test", action="store_true", help="identify: also time the extended session")
+    s.add_argument("--out", help="parent folder (default ./experiments)")
+    s.add_argument("--yes", action="store_true", help="do not wait at the prompts")
+    s.set_defaults(fn=cmd_experiment)
     s = sub.add_parser("measure", help="engine measuring values (Simos 18 list), e.g. knock_cyl_1 misfires")
     s.add_argument("value", nargs="*"); s.add_argument("--list", action="store_true")
     s.add_argument("--count", type=int, default=1); s.add_argument("--interval", type=float, default=0.5)
@@ -540,6 +563,12 @@ def build_parser():
     s.add_argument("name", nargs="*", help="files to copy, or 'all' for every log")
     s.add_argument("--out", default="logs", help="folder to copy into (default ./logs)")
     s.set_defaults(fn=cmd_files)
+    s = sub.add_parser("calibrate", help="turn experiment results into simulator settings (no board needed)")
+    s.add_argument("folders", nargs="+", help="experiment folders (from vwdiag experiment)")
+    s.add_argument("--base", default="realistic", help="scenario to start from (default realistic)")
+    s.add_argument("--verify", action="store_true", help="rerun the experiments on the simulator and compare")
+    s.add_argument("--out", help="folder for calibration.md (default calibration/<date-time>)")
+    s.set_defaults(fn=None, offline=cmd_calibrate)
     s = sub.add_parser("logread", help="read a log file from the card (no board needed)"); s.add_argument("file")
     s.add_argument("--candump", metavar="OUT", help="convert to can-utils format, for SavvyCAN and others")
     s.add_argument("--csv", metavar="OUT", help="extract OBD live values to a spreadsheet file")

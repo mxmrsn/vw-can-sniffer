@@ -219,6 +219,33 @@ class Link:
         """Collect monitored CAN frames for a while, as text lines like "3C0 [4] 00 00 03 00"."""
         return self.read_lines(seconds)
 
+    def read_frames_timed(self, seconds):
+        """Monitored frames with arrival times: [(seconds, id, extended, data)].
+
+        The text console carries no timestamps, so these are when each line reached this
+        computer: good to a few milliseconds over USB, not for timing studies.
+        """
+        out = []
+        start = time.monotonic()
+        deadline = start + seconds
+        while True:
+            try:
+                line = self._read_line(deadline)
+            except LinkError:
+                return out
+            words = line.split()
+            if len(words) >= 2 and words[1].startswith("[") and line != self.END:
+                try:
+                    can_id = int(words[0], 16)
+                    data = bytes(int(b, 16) for b in words[2:])
+                except ValueError:
+                    continue
+                out.append((time.monotonic() - start, can_id, len(words[0]) > 3, data))
+
+    def take_frames(self):
+        """Frames monitored while requests were running (only the packet protocol keeps them)."""
+        return []
+
     # ---- copying files off the card
     READ_CHUNK = 1024   # what one "log get" returns on the text console
 

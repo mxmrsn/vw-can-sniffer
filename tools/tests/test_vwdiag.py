@@ -840,5 +840,62 @@ class Session(unittest.TestCase):
         self.assertTrue(os.listdir(card))
 
 
+class Experiments(unittest.TestCase):
+    """Experiments against a stand-in car whose numbers are known, then calibration back to them."""
+    CAR = ("realistic,gateway=closed,latency=10-30,fc=4/2,misfire=2,idle=680,cold_idle=1180,mis_idle=1.2,"
+           "trim_idle=4.5,history=0")
+
+    def run_exp(self, out, spec, *argv):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            cli.main(["--sim", "--binary", "--sim-profile", spec, "--transmit", "experiment"] + list(argv) +
+                     ["--yes", "--out", out])
+        return buf.getvalue()
+
+    def test_identify_listen_warm_idle_and_calibrate(self):
+        out = tempfile.mkdtemp()
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", out]))
+        text = self.run_exp(out, self.CAR, "identify")
+        self.assertIn("functional OBD request answered by: 7E8, 7E9", text)
+        self.run_exp(out, self.CAR, "listen", "--seconds", "1")
+        self.run_exp(out, self.CAR + ",start=warm,speed=10", "warm-idle", "--seconds", "20", "--interval", "0.3")
+        import json
+        folders = sorted(os.path.join(out, d) for d in os.listdir(out))
+        with open(os.path.join(folders[0], "summary.json")) as f:
+            ident = json.load(f)
+        self.assertEqual(ident["modules"]["abs"]["flow_control"][0], {"bs": 4, "stmin": 2})
+        self.assertFalse(ident["modules"]["radar"]["present"])
+        with open(os.path.join(folders[0], "meta.json")) as f:
+            self.assertEqual(json.load(f)["target"], "simulator")
+
+        from vwdiag import calibrate
+        scenario, cdir = calibrate.run(folders, out=os.path.join(out, "calib"), say=lambda *_: None)
+        got = dict(item.split("=", 1) for item in scenario.split(",")[1:])
+        self.assertEqual((got["gateway"], got["fc"], got["misfire"], got["trans_obd"]), ("closed", "4/2", "2", "1"))
+        self.assertAlmostEqual(float(got["idle"]), 680, delta=15)
+        self.assertAlmostEqual(float(got["mis_idle"]), 1.2, delta=0.35)
+        self.assertAlmostEqual(float(got["trim_idle"]), 4.5, delta=1.0)
+        lo, hi = (int(v) for v in got["latency"].split("-"))
+        self.assertTrue(8 <= lo <= 14 and 26 <= hi <= 36, got["latency"])
+        self.assertTrue(os.path.exists(os.path.join(cdir, "calibration.md")))
+        # the calibrated scenario is one the simulator accepts
+        link = sim_with(scenario)
+        link.close()
+
+    def test_engine_settings_reach_the_simulator(self):
+        link = sim_with("realistic,idle=820")
+        self.addCleanup(link.close)
+        link.set_silent(False)
+        self.assertAlmostEqual(obd.read_pid(UdsClient(link, 0x7E0, 0x7E8), "rpm")[0], 820, delta=20)
+
+    def test_several_pids_in_one_request(self):
+        link = sim_with("realistic")
+        self.addCleanup(link.close)
+        link.set_silent(False)
+        r = UdsClient(link, 0x7E0, 0x7E8).request([0x01, 0x0C, 0x05, 0x99])
+        self.assertEqual((r[0], r[1], r[4]), (0x41, 0x0C, 0x05))   # unsupported 99 is left out
+        self.assertEqual(len(r), 6)
+
+
 if __name__ == "__main__":
     unittest.main()

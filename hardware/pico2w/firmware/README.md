@@ -63,6 +63,13 @@ The scenario comes from the `VWSIM` environment variable (all settings in `sim/s
 | `lossy` | Realistic, plus frames the interface misses, error frames and arbitration delays |
 | e.g. `realistic,gateway=open,drive=1,ignition=off:0/on:2000/crank:5000/run:5600,busoff=8000:500` | Any mix of settings |
 
+The engine's numbers are settings too (`idle`, `cold_idle`, `warmup`, misfire rates, trims, and `speed` for a
+faster engine clock); `vwdiag calibrate` sets them from experiments on the car (`docs/logging_experiments.md`).
+
+The car itself (`sim/car.c`, `sim_engine.c`, `sim_config.c`) does not depend on the host: `sim/sim_bus.c` puts it
+on a pretend bus with fault injection, and the XIAO bench car (`hardware/xiao-esp32s3/bench-car`) puts the same
+code on a real CAN bus.
+
 ## Build
 Needs the Pico SDK (2.1 or newer, with the `lib/tinyusb` submodule) and the Arm GNU toolchain.
 

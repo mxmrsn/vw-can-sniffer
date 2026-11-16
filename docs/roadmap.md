@@ -123,9 +123,10 @@ First panels, mirroring what OBDeleven and VCDS put up front:
 5. **Logs**: list logs on the card, download, share as CSV or candump.
 
 ## Phase 3: hardware bring-up and the first car session
-Follows `hardware/pico2w/docs/bringup_plan.md` (to be adapted for the XIAO board): power, USB, CAN on the bench,
-the hardware-in-the-loop bench, Bluetooth with a phone, then the scripted car session. Afterwards, every capture
-goes into the simulator's replay set.
+**Prepared (2026-11-16):** `hardware/xiao-esp32s3/docs/bringup_plan.md` is the plan for this board: power, USB,
+the card, two boards on a bench bus with the second running the **bench car** (`hardware/xiao-esp32s3/bench-car`,
+the simulator's car on a real CAN bus), Bluetooth with a phone, then the car. On the car, the logging experiments
+in `docs/logging_experiments.md` gather the data, and `vwdiag calibrate` turns it into simulator settings.
 
 ## Phase 4: real data
 - **Misfire analysis** (see the section below).
