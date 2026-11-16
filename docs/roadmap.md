@@ -11,7 +11,7 @@ it feeds what the car told us back into the simulator.
 | Piece | State |
 |---|---|
 | Pico 2 W board (v0.2.0) | Designed, DRC clean, sourced. Not ordered. Pico 2 W hard to buy |
-| XIAO ESP32-S3 board (v0.3.0) | Routed and DRC clean, 68 x 38 mm, LED chain and spare header added. A few BOM lines unverified |
+| XIAO ESP32-S3 board (v0.3.0) | Routed, DRC clean, BOM verified, buck reviewed, module footprint corrected. **Ready to order** |
 | Firmware | CAN, ISO-TP, UDS, text console, packet protocol over USB and BLE, logging to SD. Builds for both boards, never run |
 | Tools (`vwdiag`) | Scan, identification, faults, OBD live data, logging, DBC decoding. Tested against the simulator only |
 | Simulator | 7 control modules, real part numbers, invented live data, idealised timing (audit below) |
@@ -20,7 +20,7 @@ it feeds what the car told us back into the simulator.
 ## Priorities at a glance
 | # | Phase | Why now | Effort |
 |---|---|---|---|
-| 0 | Verify the remaining BOM lines and the module footprint, review the buck layout, order | Hardware lead time is the long pole | Under 1 session |
+| 0 | ~~Verify the remaining BOM lines and the module footprint, review the buck layout~~, order | Hardware lead time is the long pole | Done; ordering is yours |
 | 1 | Make the simulator pessimistic, add misfire diagnostics, script the first car session | Has to be ready before the boards arrive | 2 sessions |
 | 2 | iOS app skeleton: scan, faults, live data, logging | Fills the 1 to 3 weeks of fabrication and shipping | 3 to 4 sessions |
 | 3 | Bring-up, hardware-in-the-loop bench, first car session | When the boards arrive | 2 sessions plus car time |
@@ -43,8 +43,11 @@ A "session" here is one working session like the ones so far.
   verified side-view part or a light pipe from your enclosure can be chosen together.
 - **Done:** outline shrunk to 68 x 38 mm, routed with the Freerouting autorouter, DRC clean, gerbers and a STEP
   model generated.
-- **Left:** stock-check the module, the LEDs, the buffer, the header and the sockets; check the module footprint
-  against a real XIAO; review the autorouted buck converter.
+- **Done (2026-11-15):** every BOM line stock-checked (LEDs: Opsco SK6812mini-012 from LCSC, the variant that
+  matches the footprint); the module footprint checked against Seeed's own, which caught pin rows 17.78 mm apart
+  instead of 15.24 mm (fixed, rerouted); the buck converter re-placed for a tight input loop and short switch
+  node and feedback traces.
+- **Left:** place the order (yours): boards from `hardware/xiao-esp32s3/pcb/fab/`, parts from the BOM.
 - Order alongside: OBD pigtail, a USB-CAN adapter for the bench, a second XIAO (see Phase 3).
 
 **Hold the mezzanine and integrated-connector versions** until after the first car session. What the car shows

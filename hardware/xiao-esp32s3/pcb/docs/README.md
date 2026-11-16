@@ -5,7 +5,7 @@ transceiver, power from the OBD port or the module's USB-C, and a microSD socket
 job as the [Pico 2 W board](../../../pico2w/README.md) (v0.2.0) with a module that is far easier to buy, and both
 run the same firmware core, protocol and tools.
 
-**This board has not been fabricated.** It is routed and DRC clean; see "State" below for what is unverified.
+**This board has not been fabricated.** It is routed, DRC clean and ready to order; see "State" below.
 
 ![Board, 3D render](3d-iso.png)
 
@@ -40,11 +40,12 @@ the bottom edge. Two M2.5 holes, diagonally opposite.
 | Schematic | Complete, ERC clean |
 | PCB | Placed, autorouted (Freerouting), ground poured, **DRC: 0 errors, 0 unconnected** |
 | Fabrication files | `../fab/`: gerbers, drill, placement file, and a STEP model for the enclosure |
-| BOM | `../bom/bom.csv`. Stock-checked except the module, LEDs, buffer, header and sockets |
-| Footprint for the module | From Seeed's published dimensions; check against a real module before ordering |
+| BOM | `../bom/bom.csv`. Every line stock-checked (2026-11-15); LEDs from LCSC (SK6812mini-012) |
+| Footprint for the module | Checked against Seeed's official KiCad footprint; pin rows corrected to 15.24 mm |
+| Buck converter layout | Reviewed and re-placed (input cap across VIN/GND, short switch node, divider at FB) |
 
-Nothing has been built or tested. Before ordering: check the unverified BOM lines, check the module footprint
-against a module, and review the buck converter's layout (it was autorouted).
+Nothing has been built or tested. Worth doing when the module arrives, before soldering the sockets: drop it
+onto the bare board and check the pins line up.
 
 Remaining DRC warnings are cosmetic: silkscreen text over pads (clipped by the fab), and footprints that differ
 from KiCad's current library versions.
