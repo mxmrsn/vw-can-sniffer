@@ -3,7 +3,7 @@
 	(generator "pcbnew")
 	(generator_version "10.0")
 	(layer "F.Cu")
-	(descr "Seeed Studio XIAO module (ESP32-S3 and the rest of the family), 14 pads on 2.54mm pitch, rows 17.78mm apart. Through-hole: solder header pins to the module and socket it, or solder the module straight on.")
+	(descr "Seeed Studio XIAO module (ESP32-S3 and the rest of the family), 14 pads on 2.54mm pitch, rows 15.24mm apart (0.6 in, 1.28mm in from the module edge; matches Seeed's OPL_Kicad_Library XIAO-ESP32-S3-DIP). Through-hole: solder header pins to the module and socket it, or solder the module straight on.")
 	(tags "seeed xiao esp32s3 module")
 	(property "Reference" "U"
 		(at 0 -10.5 0)
@@ -167,7 +167,7 @@
 		)
 	)
 	(pad "1" thru_hole rect
-		(at -8.89 -7.62)
+		(at -7.62 -7.62)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -175,7 +175,7 @@
 		(uuid "b7f21f64-a34c-43fc-9b08-0d9d8d5fb4e1")
 	)
 	(pad "2" thru_hole circle
-		(at -8.89 -5.08)
+		(at -7.62 -5.08)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -183,7 +183,7 @@
 		(uuid "25671824-e758-4236-9ea6-e7a586e3cc9a")
 	)
 	(pad "3" thru_hole circle
-		(at -8.89 -2.54)
+		(at -7.62 -2.54)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -191,7 +191,7 @@
 		(uuid "0efc28d6-3216-4922-b86e-f59f0e7557a9")
 	)
 	(pad "4" thru_hole circle
-		(at -8.89 0)
+		(at -7.62 0)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -199,7 +199,7 @@
 		(uuid "b4c36e7c-cce9-4326-99b4-5214a4f7b717")
 	)
 	(pad "5" thru_hole circle
-		(at -8.89 2.54)
+		(at -7.62 2.54)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -207,7 +207,7 @@
 		(uuid "04b233ea-c5c5-429a-8910-cc3ccc7d387c")
 	)
 	(pad "6" thru_hole circle
-		(at -8.89 5.08)
+		(at -7.62 5.08)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -215,7 +215,7 @@
 		(uuid "14317413-7ff2-4286-999c-79c4a4b3836e")
 	)
 	(pad "7" thru_hole circle
-		(at -8.89 7.62)
+		(at -7.62 7.62)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -223,7 +223,7 @@
 		(uuid "5e4afe23-d134-49a5-921d-bdae63f0a14c")
 	)
 	(pad "8" thru_hole circle
-		(at 8.89 7.62)
+		(at 7.62 7.62)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -231,7 +231,7 @@
 		(uuid "b20cfdd3-8e83-432c-a00e-55201a428057")
 	)
 	(pad "9" thru_hole circle
-		(at 8.89 5.08)
+		(at 7.62 5.08)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -239,7 +239,7 @@
 		(uuid "0fd79ce5-c8b2-440a-8de6-af7d4d8ce5b2")
 	)
 	(pad "10" thru_hole circle
-		(at 8.89 2.54)
+		(at 7.62 2.54)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -247,7 +247,7 @@
 		(uuid "76f7e6b1-18f5-4c6d-af35-a636eee0476d")
 	)
 	(pad "11" thru_hole circle
-		(at 8.89 0)
+		(at 7.62 0)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -255,7 +255,7 @@
 		(uuid "104ede0b-ef32-4162-a92d-67dbcce4703f")
 	)
 	(pad "12" thru_hole circle
-		(at 8.89 -2.54)
+		(at 7.62 -2.54)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -263,7 +263,7 @@
 		(uuid "86f4edc9-6fee-4452-bf53-a350a9c40c2f")
 	)
 	(pad "13" thru_hole circle
-		(at 8.89 -5.08)
+		(at 7.62 -5.08)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")
@@ -271,7 +271,7 @@
 		(uuid "71b6eadb-d006-4064-81a7-56e133157a82")
 	)
 	(pad "14" thru_hole circle
-		(at 8.89 -7.62)
+		(at 7.62 -7.62)
 		(size 1.7 1.7)
 		(drill 1)
 		(layers "*.Cu" "*.Mask")

@@ -15825,7 +15825,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "Opsco / Worldsemi"
+		(property "Manufacturer" "Opsco"
 			(at 50.8 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -15836,7 +15836,7 @@
 				)
 			)
 		)
-		(property "MPN" "SK6812MINI (to verify)"
+		(property "MPN" "SK6812mini-012"
 			(at 50.8 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -15847,7 +15847,18 @@
 				)
 			)
 		)
-		(property "Notes" "Addressable RGB LED 1 of 4: status. Exact part and stock to be verified before ordering"
+		(property "LCSC" "C2886570"
+			(at 50.8 106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Notes" "Addressable RGB LED 1 of 4: status. The -012 matches this footprint corner for corner (chamfer at DIN); the -HS and -E variants do not"
 			(at 50.8 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -16126,7 +16137,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "Opsco / Worldsemi"
+		(property "Manufacturer" "Opsco"
 			(at 81.28 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -16137,7 +16148,7 @@
 				)
 			)
 		)
-		(property "MPN" "SK6812MINI (to verify)"
+		(property "MPN" "SK6812mini-012"
 			(at 81.28 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -16148,7 +16159,18 @@
 				)
 			)
 		)
-		(property "Notes" "Addressable RGB LED 2 of 4: CAN. Exact part and stock to be verified before ordering"
+		(property "LCSC" "C2886570"
+			(at 81.28 106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Notes" "Addressable RGB LED 2 of 4: CAN. The -012 matches this footprint corner for corner (chamfer at DIN); the -HS and -E variants do not"
 			(at 81.28 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -16394,7 +16416,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "Opsco / Worldsemi"
+		(property "Manufacturer" "Opsco"
 			(at 111.76 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -16405,7 +16427,7 @@
 				)
 			)
 		)
-		(property "MPN" "SK6812MINI (to verify)"
+		(property "MPN" "SK6812mini-012"
 			(at 111.76 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -16416,7 +16438,18 @@
 				)
 			)
 		)
-		(property "Notes" "Addressable RGB LED 3 of 4: Bluetooth. Exact part and stock to be verified before ordering"
+		(property "LCSC" "C2886570"
+			(at 111.76 106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Notes" "Addressable RGB LED 3 of 4: Bluetooth. The -012 matches this footprint corner for corner (chamfer at DIN); the -HS and -E variants do not"
 			(at 111.76 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -16662,7 +16695,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "Opsco / Worldsemi"
+		(property "Manufacturer" "Opsco"
 			(at 142.24 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -16673,7 +16706,7 @@
 				)
 			)
 		)
-		(property "MPN" "SK6812MINI (to verify)"
+		(property "MPN" "SK6812mini-012"
 			(at 142.24 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -16684,7 +16717,18 @@
 				)
 			)
 		)
-		(property "Notes" "Addressable RGB LED 4 of 4: logging. Exact part and stock to be verified before ordering"
+		(property "LCSC" "C2886570"
+			(at 142.24 106.68 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Notes" "Addressable RGB LED 4 of 4: logging. The -012 matches this footprint corner for corner (chamfer at DIN); the -HS and -E variants do not"
 			(at 142.24 106.68 0)
 			(hide yes)
 			(show_name no)

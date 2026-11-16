@@ -154,8 +154,9 @@ taps_v, taps_g = [], []
 for i, x in enumerate(XS):
     ref = 'D%d' % (i + 1)
     place(LED, ref, 'SK6812MINI', x, LY, 0, 'LED_SMD:LED_SK6812MINI_PLCC4_3.5x3.5mm_P1.75mm',
-          [('Manufacturer', 'Opsco / Worldsemi'), ('MPN', 'SK6812MINI (to verify)'),
-           ('Notes', 'Addressable RGB LED %d of 4: %s. Exact part and stock to be verified before ordering' % (i + 1, ROLE[i]))], lp)
+          [('Manufacturer', 'Opsco'), ('MPN', 'SK6812mini-012'), ('LCSC', 'C2886570'),
+           ('Notes', 'Addressable RGB LED %d of 4: %s. The -012 matches this footprint corner for corner '
+                     '(chamfer at DIN); the -HS and -E variants do not' % (i + 1, ROLE[i]))], lp)
     vx, vy, _ = pin_xy(x, LY, 0, lp['4']); wire(vx, vy, vx, RAIL_V); taps_v.append(vx)
     gx, gy, _ = pin_xy(x, LY, 0, lp['2']); wire(gx, gy, gx, RAIL_G); taps_g.append(gx)
     cx = 157.48 + 5.08 * i          # a bank at the end of the rails; on the board each sits by its LED

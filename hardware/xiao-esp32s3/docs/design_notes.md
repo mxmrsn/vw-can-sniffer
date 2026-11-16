@@ -92,14 +92,17 @@ is there for bench use.
 ## State of the design
 - **Schematic**: complete and ERC clean; netlist checked against the pin map.
 - **Symbol and footprint**: written for this project, in `pcb/lib/`. Through-hole on 2.54 mm pitch, so the module
-  can sit in sockets or be soldered flat. **Dimensions are from Seeed's published figures, not a module in hand.**
+  can sit in sockets or be soldered flat. **Checked on 2026-11-15 against Seeed's official KiCad footprint** (OPL_Kicad_Library, XIAO-ESP32-S3-DIP): the pin
+  rows are 15.24 mm (0.6 in) apart. The first footprint had them 17.78 mm apart, which would not have fitted the
+  module or its headers; fixed, and the board rerouted.
 - **PCB**: compact 68 x 38 mm layout (the v0.2.0 board was 94 x 41), routed with the open-source Freerouting
   autorouter, ground poured on both layers, DRC clean (no errors, nothing unconnected). Gerbers and drill files
-  are in `pcb/fab/`. The buck converter's layout follows the usual rules (input capacitor at the regulator,
-  inductor and output capacitors close by) but was placed and routed by script and autorouter: **look at it
-  before ordering.**
+  are in `pcb/fab/`. The buck converter was reviewed on 2026-11-15 and re-placed: input capacitor straight across
+  VIN and GND, boot capacitor beside BST and SW (2.3 mm, no vias), inductor tight to SW (switch node 5.3 mm),
+  feedback divider beside the FB pin (6.5 mm, no vias; it was 15.6 mm with two vias).
 - **STEP model** (`pcb/fab/xiao-esp32s3-can-sniffer.step`) for enclosure work, with the module and LEDs as
   placeholder boxes whose heights are assumed.
-- **BOM**: every line except the module, the LEDs, the buffer, the header and the module sockets was stock-checked
-  at DigiKey on 2026-11-15. Those need checking before ordering.
+- **BOM**: every line stock-checked on 2026-11-15. The LEDs are Opsco SK6812mini-012 (LCSC C2886570), the one
+  variant whose pads match the footprint corner for corner; the -HS and -E variants have different pinouts and
+  must not be substituted. Headers and sockets are generic.
 - **Firmware**: ported and building (`../firmware`), including the LED chain. Never run.

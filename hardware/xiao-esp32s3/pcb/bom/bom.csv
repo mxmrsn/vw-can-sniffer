@@ -8,14 +8,14 @@ C8,1,15p,Cap cer 15pF 50V C0G 0805,YAGEO,CC0805JRNPO9BN150,311-1101-1-ND,"31,676
 "C9,C12,C13,C14,C15,C16",6,100n,Cap cer 0.1uF 50V X7R 0603,YAGEO,CC0603KRX7R9BB104,311-1344-1-ND,"3,118,948",,yes (2026-11-15),
 C10,1,4.7u,Cap cer 4.7uF 16V X5R 0603,YAGEO,CC0603KRX5R7BB475,311-1785-1-ND,"125,573",,yes (2026-11-15),
 C11,1,47p,Cap cer 47pF 50V C0G 0603,Samsung Electro-Mechanics,CL10C470JB8NNNC,1276-1037-1-ND,"1,223,201",,yes (2026-11-15),Feed-forward capacitor
-"D1,D2,D3,D4",4,SK6812MINI,"Addressable RGB LED 3.5x3.5 mm, SK6812MINI or equivalent",Opsco / Worldsemi,SK6812MINI (to verify),,,,no,Addressable RGB LED 1 of 4: status. Exact part and stock to be verified before ordering
+"D1,D2,D3,D4",4,SK6812MINI,"Addressable RGB LED 3.5x3.5 mm, SK6812MINI or equivalent",Opsco,SK6812mini-012,,,0.10 (LCSC),"yes (2026-11-15, LCSC C2886570: 34,385)","Matches the KiCad SK6812MINI footprint corner for corner (DOUT, VDD, DIN, GND; chamfer at DIN). Do NOT substitute SK6812MINI-HS or -E: their pinouts differ. Not found at DigiKey; order from LCSC or have the assembler source it"
 D5,1,MBR120VLSFT1G,Schottky 20V 1A SOD-123FL,onsemi,MBR120VLSFT1G,MBR120VLSFT1GOSCT-ND,"105,067",0.61,yes (2026-11-15),
 D6,1,SMBJ18A,TVS 18V 29.2Vc unidirectional SMB,Littelfuse,SMBJ18A,SMBJ18ALFCT-ND,"26,211",,yes (2026-11-15),
 D7,1,MBR140SFT1G,Schottky 40V 1A SOD-123FL,onsemi,MBR140SFT1G,MBR140SFT1GOSCT-ND,"49,072",0.60,yes (2026-11-15),
 F1,1,PTC 0.75A 33V,PTC resettable fuse 33V 750mA 1812,Littelfuse,1812L075/33DR,F3355CT-ND,"18,996",,yes (2026-11-15),
 J1,1,Conn_01x04,Header 4 pos 1.5mm vertical SMD,Molex,0874370473,WM3969CT-ND,"18,264",0.94,yes (2026-11-15),Mating housing and crimps not included
 J2,1,DM3AT-SF-PEJM5,microSD push-push socket,Hirose,DM3AT-SF-PEJM5,HR1964CT-ND,"72,391",3.55,yes (2026-11-15),
-J3,1,SPARE,Header 1x3 2.54 mm vertical,Sullins,PRPC003SAAN-RC,S1011EC-03-ND,,,no,Spare GPIO (D1) for a GPS pulse-per-second input or a camera sync line
+J3,1,SPARE,Header 1x3 2.54 mm vertical,Sullins,PRPC003SAAN-RC,S1011EC-03-ND,,,generic (any 1x3 2.54 mm header),Spare GPIO (D1) for a GPS pulse-per-second input or a camera sync line
 JP1,1,TERM,,,,,,,n/a,"Solder jumper on the PCB, nothing to buy. Bridge it only for bench use"
 L1,1,6.8u,Inductor 6.8uH 1.45A 4x4x1.8mm WE-LQS 4020,Wurth Elektronik,74404042068,732-5507-1-ND,88,1.16,yes (2026-11-15),Low stock. Check the land pattern against the footprint before ordering
 R1,1,10k,Res 10k 1% 1/10W 0603,Vishay Dale,CRCW060310K0FKEA,541-10.0KHCT-ND,"2,848,541",,yes (2026-11-15),
@@ -27,9 +27,9 @@ R15,1,158k,Res 158k 1% 1/10W 0603,Vishay Dale,CRCW0603158KFKEA,541-158KHCT-ND,"2
 R16,1,30.1k,Res 30.1k 1% 1/10W 0603,Vishay Dale,CRCW060330K1FKEA,541-30.1KHCT-ND,"90,123",,yes (2026-11-15),"Feedback divider, bottom"
 S1,1,PTS645SM43SMTR92_LFS,Tactile switch 6x6mm SMD,C&K,PTS645SM43SMTR92 LFS,CKN9112CT-ND,"127,640",,yes (2026-11-15),
 S3,1,JS102011SAQN,Slide switch SPDT right-angle SMD,C&K,JS102011SAQN,401-1999-1-ND,"52,303",0.90,yes (2026-11-15),
-U1,1,XIAO ESP32-S3,Seeed XIAO ESP32-S3 module (not Sense),Seeed Studio,113991114,1597-113991114-ND,,,no,"Seeed XIAO ESP32-S3 (not Sense). Socket on 2x 1x7 2.54mm headers, or solder the module flat."
+U1,1,XIAO ESP32-S3,Seeed XIAO ESP32-S3 module (not Sense),Seeed Studio,113991114,1597-113991114-ND,,7.99 (Seeed),"yes (2026-11-15, Seeed store: in stock)","Seeed XIAO ESP32-S3 (not Sense). Socket on 2x 1x7 2.54mm headers, or solder the module flat. Footprint rows corrected to 15.24 mm on 2026-11-15, checked against Seeed's official KiCad footprint."
 U3,1,AP63301WU,Buck regulator adjustable 3A TSOT-26,Diodes Incorporated,AP63301WU-7,31-AP63301WU-7CT-ND,156,0.96,yes (2026-11-15),"Low stock. Automotive AP63301QWU-7 (31-AP63301QWU-7CT-ND, 815 in stock) is a drop-in"
 U4,1,TJA1051T-3,CAN transceiver SO-8 with VIO,NXP,"TJA1051T/3,118",568-8684-1-ND,"12,998",,yes (2026-11-15),
-U5,1,74AHCT1G125,"Single buffer, TTL-level input, SOT-23-5",Texas Instruments,SN74AHCT1G125DBVR,296-1180-1-ND,,,no,Lifts the 3.3 V LED data line to the LEDs supply level (their input threshold is 0.7 x VDD)
---,4,Socket strip,"Socket 1x7 2.54mm, on the board for the module",Sullins,PPTC071LFBN-RC,S7036-ND,,,no,Not on schematic. Two per board; order spares. Or solder the module flat
---,4,Pin header,"Header 1x7 2.54mm, soldered to the module",Sullins,PRPC007SAAN-RC,S1011EC-07-ND,,,no,Not on schematic. The XIAO ships without headers
+U5,1,74AHCT1G125,"Single buffer, TTL-level input, SOT-23-5",Texas Instruments,SN74AHCT1G125DBVR,296-1180-1-ND,,0.14,"yes (2026-11-15, DigiKey lists it; LCSC C7484: 33,071)",Lifts the 3.3 V LED data line to the LEDs supply level (their input threshold is 0.7 x VDD)
+--,4,Socket strip,"Socket 1x7 2.54mm, on the board for the module",Sullins,PPTC071LFBN-RC,S7036-ND,,,generic (any 1x7 2.54 mm female header),Not on schematic. Two per board; order spares. Or solder the module flat
+--,4,Pin header,"Header 1x7 2.54mm, soldered to the module",Sullins,PRPC007SAAN-RC,S1011EC-07-ND,,,generic (any 1x7 2.54 mm male header; Seeed ships some XIAOs with headers),Not on schematic. The XIAO ships without headers

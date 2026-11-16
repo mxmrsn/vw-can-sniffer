@@ -69,3 +69,13 @@ for pass in 1 2 3; do
     drc
 done
 grep "Found" build/drc.rpt
+
+# fabrication outputs: gerbers and drill (zipped for upload), placement file, STEP for the enclosure
+B=xiao-esp32s3-can-sniffer
+rm -rf fab/gerbers && mkdir -p fab/gerbers
+$CLI pcb export gerbers -l F.Cu,B.Cu,F.Mask,B.Mask,F.Paste,B.Paste,F.Silkscreen,B.Silkscreen,Edge.Cuts -o fab/gerbers/ $B.kicad_pcb 2>&1 | quiet >/dev/null
+$CLI pcb export drill --excellon-separate-th -o fab/gerbers/ $B.kicad_pcb 2>&1 | quiet >/dev/null
+rm -f fab/$B-v0.3.0-gerbers.zip && (cd fab/gerbers && zip -q ../$B-v0.3.0-gerbers.zip *)
+$CLI pcb export pos --format csv --units mm --side both -o fab/$B-pos.csv $B.kicad_pcb 2>&1 | quiet >/dev/null
+$CLI pcb export step --subst-models --force -o fab/$B.step $B.kicad_pcb 2>&1 | grep "Could not add" || true
+ls fab/gerbers | wc -l | xargs echo "fab files:"
