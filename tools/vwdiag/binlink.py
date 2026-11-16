@@ -227,6 +227,27 @@ class BinaryLink(Link):
         data = self._call(CMD_LOG_READ, struct.pack("<IH", offset, min(length, self.READ_CHUNK)) + name.encode("ascii"))
         return struct.unpack_from("<I", data)[0], bytes(data[4:])
 
+    def read_frames_timed(self, seconds):
+        """Monitored frames with the interface's own millisecond timestamps."""
+        deadline = time.monotonic() + seconds
+        try:
+            while True:
+                p = self._read_packet(deadline)
+                if p[0] == 0:
+                    self._on_event(p)
+        except LinkError as e:
+            if "closed" in str(e):
+                raise
+        frames, self._frames = self._frames, []
+        if not frames:
+            return []
+        t0 = frames[0][0]
+        return [((stamp - t0) / 1000.0, can_id, ext, bytes(data)) for stamp, can_id, ext, data in frames]
+
+    def take_frames(self):
+        frames, self._frames = self._frames, []
+        return [(stamp / 1000.0, can_id, ext, bytes(data)) for stamp, can_id, ext, data in frames]
+
     def read_frames(self, seconds):
         deadline = time.monotonic() + seconds
         try:

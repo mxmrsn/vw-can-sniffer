@@ -42,10 +42,28 @@ int sim_rand_range(int lo, int hi)
     return lo + (int)(sim_rand() % (uint32_t)(hi - lo + 1));
 }
 
+static bool config_ok;
+
 static void bad(const char *what)
 {
-    fprintf(stderr, "VWSIM: cannot use \"%s\"\n", what);
-    exit(2);
+    (void)what;
+    config_ok = false;
+}
+
+static void engine_defaults(void)
+{
+    // Forum-level estimates for an EA888 Gen 3 (docs/vw_can_data_sources.md) until the car's own logs replace them.
+    sim_cfg.idle_rpm = 700;
+    sim_cfg.cold_idle_rpm = 1100;
+    sim_cfg.warmup = 1.0;
+    sim_cfg.mis_cold = 6.0;
+    sim_cfg.mis_idle = 2.5;
+    sim_cfg.mis_light = 0.6;
+    sim_cfg.mis_load = 0.2;
+    sim_cfg.trim_cold = 9.0;
+    sim_cfg.trim_idle = 6.5;
+    sim_cfg.trim_drive = 2.5;
+    sim_cfg.speed = 1.0;
 }
 
 static void profile_realistic(void)
@@ -84,17 +102,21 @@ static void parse_ignition(const char *v)
     sim_cfg.ign_count = 0;
     while (*v) {
         const char *colon = strchr(v, ':');
-        if (!colon || sim_cfg.ign_count == SIM_MAX_IGN_STEPS)
+        if (!colon || sim_cfg.ign_count == SIM_MAX_IGN_STEPS) {
             bad(v);
+            return;
+        }
         enum ignition st = ign_name(v, (size_t)(colon - v));
         char *end;
         unsigned long at = strtoul(colon + 1, &end, 10);
         sim_cfg.ign[sim_cfg.ign_count].at = (uint32_t)at;
         sim_cfg.ign[sim_cfg.ign_count].state = st;
         sim_cfg.ign_count++;
-        v = *end == '/' ? end + 1 : end;
-        if (*end && *end != '/')
+        if (*end && *end != '/') {
             bad(end);
+            return;
+        }
+        v = *end == '/' ? end + 1 : end;
     }
 }
 
@@ -163,8 +185,31 @@ static void apply(char *item)
         if (sscanf(v, "%lf:%d", &sim_cfg.delay_pct, &sim_cfg.delay_ms) != 2)
             bad(v);
     } else if (!strcmp(k, "busoff")) {
-        if (sscanf(v, "%u:%u", &sim_cfg.busoff_at, &sim_cfg.busoff_ms) != 2)
+        unsigned at, ms;
+        if (sscanf(v, "%u:%u", &at, &ms) != 2)
             bad(v);
+        else {
+            sim_cfg.busoff_at = at;
+            sim_cfg.busoff_ms = ms;
+        }
+    } else if (!strcmp(k, "idle") || !strcmp(k, "cold_idle") || !strcmp(k, "warmup") || !strcmp(k, "mis_cold")
+               || !strcmp(k, "mis_idle") || !strcmp(k, "mis_light") || !strcmp(k, "mis_load") || !strcmp(k, "trim_cold")
+               || !strcmp(k, "trim_idle") || !strcmp(k, "trim_drive") || !strcmp(k, "speed")) {
+        char *end;
+        double x = strtod(v, &end);
+        if (*end || x < 0) {
+            bad(v);
+            return;
+        }
+        double *slot = !strcmp(k, "idle") ? &sim_cfg.idle_rpm : !strcmp(k, "cold_idle") ? &sim_cfg.cold_idle_rpm
+                     : !strcmp(k, "warmup") ? &sim_cfg.warmup : !strcmp(k, "mis_cold") ? &sim_cfg.mis_cold
+                     : !strcmp(k, "mis_idle") ? &sim_cfg.mis_idle : !strcmp(k, "mis_light") ? &sim_cfg.mis_light
+                     : !strcmp(k, "mis_load") ? &sim_cfg.mis_load : !strcmp(k, "trim_cold") ? &sim_cfg.trim_cold
+                     : !strcmp(k, "trim_idle") ? &sim_cfg.trim_idle : !strcmp(k, "trim_drive") ? &sim_cfg.trim_drive
+                     : &sim_cfg.speed;
+        *slot = x;
+        if (sim_cfg.speed <= 0)
+            sim_cfg.speed = 1;
     } else if (!strcmp(k, "seed")) {
         sim_cfg.seed = (uint32_t)strtoul(v, NULL, 0);
     } else {
@@ -172,18 +217,33 @@ static void apply(char *item)
     }
 }
 
-void sim_config_load(void)
+bool sim_config_set(const char *spec)
 {
     memset(&sim_cfg, 0, sizeof(sim_cfg));
+    engine_defaults();
     profile_realistic();
     sim_cfg.seed = 12345;
-
-    const char *env = getenv("VWSIM");
-    if (env) {
+    config_ok = true;
+    if (spec) {
         char buf[512];
-        snprintf(buf, sizeof(buf), "%s", env);
-        for (char *item = strtok(buf, ","); item; item = strtok(NULL, ","))
+        snprintf(buf, sizeof(buf), "%s", spec);
+        char *save = NULL;
+        for (char *item = strtok_r(buf, ",", &save); item; item = strtok_r(NULL, ",", &save))
             apply(item);
     }
+    if (!config_ok) {
+        memset(&sim_cfg, 0, sizeof(sim_cfg));
+        engine_defaults();
+        profile_realistic();
+        sim_cfg.seed = 12345;
+    }
     rng_state = sim_cfg.seed ? sim_cfg.seed : 1;
+    return config_ok;
+}
+
+void sim_set_ignition(enum ignition state, uint32_t now)
+{
+    sim_cfg.ign_count = 1;
+    sim_cfg.ign[0].at = now;
+    sim_cfg.ign[0].state = state;
 }

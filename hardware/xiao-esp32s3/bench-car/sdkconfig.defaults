@@ -1,0 +1,7 @@
+CONFIG_IDF_TARGET="esp32s3"
+# Console on the chip's own USB (the module's USB-C socket), as on the interface firmware.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+# The main loop yields one tick at a time; a short tick keeps the modules' answers prompt.
+CONFIG_FREERTOS_HZ=1000

@@ -80,7 +80,8 @@ Open the module's USB serial port (any baud rate) and type `help`. The command l
   end-to-end tests on the Pico side), so the layers above the platform are as tested as they were there.
 - The platform layer itself (TWAI, SD over SPI, NimBLE, the USB console) is **untested in every sense**: no
   bus, no card, no phone, no serial port. None of it has been on a bench, let alone a car.
-- `../../pico2w/docs/bringup_plan.md` is the ordered test plan; most of it applies here unchanged.
+- `../docs/bringup_plan.md` is the ordered test plan for this board, with a second board running the bench car
+  (`../bench-car`) as the car on the desk.
 
 ## Things to check first when hardware arrives
 - The console is the USB Serial/JTAG peripheral, and `plat_write()` bypasses the console VFS so the binary

@@ -101,10 +101,11 @@ static void init(void)
 static double idle_target(void)
 {
     // EA888 Gen 3 warm idle is around 650-720 rpm; a cold start idles fast and settles as it warms
+    double warm = sim_cfg.idle_rpm, cold = sim_cfg.cold_idle_rpm;
     if (st.coolant_c >= 75)
-        return 700;
-    double t = 1100 - (st.coolant_c - 15) * (400.0 / 60.0);
-    return t < 700 ? 700 : t > 1100 ? 1100 : t;
+        return warm;
+    double t = cold - (st.coolant_c - 15) * ((cold - warm) / 60.0);
+    return t < warm ? warm : t > cold ? cold : t;
 }
 
 // Driving trace, 70 s long: idle, pull away, cruise, coast down, idle.
@@ -132,13 +133,13 @@ static void misfire_step(double dt)
     int c = sim_cfg.misfire_cyl - 1;
     double rate;                  // share of that cylinder's combustion events that misfire
     if (st.coolant_c < 60)
-        rate = 0.06;
+        rate = sim_cfg.mis_cold / 100;
     else if (st.load_pct < 30 && st.speed_kmh < 2)
-        rate = 0.025;             // warm idle
+        rate = sim_cfg.mis_idle / 100;   // warm idle
     else if (st.load_pct < 45)
-        rate = 0.006;
+        rate = sim_cfg.mis_light / 100;
     else
-        rate = 0.002;             // under load the cylinder pressure is high enough to fire
+        rate = sim_cfg.mis_load / 100;   // under load the cylinder pressure is high enough to fire
     double events = st.rpm / 120.0 * dt;
     mis_acc[c] += events * rate * (0.6 + 0.8 * sim_rand01());
     int n = (int)mis_acc[c];
@@ -195,7 +196,7 @@ static void run_step(double t_run, double dt)
 
     // warm-up: the thermostat holds the coolant at 90 C
     if (st.coolant_c < WARM_C) {
-        st.coolant_c += (0.08 + 0.00008 * st.rpm + 0.004 * st.load_pct) * dt;
+        st.coolant_c += (0.08 + 0.00008 * st.rpm + 0.004 * st.load_pct) * sim_cfg.warmup * dt;
         if (st.coolant_c > WARM_C)
             st.coolant_c = WARM_C;
     }
@@ -211,7 +212,7 @@ static void run_step(double t_run, double dt)
         // A cylinder that pumps less air sends unburned oxygen to the sensor; the module adds fuel.
         double bias = 0;
         if (sim_cfg.misfire_cyl)
-            bias = st.speed_kmh < 2 ? (st.coolant_c < 60 ? 9.0 : 6.5) : 2.5;
+            bias = st.speed_kmh < 2 ? (st.coolant_c < 60 ? sim_cfg.trim_cold : sim_cfg.trim_idle) : sim_cfg.trim_drive;
         st.ltft_pct += (bias * 0.6 - st.ltft_pct) * dt / 120.0;
         st.stft_pct = bias - st.ltft_pct + sin(phase) * 2.5;
         st.lambda = 1.0 + sin(phase + 1.0) * 0.02 + (sim_cfg.misfire_cyl && st.speed_kmh < 2 ? 0.01 : 0);
@@ -241,6 +242,14 @@ static void end_of_cycle(void)
         }
         d->status &= (uint8_t)~(0x01 | 0x02);
     }
+}
+
+void engine_reset(void)
+{
+    inited = was_running = first = false;
+    dtc_count = 0;
+    memset(mis_acc, 0, sizeof(mis_acc));
+    phase = rpm_smooth = 0;
 }
 
 void engine_step(uint32_t t)
