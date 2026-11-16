@@ -48,6 +48,9 @@ static struct ecu_address target = { "engine", 0x7E0, 0x7E8, "" };
 static bool monitor, machine, keepalive, binary;
 static struct proto_port usb_port, ble_port;
 static uint32_t led_off_at, keepalive_at;
+static uint32_t user_ms, bus_ms; // last request from a person, last CAN frame: for the power manager
+static void power_check(void);
+static void cmd_power(char *rest);
 static uint32_t timeout_ms = 1000;
 
 static char line[700];
@@ -92,6 +95,7 @@ static void pump(void *ctx)
     bool any = false;
     while (can_port_receive(&f)) {
         any = true;
+        bus_ms = plat_now_ms();
         plat_led(PLAT_LED_CAN, true);
         led_off_at = plat_now_ms() + 20;
         logger_can(&f, plat_now_ms(), false);
@@ -300,6 +304,7 @@ static void cmd_help(void)
            "  poll list | poll clear\n"
            "  ble                 Bluetooth state, name and pairing passkey\n"
            "  ble pair | forget   allow a new phone to pair for 2 minutes, or forget all phones\n"
+           "  power               power state; power stay on|off, idle <s>, cutoff <mV>, sleep (dongle)\n"
            "  mode b              binary packet protocol, for apps\n");
 }
 
@@ -624,6 +629,8 @@ static void handle_line(char *text)
         cmd_x(rest);
     } else if (!strcmp(cmd, "ble")) {
         cmd_ble(rest);
+    } else if (!strcmp(cmd, "power")) {
+        cmd_power(rest);
     } else if (!strcmp(cmd, "log")) {
         cmd_log(rest);
     } else if (!strcmp(cmd, "poll")) {
@@ -671,8 +678,122 @@ static void run_boot_script(void)
     }
 }
 
+// ---- power (boards built with APP_POWER)
+#ifdef APP_POWER
+static void power_check(void)
+{
+    static uint32_t next;
+    static bool started;
+    uint32_t now = plat_now_ms();
+    if (started && (int32_t)(now - next) < 0)
+        return;
+    started = true;
+    next = now + 500;
+    struct power_inputs in = {
+        .now_ms = now, .vbat_mv = plat_battery_mv(), .usb_host = plat_usb_host(), .phone = ble_info.connected,
+        .logging = logger_active(), .user_ms = user_ms, .bus_ms = bus_ms,
+    };
+    enum power_sleep_reason why = power_poll(&in);
+    if (why == POWER_SLEEP_NONE)
+        return;
+    // Close the log properly and leave the bus alone before the power goes.
+    app_poll_clear();
+    if (logger_active())
+        app_set_logging(false);
+    app_set_silent(true);
+    if (!binary)
+        printf("power: going to sleep (%s)\n", power_sleep_name(why));
+    fflush(stdout);
+    plat_power_sleep(why);
+}
+
+bool app_power_get(struct power_status *st, struct power_settings *set)
+{
+    power_get_status(st);
+    *set = *power_settings();
+    return true;
+}
+
+bool app_power_set(uint8_t op, uint32_t value)
+{
+    struct power_settings *s = power_settings();
+    switch (op) {
+    case 1: s->stay_awake = value != 0; return true;
+    case 2: if (value < 30 || value > 86400) return false; s->idle_s = value; return true;
+    case 3: if (value < 10500 || value > 13000) return false; s->cutoff_mv = (uint16_t)value; return true;
+    case 4: power_request_sleep(); return true;
+    default: return false;
+    }
+}
+
+static void cmd_power(char *rest)
+{
+    struct power_status st;
+    struct power_settings set;
+    if (rest) {
+        char *what = strtok(rest, " ");
+        char *val = strtok(NULL, " ");
+        bool ok = false;
+        if (!strcmp(what, "stay") && val)
+            ok = app_power_set(1, !strcmp(val, "on"));
+        else if (!strcmp(what, "idle") && val)
+            ok = app_power_set(2, (uint32_t)strtoul(val, NULL, 10));
+        else if (!strcmp(what, "cutoff") && val)
+            ok = app_power_set(3, (uint32_t)strtoul(val, NULL, 10));
+        else if (!strcmp(what, "sleep"))
+            ok = app_power_set(4, 0);
+        if (!ok) {
+            printf("- usage: power, power stay on|off, power idle <30-86400 s>, power cutoff <10500-13000 mV>, power sleep\n");
+            return;
+        }
+    }
+    app_power_get(&st, &set);
+    printf("power: woke by %s, battery %u mV, %s\n", power_wake_name(st.wake), st.vbat_mv,
+           st.holds ? "awake" : "nothing keeps it awake");
+    static const char *holds[] = { "usb", "phone", "activity", "engine", "bus", "logging", "stay" };
+    printf("held by:");
+    for (int i = 0; i < 7; i++)
+        if (st.holds & (1 << i))
+            printf(" %s", holds[i]);
+    printf("%s\n", st.holds ? "" : " nothing");
+    if (st.sleep_in_s)
+        printf("sleeps in %lu s without activity\n", (unsigned long)st.sleep_in_s);
+    if (st.low_battery_for_s)
+        printf("battery low for %lu s (sleeps after %lu s)\n", (unsigned long)st.low_battery_for_s, (unsigned long)set.low_battery_s);
+    printf("settings: idle %lu s, cutoff %u mV, engine running above %u mV, stay awake %s\n", (unsigned long)set.idle_s,
+           set.cutoff_mv, set.running_mv, set.stay_awake ? "on" : "off");
+}
+#else
+static void power_check(void)
+{
+}
+
+bool app_power_get(struct power_status *st, struct power_settings *set)
+{
+    (void)st;
+    (void)set;
+    return false;
+}
+
+bool app_power_set(uint8_t op, uint32_t value)
+{
+    (void)op;
+    (void)value;
+    return false;
+}
+
+static void cmd_power(char *rest)
+{
+    (void)rest;
+    printf("- this board has no power management\n");
+}
+#endif
+
 void app_init(void)
 {
+#ifdef APP_POWER
+    power_init(plat_wake_reason(), plat_now_ms());
+#endif
     plat_led(PLAT_LED_SILENT, true);
     plat_led(PLAT_LED_USB, true);
     set_target(VW_ECUS[0].name, VW_ECUS[0].request_id, VW_ECUS[0].response_id, VW_ECUS[0].description);
@@ -710,11 +831,16 @@ void app_poll(void)
     // Bluetooth: the link carries packets from its first byte, no text mode.
     if (ble_link_session_changed())
         proto_port_init(&ble_port, ble_write);
-    for (uint8_t b; ble_link_rx_pop(&b);)
+    for (uint8_t b; ble_link_rx_pop(&b);) {
+        user_ms = plat_now_ms();
         proto_rx_byte(&ble_port, b);
+    }
+
+    power_check();
 
     int ch;
     while ((ch = plat_getchar()) >= 0) {
+        user_ms = plat_now_ms();
         if (binary) {
             proto_rx_byte(&usb_port, (uint8_t)ch);
             continue;

@@ -140,6 +140,9 @@ in `docs/logging_experiments.md` gather the data, and `vwdiag calibrate` turns i
   any custom work. Same route, same fuel, similar temperature.
 
 ## Phase 5: v0.4.0 hardware: integrated connector, mezzanine, expansion
+**Firmware written (2026-11-16)**, not run on hardware: `hardware/esp32s3-dongle/firmware` with the power
+manager, wake reasons and the transceiver's modes; the simulator, tools and app know about sleeping.
+
 **Started early, at your request:** the architecture is in
 [`hardware/esp32s3-dongle/docs/architecture.md`](../hardware/esp32s3-dongle/docs/architecture.md). The plan below
 still applies; schematics come next, layout once the enclosure and the plug are chosen.

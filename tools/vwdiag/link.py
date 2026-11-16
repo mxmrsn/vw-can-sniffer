@@ -55,8 +55,11 @@ class Link:
         if self._proc:
             self._proc.kill()
             self._proc.wait()
-            self._proc.stdin.close()
-            self._proc.stdout.close()
+            for pipe in (self._proc.stdin, self._proc.stdout):
+                try:
+                    pipe.close()
+                except OSError:
+                    pass   # already gone
         else:
             try:
                 self._leave()
@@ -82,6 +85,9 @@ class Link:
                 data = data[n:]
             except BlockingIOError:
                 select.select([], [self._wfd], [], 1.0)
+            except OSError as e:
+                # the interface went away: unplugged, or a dongle that switched itself off
+                raise LinkError("connection to the interface closed (%s)" % e.strerror)
 
     def _fill(self, deadline):
         """Wait for more bytes from the interface and add them to the buffer."""
@@ -245,6 +251,26 @@ class Link:
     def take_frames(self):
         """Frames monitored while requests were running (only the packet protocol keeps them)."""
         return []
+
+    def power(self, op=None, value=0):
+        """Power state of a board that sleeps (the dongle), from the console's  power  command."""
+        cmd = {None: "power", 1: "power stay %s" % ("on" if value else "off"), 2: "power idle %d" % value,
+               3: "power cutoff %d" % value, 4: "power sleep"}[op]
+        lines = self.command(cmd)
+        text = "\n".join(lines)
+        if lines and lines[-1].startswith("-"):
+            raise LinkError(lines[-1].lstrip("- "))
+        m = re.search(r"woke by (\S+), battery (\d+) mV", text)
+        held = re.search(r"held by: (.*)", text)
+        s = re.search(r"idle (\d+) s, cutoff (\d+) mV, engine running above (\d+) mV, stay awake (on|off)", text)
+        if not (m and held and s):
+            raise LinkError("could not read the power state")
+        sleeps = re.search(r"sleeps in (\d+) s", text)
+        low = re.search(r"battery low for (\d+) s", text)
+        return {"holds": [] if held.group(1) == "nothing" else held.group(1).split(), "wake": m.group(1),
+                "battery_mv": int(m.group(2)), "sleeps_in_s": int(sleeps.group(1)) if sleeps else 0,
+                "battery_low_for_s": int(low.group(1)) if low else 0, "idle_s": int(s.group(1)),
+                "cutoff_mv": int(s.group(2)), "running_mv": int(s.group(3)), "stay_awake": s.group(4) == "on"}
 
     # ---- copying files off the card
     READ_CHUNK = 1024   # what one "log get" returns on the text console

@@ -81,6 +81,7 @@ one request at a time and answers each one exactly once.
 | 0D | LOG_MARK | text, up to 200 bytes | none. BAD_ARGS when not logging |
 | 0E | LOG_LIST | first index (u16), optional, default 0 | total files (u16), entries in this answer (u8), then per entry: size (u32), name length (u8), name. One answer holds at most about 1000 bytes of entries; ask again from the next index for the rest |
 | 0F | LOG_READ | offset (u32), most bytes wanted (u16, 0 = as many as allowed), file name | file size (u32), then up to 4000 bytes from the offset (none past the end). BAD_ARGS for a name that is not a plain 8.3 name; BUSY for the file being recorded; STORAGE if there is no card or no such file |
+| 10 | POWER | none, or an operation (u8) and a value (u32): 1 stay awake (0/1), 2 idle seconds (30 to 86400), 3 battery cutoff mV (10500 to 13000), 4 sleep now | what keeps it awake (u8 bits: 0 USB, 1 phone, 2 activity, 3 engine, 4 bus, 5 logging, 6 stay), wake reason (u8: 0 unknown, 1 power-on, 2 USB, 3 CAN, 4 engine, 5 button), sleep reason (u8), stay awake (u8), battery mV (u16), seconds until it sleeps (u16, 0 = not counting), seconds the battery has been low (u16), idle seconds (u32), cutoff mV (u16), engine-running mV (u16). UNKNOWN_CMD on boards that do not sleep; BAD_ARGS for a value out of range |
 | 7F | EXIT | none | none, then the console is back in text mode |
 
 Flags in `STATUS`: bit 0 listen-only, bit 1 monitor on, bit 2 keepalive on, bit 3 logging. Monitoring, the

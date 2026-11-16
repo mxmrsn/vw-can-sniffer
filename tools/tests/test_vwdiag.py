@@ -897,5 +897,60 @@ class Experiments(unittest.TestCase):
         self.assertEqual(len(r), 6)
 
 
+class Power(unittest.TestCase):
+    """The dongle's power management, in the simulator (built with it, like the dongle)."""
+
+    def open(self, spec, usb="1", wake="can", link_class=BinaryLink):
+        os.environ["VWDIAG_USB"], os.environ["VWDIAG_WAKE"] = usb, wake
+        self.addCleanup(os.environ.pop, "VWDIAG_USB", None)
+        self.addCleanup(os.environ.pop, "VWDIAG_WAKE", None)
+        link = sim_with(spec, link_class)
+        self.addCleanup(link.close)
+        return link
+
+    def test_status_over_both_links(self):
+        for cls in (Link, BinaryLink):
+            link = self.open("realistic", wake="engine", link_class=cls)
+            p = link.power()
+            self.assertEqual(p["wake"], "engine")
+            self.assertIn("usb", p["holds"])
+            self.assertIn("engine", p["holds"])          # 14.1 V: the engine is running
+            self.assertAlmostEqual(p["battery_mv"], 14150, delta=150)
+            link.power(2, 90)
+            link.power(1, 1)
+            p = link.power()
+            self.assertEqual((p["idle_s"], p["stay_awake"]), (90, True))
+            with self.assertRaises(LinkError):
+                link.power(2, 5)                         # under the 30 s floor
+            with self.assertRaises(LinkError):
+                link.power(3, 9000)                      # a cutoff that would flatten the battery
+
+    def test_asleep_when_asked_unless_on_usb(self):
+        link = self.open("realistic,ignition=off:0", usb="1")
+        link.power(4)
+        time.sleep(1.0)
+        self.assertEqual(link.power()["wake"], "can")    # still here: a computer is on USB
+        link = self.open("realistic,ignition=off:0", usb="0")
+        link.power(4)
+        time.sleep(1.0)
+        with self.assertRaises(LinkError):              # the power went off: the link is gone
+            link.status(timeout=2)
+
+    def test_sleeps_when_nothing_holds_it(self):
+        link = self.open("realistic,ignition=off:0", usb="0")
+        link.power(2, 30)
+        p = link.power()
+        self.assertEqual(p["holds"], ["activity"])       # just used: one idle period
+        self.assertAlmostEqual(p["battery_mv"], 12500, delta=50)
+        time.sleep(32)
+        with self.assertRaises(LinkError):
+            link.status(timeout=2)
+
+    def test_boards_without_it_say_so(self):
+        # the text console answers on every build; the simulator is built with power management
+        link = self.open("realistic")
+        self.assertIn("usb", link.power()["holds"])
+
+
 if __name__ == "__main__":
     unittest.main()

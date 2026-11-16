@@ -16,12 +16,14 @@ from .uds import InterfaceRefused, NegativeResponse, NoResponse
 
 CMD_HELLO, CMD_STATUS, CMD_SET_SILENT, CMD_SET_MONITOR, CMD_UDS, CMD_SET_KEEPALIVE, CMD_EXIT = 1, 2, 3, 4, 5, 6, 0x7F
 CMD_SET_LOG, CMD_SET_TIME, CMD_LOG_STATUS, CMD_POLL_ADD, CMD_POLL_CLEAR, CMD_LOG_MARK = 8, 9, 10, 11, 12, 13
-CMD_LOG_LIST, CMD_LOG_READ = 0x0E, 0x0F
+CMD_LOG_LIST, CMD_LOG_READ, CMD_POWER = 0x0E, 0x0F, 0x10
 EVT_CAN_FRAME = 1
 OK, BAD_ARGS, UNKNOWN_CMD, SILENT, TIMEOUT, NEGATIVE, TRANSPORT, STORAGE, BUSY = range(9)
 STATUS_NAMES = ["ok", "bad arguments", "unknown command", "silent", "timeout", "negative response", "transport error",
                 "no card, or the file could not be written or read", "that file is being recorded: stop logging first"]
 MAX_PAYLOAD = 4160
+POWER_HOLDS = ["usb", "phone", "activity", "engine", "bus", "logging", "stay"]
+POWER_WAKES = ["unknown", "power-on", "usb", "can", "engine", "button"]
 
 
 def crc16(data):
@@ -209,6 +211,21 @@ class BinaryLink(Link):
 
     READ_CHUNK = 4000
 
+    def power(self, op=None, value=0):
+        """Power state of a board that sleeps (the dongle); op 1 stay, 2 idle s, 3 cutoff mV, 4 sleep now."""
+        args = b"" if op is None else struct.pack("<BI", op, value)
+        status, d = self._exchange(CMD_POWER, args)
+        if status == UNKNOWN_CMD:
+            raise LinkError("this board has no power management")
+        if status != OK:
+            raise LinkError("the interface refused that power setting")
+        holds, wake, sleeping, stay, vbat, sleep_in, low_for, idle = struct.unpack_from("<BBBBHHHI", d)
+        cutoff, running = struct.unpack_from("<HH", d, 14)
+        return {"holds": [n for i, n in enumerate(POWER_HOLDS) if holds & (1 << i)],
+                "wake": POWER_WAKES[wake] if wake < len(POWER_WAKES) else str(wake),
+                "battery_mv": vbat, "sleeps_in_s": sleep_in, "battery_low_for_s": low_for,
+                "idle_s": idle, "cutoff_mv": cutoff, "running_mv": running, "stay_awake": bool(stay)}
+
     def log_files(self):
         out, first = [], 0
         while True:
@@ -323,7 +340,10 @@ class BleSimLink(BinaryLink):
         if self._proc:
             self._proc.kill()
             self._proc.wait()
-            self._proc.stdin.close()
-            self._proc.stdout.close()
+            for pipe in (self._proc.stdin, self._proc.stdout):
+                try:
+                    pipe.close()
+                except OSError:
+                    pass   # already gone
             self._proc = None
         self._rfd = self._wfd = None

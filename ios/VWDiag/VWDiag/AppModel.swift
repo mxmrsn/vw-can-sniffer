@@ -12,6 +12,7 @@ final class AppModel {
     var interface: Interface?
     var info: InterfaceInfo?
     var state: InterfaceState?
+    var power: Interface.PowerState?   // nil on boards that do not sleep
     var simulatorHost = UserDefaults.standard.string(forKey: "simHost") ?? "127.0.0.1"
     var simulatorPort = UserDefaults.standard.string(forKey: "simPort") ?? "5555"
     var found: [BLETransport.Found] = []
@@ -94,7 +95,10 @@ final class AppModel {
 
     func refresh() async {
         guard let ifc = interface else { return }
-        do { state = try await ifc.state() } catch { fail(error) }
+        do {
+            state = try await ifc.state()
+            power = try await ifc.power()
+        } catch { fail(error) }
     }
 
     /// The interface powers up listen-only; reading from modules needs sending allowed.
@@ -104,6 +108,11 @@ final class AppModel {
             try await ifc.setListenOnly(!on)
             await refresh()
         } catch { fail(error) }
+    }
+
+    func changePower(_ change: Interface.PowerChange) async {
+        guard let ifc = interface else { return }
+        do { power = try await ifc.power(change) } catch { fail(error) }
     }
 
     func fail(_ error: Error) {

@@ -12,7 +12,7 @@ tested on their own.
 ## Screens
 | Tab | What it does |
 |---|---|
-| Interface | Connect to the simulator (host and port) or scan for a board over Bluetooth; listen-only switch; counters |
+| Interface | Connect to the simulator (host and port) or scan for a board over Bluetooth; listen-only switch; counters; on the dongle, its power: why it woke, the battery, what keeps it awake, stay awake, idle time, sleep now |
 | Modules | Autoscan: every known module, present or not, part number, fault count. Tap in for identification, fault codes with status and freeze frame, and Clear (asks first; it changes the car) |
 | Live | Pick standard OBD values and engine measuring values (the Simos 18 list: knock retard per cylinder, misfire total, cams, rail pressures...), see them and a graph, recorded to CSV and shareable |
 | Misfire | Misfires per cylinder (this drive and the ten-drive average), trims, warning lamp, stored and pending codes, freeze frame |

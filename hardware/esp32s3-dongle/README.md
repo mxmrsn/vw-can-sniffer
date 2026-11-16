@@ -3,6 +3,7 @@
 | Path | What it is |
 |---|---|
 | [`pcb/`](pcb/README.md) | Schematics for both boards and the scripts that generate them |
+| [`firmware/`](firmware/README.md) | ESP-IDF firmware: the shared core plus the TJA1043 modes and switching itself off |
 | [`docs/architecture.md`](docs/architecture.md) | The two-board stack behind a J1962 plug: partitioning, power and sleep, the board-to-board connector, the mechanical interface with the enclosure, and what is still to verify |
 
 The low-profile version of the [XIAO board](../xiao-esp32s3/README.md): same firmware core, protocol and tools,

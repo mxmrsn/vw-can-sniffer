@@ -66,6 +66,10 @@ The scenario comes from the `VWSIM` environment variable (all settings in `sim/s
 The engine's numbers are settings too (`idle`, `cold_idle`, `warmup`, misfire rates, trims, and `speed` for a
 faster engine clock); `vwdiag calibrate` sets them from experiments on the car (`docs/logging_experiments.md`).
 
+The simulator is built with the dongle's power manager and sleeps like it: with `VWDIAG_USB=0` (no computer on
+USB) it ends the process when nothing keeps it awake, which an app sees as the link dropping. The battery voltage
+is the engine model's; `VWDIAG_WAKE=can|engine|button|power-on` sets the wake reason it reports.
+
 The car itself (`sim/car.c`, `sim_engine.c`, `sim_config.c`) does not depend on the host: `sim/sim_bus.c` puts it
 on a pretend bus with fault injection, and the XIAO bench car (`hardware/xiao-esp32s3/bench-car`) puts the same
 code on a real CAN bus.
@@ -122,6 +126,7 @@ Open the Pico's USB serial port (any baud rate) and type `help`.
 | `log on` / `log off` / `log` | Record every CAN frame to the microSD card; `log` alone shows the state |
 | `log mark <text>` | Put a note in the log |
 | `log ls`, `log get <file> <offset> <length>` | List the card's files; read up to 1024 bytes of one, as hex |
+| `power`, `power stay on\|off`, `power idle <s>`, `power cutoff <mV>`, `power sleep` | Power state and settings, on boards that switch themselves off (the dongle, and the simulator); others say so |
 | `time <unix seconds>` | Tell the board the time, for log timestamps |
 | `poll <req> <resp> <ms> <hex>` | Repeat a short request on a timer (up to 8); `poll list`, `poll clear` |
 | `mode m` / `mode h` | Machine mode for programs (no echo, each reply ends with `$`), or human mode |

@@ -4,7 +4,7 @@ import Foundation
 public enum Command: UInt8, Sendable {
     case hello = 0x01, status = 0x02, setSilent = 0x03, setMonitor = 0x04, uds = 0x05, setKeepalive = 0x06
     case setLog = 0x08, setTime = 0x09, logStatus = 0x0A, pollAdd = 0x0B, pollClear = 0x0C, logMark = 0x0D
-    case logList = 0x0E, logRead = 0x0F
+    case logList = 0x0E, logRead = 0x0F, power = 0x10
     case exit = 0x7F
 }
 
@@ -37,7 +37,7 @@ public enum InterfaceError: Error, LocalizedError, Equatable, Sendable {
         switch self {
         case let .refused(cmd, status): return "interface refused \(cmd): \(status.text)"
         case .noAnswer: return "no reply from the interface"
-        case .disconnected: return "not connected to the interface"
+        case .disconnected: return "the interface stopped answering: it went to sleep, was unplugged, or is out of range"
         case let .malformed(what): return "unexpected reply: \(what)"
         case let .wrongVersion(v): return "interface speaks protocol version \(v); this app speaks 1"
         }
@@ -292,6 +292,45 @@ public actor Interface {
     }
 
     public func pollClear() async throws { try await call(.pollClear) }
+
+    // MARK: power (the dongle; boards without it answer unknownCommand)
+    public struct PowerState: Sendable, Equatable {
+        public let holds: [String]          // what keeps it awake: usb, phone, activity, engine, bus, logging, stay
+        public let wake: String             // power-on, usb, can, engine, button
+        public let batteryMv: Int
+        public let sleepsInS: Int           // 0 = not counting down
+        public let batteryLowForS: Int
+        public let idleS: Int
+        public let cutoffMv: Int
+        public let runningMv: Int
+        public let stayAwake: Bool
+    }
+
+    public enum PowerChange: Sendable {
+        case stayAwake(Bool), idle(seconds: Int), cutoff(mV: Int), sleepNow
+    }
+
+    static let powerHolds = ["usb", "phone", "activity", "engine", "bus", "logging", "stay"]
+    static let powerWakes = ["unknown", "power-on", "usb", "can", "engine", "button"]
+
+    /// The power state, after an optional change. nil: this board has no power management.
+    public func power(_ change: PowerChange? = nil) async throws -> PowerState? {
+        var args: [UInt8] = []
+        switch change {
+        case .none: break
+        case let .stayAwake(on)?: args = [1] + le32(on ? 1 : 0)
+        case let .idle(s)?: args = [2] + le32(UInt32(s))
+        case let .cutoff(mv)?: args = [3] + le32(UInt32(mv))
+        case .sleepNow?: args = [4] + le32(0)
+        }
+        let (status, d) = try await exchange(.power, args)
+        if status == .unknownCommand { return nil }
+        guard status == .ok, d.count >= 18 else { throw InterfaceError.refused(.power, status) }
+        let holds = Self.powerHolds.enumerated().filter { d[0] & (1 << $0.offset) != 0 }.map(\.element)
+        return PowerState(holds: holds, wake: Int(d[1]) < Self.powerWakes.count ? Self.powerWakes[Int(d[1])] : "unknown",
+                          batteryMv: Int(d.u16(4)), sleepsInS: Int(d.u16(6)), batteryLowForS: Int(d.u16(8)),
+                          idleS: Int(d.u32(10)), cutoffMv: Int(d.u16(14)), runningMv: Int(d.u16(16)), stayAwake: d[3] != 0)
+    }
 
     // MARK: copying files off the card
     public struct CardFile: Sendable, Hashable, Identifiable {

@@ -7,9 +7,13 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <stdlib.h>
+#include <string.h>
+
 #include "../src/app.h"
 #include "../src/can_port.h"
 #include "../src/platform.h"
+#include "sim.h"
 
 uint32_t plat_now_ms(void)
 {
@@ -42,6 +46,36 @@ void plat_led(enum plat_led led, bool on)
 void plat_idle(void)
 {
     usleep(200);
+}
+
+// ---- power: the simulated dongle sleeps like the real one. The battery voltage is the car's
+// (the engine model's), VWDIAG_USB=0 means no computer on USB (the default is one: the console),
+// and VWDIAG_WAKE names the wake reason (power-on, usb, can, engine, button).
+uint16_t plat_battery_mv(void)
+{
+    return (uint16_t)(engine()->volts * 1000);
+}
+
+bool plat_usb_host(void)
+{
+    const char *v = getenv("VWDIAG_USB");
+    return !v || strcmp(v, "0");
+}
+
+enum power_wake plat_wake_reason(void)
+{
+    const char *v = getenv("VWDIAG_WAKE");
+    for (int w = 0; v && w <= POWER_WAKE_BUTTON; w++)
+        if (!strcmp(v, power_wake_name((enum power_wake)w)))
+            return (enum power_wake)w;
+    return POWER_WAKE_POWER_ON;
+}
+
+void plat_power_sleep(enum power_sleep_reason why)
+{
+    // The dongle's power goes off; here the process ends, which a connected app sees as the link dropping.
+    fprintf(stderr, "power: asleep (%s)\n", power_sleep_name(why));
+    exit(3);
 }
 
 int main(void)

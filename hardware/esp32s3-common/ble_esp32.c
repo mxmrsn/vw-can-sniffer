@@ -310,7 +310,7 @@ void ble_esp32_init(void)
 {
     gpio_reset_pin(BTN_MODE_PIN);
     gpio_set_direction(BTN_MODE_PIN, GPIO_MODE_INPUT);
-    gpio_set_pull_mode(BTN_MODE_PIN, GPIO_FLOATING); // the board has a 10k pull-down
+    gpio_set_pull_mode(BTN_MODE_PIN, BTN_MODE_PULL); // per board: see its pins.h
 
     if (nimble_port_init() != ESP_OK)
         return; // no radio: ble_info.available stays false
@@ -339,7 +339,7 @@ void ble_esp32_init(void)
 
 void plat_ble_poll(void)
 {
-    bool down = gpio_get_level(BTN_MODE_PIN) == 1; // switch to +3V3, pull-down on the board
+    bool down = gpio_get_level(BTN_MODE_PIN) == BTN_MODE_PRESSED;
     if (down && !button_was_down)
         plat_ble_open_pairing();
     button_was_down = down;
