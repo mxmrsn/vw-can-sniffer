@@ -127,6 +127,10 @@ goes into the simulator's replay set.
   any custom work. Same route, same fuel, similar temperature.
 
 ## Phase 5: v0.4.0 hardware: integrated connector, mezzanine, expansion
+**Started early, at your request:** the architecture is in
+[`hardware/esp32s3-dongle/docs/architecture.md`](../hardware/esp32s3-dongle/docs/architecture.md). The plan below
+still applies; schematics come next, layout once the enclosure and the plug are chosen.
+
 ### Integrated OBD connector
 PCB-mount J1962 male connectors exist (right-angle and straight, solder pins), mostly from Asian connector
 houses, without the published drawings a design should be built on. Plan: buy a few samples of two or three
