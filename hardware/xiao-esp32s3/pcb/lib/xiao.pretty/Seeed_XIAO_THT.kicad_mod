@@ -279,4 +279,15 @@
 		(uuid "fec0758d-8626-407d-996d-603bce744122")
 	)
 	(embedded_fonts no)
+	(model "${KIPRJMOD}/3dmodels/Seeed_XIAO_socketed.step"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
 )

@@ -15,6 +15,7 @@
 #include "nvs_flash.h"
 
 #include "app.h"
+#include "leds.h"
 #include "can_port.h"
 #include "pins.h"
 #include "platform.h"
@@ -24,17 +25,6 @@
 #define CONSOLE_TX_BUFFER 2048
 
 void ble_esp32_init(void); // ble_esp32.c
-
-// The board has two LEDs for platform.h's four indicators. Logging and a
-// connected phone share the status LED, so each keeps its own bit and the LED
-// shows whether either is on.
-static bool status_bits[2];
-
-void board_status_led(int source, bool on)
-{
-    status_bits[source] = on;
-    gpio_set_level(LED_STATUS_PIN, status_bits[0] || status_bits[1]);
-}
 
 uint32_t plat_now_ms(void)
 {
@@ -66,16 +56,16 @@ void plat_led(enum plat_led led, bool on)
 {
     switch (led) {
     case PLAT_LED_CAN:
-        gpio_set_level(LED_CAN_PIN, on);
+        leds_set(BOARD_LED_CAN, on);
         break;
     case PLAT_LED_WIFI: // app.c uses this one for "logging"
-        board_status_led(0, on);
+        leds_set(BOARD_LED_LOG, on);
         break;
     case PLAT_LED_SILENT:
-        gpio_set_level(LED_USER_PIN, !on); // the module's LED is active low
+        leds_set(BOARD_LED_SILENT, on);
         break;
     case PLAT_LED_USB:
-        break; // no pad left for it; the module's USB-C is lit by the host anyway
+        break; // the module's USB-C needs no indicator
     }
 }
 
@@ -94,16 +84,6 @@ static void console_init(void)
     ESP_ERROR_CHECK(usb_serial_jtag_driver_install(&cfg));
     usb_serial_jtag_vfs_use_driver();
     setvbuf(stdout, NULL, _IONBF, 0);
-}
-
-static void leds_init(void)
-{
-    const int pins[] = { LED_CAN_PIN, LED_STATUS_PIN, LED_USER_PIN };
-    for (size_t i = 0; i < sizeof(pins) / sizeof(pins[0]); i++) {
-        gpio_reset_pin(pins[i]); // GPIO43 is UART0 TX after reset
-        gpio_set_direction(pins[i], GPIO_MODE_OUTPUT);
-        gpio_set_level(pins[i], pins[i] == LED_USER_PIN ? 1 : 0);
-    }
 }
 
 void app_main(void)

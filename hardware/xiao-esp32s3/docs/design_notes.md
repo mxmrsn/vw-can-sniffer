@@ -13,8 +13,8 @@ Seeed XIAO ESP32-S3 (the plain one, not Sense; Sense adds a camera and microphon
 and firmware loading, so the board needs no USB connector of its own, exactly as on v0.2.0.
 
 Only 11 of the 14 pads are I/O (D0 to D10); the other three are 5V, GND and 3V3. That is three fewer than the
-Pico board used, so the four status LEDs become two and the two buttons become one. The module's own user LED
-(GPIO21) and Boot button (GPIO0) make up part of the difference. All 11 are used, with nothing spare.
+Pico board used. The indicators therefore share one pin as a chain of addressable LEDs (below), the two buttons
+become one, and one pad is left spare on a header. The module's Boot button (GPIO0) is still there for flashing.
 
 ## Pin map
 TWAI can be routed to any GPIO through the ESP32-S3's GPIO matrix, and the microSD runs on the general-purpose
@@ -24,8 +24,8 @@ that has to reach the transceiver, the card socket or the divider sits on the pa
 
 | Pad | GPIO | Signal | Notes |
 |---|---|---|---|
-| D0 | 1 | `CAN_STATUS` | Green LED: CAN activity |
-| D1 | 2 | `LINK_STATUS` | Blue LED: Bluetooth connected, or logging |
+| D0 | 1 | `LED_DATA` | Addressable LED chain, through the U5 buffer |
+| D1 | 2 | `SPARE_IO` | Header J3, for a GPS pulse-per-second input or a camera sync line |
 | D2 | 3 | `MODE_SELECT` | Button to +3V3 with a 10k pull-down, as on v0.2.0, so pressed = high |
 | D3 | 4 | `CAN_SILENT` | High = listen-only. R2 holds it high until firmware drives it low |
 | D4 | 5 | `CTX` | TWAI transmit |
@@ -46,6 +46,24 @@ two boards behave the same way and the firmware difference is one line.
 **R2, new on this board:** a 100k pull-up holds the transceiver's S pin high, so the board is listen-only from
 the moment it is powered rather than from the moment firmware runs. The ESP32-S3's pins float during reset, and
 the v0.2.0 board has the same gap; this closes it.
+
+## Indicators
+Four SK6812MINI-class addressable RGB LEDs in one chain on D0, along the board's bottom edge:
+
+| LED | Shows |
+|---|---|
+| D1 | Status: amber while listen-only, green once transmitting is allowed |
+| D2 | CAN activity |
+| D3 | Bluetooth: a phone is connected |
+| D4 | Logging to the card |
+
+The LEDs run from VSYS (about 4.7 V), where their data input needs about 3.3 V, the very top of what the
+ESP32-S3 drives. U5, a 74AHCT1G125 buffer powered from VSYS, takes the 3.3 V signal (TTL threshold) and drives the
+chain at the supply level. R3 damps ringing on the line. One chain on one pin is what freed D1.
+
+**Right-angle LEDs are left for the dongle.** Side-emitting addressable LEDs exist, but KiCad has no footprint for
+them and no datasheet drawing was verified, so this board uses top-emitting ones. For the dongle, either a
+verified side-view part or light pipes over these, chosen together with the enclosure.
 
 ## Power
 Unchanged from v0.2.0, which was simulated and has a sourced BOM:
@@ -72,16 +90,16 @@ is there for bench use.
   OBD port or USB only.
 
 ## State of the design
-- **Schematic**: complete, ERC clean, and the netlist checked by hand against the pin map above.
-- **Symbol and footprint**: written for this project, in `pcb/lib/`. The footprint is through-hole on 2.54 mm
-  pitch, so the module can sit in sockets (removable, and the XIAO is the expensive part) or be soldered flat.
-  **Its dimensions come from Seeed's published figures, not from a module in hand.** Check them against the real
-  thing before ordering boards.
-- **PCB**: parts placed, nets assigned, power section routing carried over unchanged from v0.2.0, and the
-  indicator, button and divider connections routed. **Fifteen connections between the module and the rest of
-  the board are not routed yet**, so the board is not ready to fabricate. DRC reports those fifteen and nothing
-  else.
-- **Firmware**: ported and building (`../firmware`), never run.
-- **Board outline**: still the v0.2.0 outline, 94 x 41 mm. The module is a third of the length the Pico needed,
-  so a compact revision is worth doing once the layout is finished; that is also what the low-profile dongle
-  idea needs.
+- **Schematic**: complete and ERC clean; netlist checked against the pin map.
+- **Symbol and footprint**: written for this project, in `pcb/lib/`. Through-hole on 2.54 mm pitch, so the module
+  can sit in sockets or be soldered flat. **Dimensions are from Seeed's published figures, not a module in hand.**
+- **PCB**: compact 68 x 38 mm layout (the v0.2.0 board was 94 x 41), routed with the open-source Freerouting
+  autorouter, ground poured on both layers, DRC clean (no errors, nothing unconnected). Gerbers and drill files
+  are in `pcb/fab/`. The buck converter's layout follows the usual rules (input capacitor at the regulator,
+  inductor and output capacitors close by) but was placed and routed by script and autorouter: **look at it
+  before ordering.**
+- **STEP model** (`pcb/fab/xiao-esp32s3-can-sniffer.step`) for enclosure work, with the module and LEDs as
+  placeholder boxes whose heights are assumed.
+- **BOM**: every line except the module, the LEDs, the buffer, the header and the module sockets was stock-checked
+  at DigiKey on 2026-11-15. Those need checking before ordering.
+- **Firmware**: ported and building (`../firmware`), including the LED chain. Never run.

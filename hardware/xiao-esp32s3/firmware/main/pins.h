@@ -13,11 +13,12 @@
 #define CAN_RX_PIN 6      // D5, CRX
 #define CAN_SILENT_PIN 4  // D3, S: high = listen-only. R2 holds it high until this pin drives it.
 
-// LEDs. Only two fit on the 11 available pads, so three of platform.h's four
-// indicators share them: see board_led() in main.c.
-#define LED_CAN_PIN 1     // D0, green: CAN activity
-#define LED_STATUS_PIN 2  // D1, blue: logging or a phone connected
-#define LED_USER_PIN 21   // on the module itself, ACTIVE LOW: listen-only indicator
+// Indicators: four addressable RGB LEDs in one chain, through a buffer that
+// lifts the 3.3 V data line to the LEDs' supply level. See leds.c.
+#define LED_DATA_PIN 1    // D0
+
+// Spare pad on header J3, for a GPS pulse-per-second input or a camera sync line.
+#define SPARE_IO_PIN 2    // D1
 
 // Button to +3V3 with a 10k pull-down on the board, so PRESSED = HIGH, the same
 // as the v0.2.0 board. GPIO3 is a strapping pin, and the pull-down also gives it

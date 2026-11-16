@@ -10,5 +10,5 @@ Same job as [`../pico2w`](../pico2w/README.md) with a module that is actually in
 peripheral instead of software bit-banging, and Bluetooth in the main chip. The application core, the link
 protocol, the logging format and the Python tools are shared with that board.
 
-**Nothing here has been built or run.** The schematic is complete and checked, the firmware compiles, and the
-PCB still needs fifteen connections routed.
+**Nothing here has been built or run.** The schematic is complete and checked, the board is routed and DRC
+clean, and the firmware compiles.

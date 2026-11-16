@@ -5,6 +5,7 @@ set(SHARED ${CMAKE_CURRENT_LIST_DIR}/../../../pico2w/firmware/src)
 
 idf_component_register(
     SRCS "main.c"
+         "leds.c"
          "can_port_twai.c"
          "storage_esp32.c"
          "ble_esp32.c"

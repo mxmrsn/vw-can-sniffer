@@ -8,19 +8,20 @@ data. The longer-term aim is an iOS app with custom dashboards talking to a low-
 | Path | What it is |
 |---|---|
 | [`hardware/pico2w/`](hardware/pico2w/README.md) | **Board v0.2.0 (tag `v0.2.0`):** Raspberry Pi Pico 2 W carrier, its firmware and bring-up plan |
-| [`hardware/xiao-esp32s3/`](hardware/xiao-esp32s3/README.md) | **In progress (v0.3.0):** Seeed XIAO ESP32-S3 carrier, because the Pico 2 W is hard to buy |
+| [`hardware/xiao-esp32s3/`](hardware/xiao-esp32s3/README.md) | **Current board (v0.3.0):** Seeed XIAO ESP32-S3 carrier, because the Pico 2 W is hard to buy |
 | [`hardware/teensy-esp32/`](hardware/teensy-esp32/README.md) | Original board (v0.1.0, tag `v0.1.0`): Teensy 4.0 + ESP32, its firmware and tools |
 | [`tools/vwdiag/`](tools/vwdiag/README.md) | Host tools: scan, identification, fault codes, live data, logging, frame decoding |
 | [`tools/tests/`](tools/tests) | End-to-end tests for the tools, run against the firmware simulator |
-| [`docs/`](docs/vw_can_data_sources.md) | Project-wide notes; currently where the VW-specific data came from |
+| [`docs/roadmap.md`](docs/roadmap.md) | **What comes next, in order**: hardware, simulator, iOS app, data, tuning |
+| [`docs/`](docs/vw_can_data_sources.md) | Project-wide notes, including where the VW-specific data came from |
 
 Each board folder holds everything specific to that board: `pcb/` (KiCad project, BOM, fab files), `firmware/`
 and `docs/`.
 
 ## Status
 - **v0.2.0 board (Pico 2 W):** designed, checked by ERC/DRC and ready to order. Not yet built.
-- **v0.3.0 board (XIAO ESP32-S3):** schematic complete and checked; fifteen connections still to route before
-  it can be fabricated.
+- **v0.3.0 board (XIAO ESP32-S3):** routed and DRC clean, 68 x 38 mm. A few BOM lines still need a stock
+  check before ordering.
 - **Firmware:** CAN, ISO-TP, UDS, a USB console, a framed binary protocol over USB and Bluetooth LE, and logging
   to a microSD card. The application core is shared by both boards. Builds for the Pico 2 W and the XIAO
   ESP32-S3; **never run on hardware.**

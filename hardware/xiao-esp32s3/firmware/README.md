@@ -34,9 +34,9 @@ Paths in this file are relative to this folder (`hardware/xiao-esp32s3/firmware/
   is a different number on every board; `ble` prints it. New phones may pair for two minutes after power-up,
   after pressing the MODE button, or after `ble pair`; bonded phones reconnect at any time. Bonds live in
   NVS and `ble forget` clears them.
-- **Two LEDs instead of four.** Only 11 pads are usable, so the green LED is CAN activity as before, the blue
-  one lights while logging *or* while a phone is connected, and the module's own LED is the listen-only
-  indicator. There is no USB LED.
+- **Indicators are an addressable LED chain** on one pin (`leds.c`, using Espressif's `led_strip` component over
+  RMT): the status LED is amber while listen-only and green once transmitting is allowed, then CAN activity,
+  Bluetooth connected, and logging. Brightness is kept low.
 - **One button instead of two.** MODE is on D2, wired exactly as on v0.2.0: to +3V3 with a 10k pull-down on the
   board, so pressed reads high. It only opens the Bluetooth pairing window.
 - `PROTO_CMD_HELLO` still answers `vw-diag pico2w 0.2.0`: the name is in the shared `proto.h` and changing it

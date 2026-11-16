@@ -30,6 +30,7 @@
 #include "services/gatt/ble_svc_gatt.h"
 
 #include "ble_link.h"
+#include "leds.h"
 #include "pins.h"
 #include "platform.h"
 
@@ -40,7 +41,6 @@
 #define PIECE_MAX 512
 
 void ble_store_config_init(void); // NimBLE's NVS-backed bond store
-void board_status_led(int source, bool on); // main.c
 
 // Nordic UART Service, least significant byte first.
 static const ble_uuid128_t nus_service = BLE_UUID128_INIT(0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0,
@@ -197,7 +197,7 @@ static void connection_lost(void)
     tx_flush_wanted = true;
     plat_ble_kick();
     ble_link_new_session();
-    board_status_led(1, false);
+    leds_set(BOARD_LED_BLE, false);
     advertise();
 }
 
@@ -218,7 +218,7 @@ static int gap_event(struct ble_gap_event *event, void *arg)
         tx_flush_wanted = true;
         plat_ble_kick();
         ble_link_new_session();
-        board_status_led(1, true);
+        leds_set(BOARD_LED_BLE, true);
         break;
     case BLE_GAP_EVENT_DISCONNECT:
         connection_lost();
