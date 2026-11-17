@@ -850,6 +850,207 @@ class Session(unittest.TestCase):
         self.assertTrue(os.listdir(card))
 
 
+def fake_session(folder, misfires, codes=(), idle_rows=(), freeze=None):
+    """A session folder as `vwdiag session` writes it, with chosen numbers. misfires: {cyl: (now, avg)}."""
+    import json
+    os.makedirs(folder, exist_ok=True)
+    mis = {str(c): {"this_cycle": n, "avg_10_cycles": a} for c, (n, a) in misfires.items()}
+    mis["0"] = {"this_cycle": sum(v[0] for v in misfires.values()), "avg_10_cycles": sum(v[1] for v in misfires.values())}
+    data = {"started": "2026-11-20 09:00:00", "steps": {"faults": {
+        "engine": [{"code": c} for c in codes],
+        "engine_obd": {"stored": list(codes), "pending": [], "misfires": mis, "freeze_frame": freeze or {"code": None}}}}}
+    with open(os.path.join(folder, "session.json"), "w") as f:
+        json.dump(data, f)
+    if idle_rows:
+        with open(os.path.join(folder, "idle.csv"), "w") as f:
+            f.write("time_s,rpm_rpm,load_%,coolant_C,maf_g/s,stft_%,ltft_%,mis_c1,mis_c2,mis_c3,mis_c4\n")
+            for r in idle_rows:
+                f.write(",".join("" if v is None else str(v) for v in r) + "\n")
+    return folder
+
+
+class Diagnose(unittest.TestCase):
+    """Offline misfire diagnosis: the rules on chosen numbers, then on a simulated session."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def analyze(self, *folders, **kw):
+        from vwdiag import diagnose
+        return diagnose.analyze([diagnose.load(f) for f in folders], **kw)
+
+    def titles(self, result):
+        return [t for t, _ in result["findings"]]
+
+    def test_single_cylinder_with_low_compression_is_mechanical(self):
+        from vwdiag import diagnose
+        rows = [(0, 760, 20, 40, 3.0, 2, 3, 0, 0, 0, 0), (5, 760, 20, 45, 3.0, 2, 3, 0, 0, 20, 0),
+                (10, 760, 20, 85, 3.0, 2, 3, 0, 0, 22, 0)]
+        f = fake_session(os.path.join(self.dir, "a"), {1: (0, 0), 2: (0, 1), 3: (40, 47), 4: (0, 0)}, ["P0303"], rows,
+                         {"code": "P0303", "values": {"rpm": 812, "load": 22, "coolant": 41, "speed": 0}})
+        r = self.analyze(f, compression=diagnose.parse_cylinder_values("1:185,2:180,3:125,4:182"),
+                         wet=diagnose.parse_cylinder_values("3:127"))
+        self.assertEqual((r["pattern"], r["worst"]), ("single", 3))
+        self.assertTrue(r["causes"][0][0].startswith("mechanical: cylinder 3"))
+        self.assertIn("compression on cylinder 3 is low", r["causes"][0][1])
+        self.assertIn("a valve or the head gasket", " ".join(e for _, e in r["findings"]))
+        # cold idle: 20 misfires over 5 s at 760 rpm (~32 firings) on cylinder 3; warm: 2 over ~32
+        self.assertEqual(r["rates"]["cold"]["3"][0], 20)
+        self.assertEqual(r["rates"]["warm"]["3"][0], 2)
+        self.assertAlmostEqual(r["rates"]["cold"]["3"][1], 760 / 120 * 5)
+        self.assertTrue(any("Swap the coil on cylinder 3" in t for t in r["tests"]))
+        self.assertTrue(any("Leak-down" in t for t in r["tests"]))
+
+    def test_parts_already_replaced_move_down(self):
+        f = fake_session(os.path.join(self.dir, "a"), {1: (0, 0), 2: (0, 0), 3: (10, 30), 4: (0, 0)}, ["P0303"])
+        r = self.analyze(f)
+        self.assertTrue(r["causes"][0][0].startswith("ignition"))          # nothing known: the cheap part first
+        r = self.analyze(f, replaced=("coil", "plug", "injector"))
+        self.assertTrue(r["causes"][0][0].startswith("mechanical"))
+        self.assertIn("already replaced (coil and plug)", r["causes"][1][1])
+        self.assertEqual(r["causes"][2][1], "already replaced: unlikely")
+        self.assertFalse(any("Swap the coil" in t for t in r["tests"]))
+
+    def test_rings_when_wet_reading_rises(self):
+        from vwdiag import diagnose
+        f = fake_session(os.path.join(self.dir, "a"), {1: (0, 0), 2: (0, 0), 3: (10, 30), 4: (0, 0)})
+        r = self.analyze(f, compression={1: 180.0, 2: 180.0, 3: 120.0, 4: 180.0}, wet={3: 150.0})
+        self.assertIn("the rings are not sealing", " ".join(e for _, e in r["findings"]))
+        r = self.analyze(f, compression={1: 180.0, 2: 180.0, 3: 170.0, 4: 180.0})
+        self.assertIn("all within 15%", " ".join(e for _, e in r["findings"]))
+        self.assertRaises(ValueError, diagnose.parse_cylinder_values, "5:100")
+
+    def test_spread_lean_and_cam_codes_point_at_shared_causes(self):
+        rows = [(0, 720, 18, 90, 1.6, 6, 8, 0, 0, 0, 0), (5, 720, 18, 90, 1.6, 6, 8, 3, 4, 2, 3)]
+        f = fake_session(os.path.join(self.dir, "a"), {1: (3, 5), 2: (4, 6), 3: (2, 5), 4: (3, 4)},
+                         ["P0300", "P0171", "P0016"], rows)
+        r = self.analyze(f)
+        self.assertEqual(r["pattern"], "spread")
+        t = self.titles(r)
+        self.assertIn("reads lean at idle", t)
+        self.assertIn("low idle airflow", t)
+        self.assertIn("cam / crank correlation code P0016", t)
+        self.assertIn("P0300 random misfire", t)
+        self.assertTrue(r["causes"][0][0].startswith("valve timing"))
+        self.assertTrue(any("PCV" in c for c, _ in r["causes"]))
+
+    def test_swap_followed_and_stayed(self):
+        before = fake_session(os.path.join(self.dir, "b"), {1: (0, 0), 2: (0, 0), 3: (30, 40), 4: (0, 0)}, ["P0303"])
+        moved = fake_session(os.path.join(self.dir, "m"), {1: (0, 0), 2: (25, 0), 3: (0, 40), 4: (0, 0)}, ["P0302"])
+        stayed = fake_session(os.path.join(self.dir, "s"), {1: (0, 0), 2: (0, 0), 3: (28, 40), 4: (0, 0)}, ["P0303"])
+        r = self.analyze(before, moved, swap=(3, 2))
+        self.assertIn("misfire followed the swap", self.titles(r))
+        self.assertTrue(r["causes"][0][0].startswith("the part you swapped"))
+        r = self.analyze(before, stayed, swap=(3, 2))
+        self.assertIn("misfire stayed put", self.titles(r))
+        self.assertFalse(any("Swap the coil" in t for t in r["tests"]))
+
+    def test_nothing_counted(self):
+        f = fake_session(os.path.join(self.dir, "a"), {c: (0, 0) for c in range(1, 5)})
+        r = self.analyze(f)
+        self.assertEqual(r["pattern"], "none")
+        self.assertIn("cold start", r["tests"][0])
+
+    def test_simulated_gti_session(self):
+        card, out = tempfile.mkdtemp(), os.path.join(self.dir, "sess")
+        os.environ["VWDIAG_SD"] = card
+        self.addCleanup(os.environ.pop, "VWDIAG_SD", None)
+        with redirect_stdout(io.StringIO()):
+            cli.main(["--sim", "--sim-profile", "gti", "--transmit", "session", "--yes",
+                      "--listen", "0", "--idle", "6", "--drive", "2", "--out", out])
+        log = os.path.join(card, os.listdir(card)[0])
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            cli.main(["diagnose", out, "--log", log, "--compression", "1:185,2:180,3:125,4:182"])
+        text = buf.getvalue()
+        self.assertIn("cylinder 3 only", text)
+        self.assertIn("1. mechanical: cylinder 3", text)
+        self.assertIn("drive log: " + log, text)
+        self.assertIn("cold idle", text)
+        self.assertTrue(os.path.exists(os.path.join(out, "diagnosis.txt")))
+        with self.assertRaises(SystemExit):
+            cli.main(["diagnose", out, "--swap", "3:2"])          # a swap needs two sessions
+
+
+class SelfTest(unittest.TestCase):
+    """The bring-up self-test on the simulator (which reports itself as standing in for the dongle)."""
+    link_class = Link
+
+    def run_cli(self, spec, *argv):
+        buf = io.StringIO()
+        code = 0
+        os.environ["VWSIM"] = spec
+        self.addCleanup(os.environ.__setitem__, "VWSIM", TEST_SIM)
+        with redirect_stdout(buf):
+            try:
+                cli.main(["--sim"] + (["--binary"] if self.link_class is BinaryLink else []) + list(argv))
+            except SystemExit as e:
+                code = e.code
+        return code, buf.getvalue()
+
+    def setUp(self):
+        os.environ["VWDIAG_SD"] = tempfile.mkdtemp()
+        self.addCleanup(os.environ.pop, "VWDIAG_SD", None)
+
+    def test_passive(self):
+        link = sim_with(TEST_SIM, self.link_class)
+        self.addCleanup(link.close)
+        items = {i["id"]: i for i in link.selftest()}
+        self.assertTrue(items["board"]["detail"].startswith("simulator"))
+        for name in ("firmware", "can", "card", "supply"):
+            self.assertEqual(items[name]["result"], "pass", items[name])
+        self.assertIn("written, read back and deleted", items["card"]["detail"])
+        self.assertEqual(items["can_loop"]["result"], "skip")
+        self.assertEqual(items["sync"]["result"], "skip")
+        self.assertEqual(items["leds"]["result"], "look")
+        self.assertEqual(os.listdir(os.environ["VWDIAG_SD"]), [])   # the test file is gone again
+        self.assertTrue(link.status()["silent"])                       # still listen-only
+
+    def test_active_refuses_on_a_car_then_forced(self):
+        link = sim_with(TEST_SIM, self.link_class)
+        self.addCleanup(link.close)
+        items = {i["id"]: i for i in link.selftest(active=True)}
+        self.assertEqual(items["can_loop"]["result"], "skip")            # 14 V at the OBD port: a car
+        self.assertIn("mV at the OBD port", items["can_loop"]["detail"])
+        self.assertEqual(items["sync"]["result"], "pass")
+        items = {i["id"]: i for i in link.selftest(active=True, force=True)}
+        self.assertEqual(items["can_loop"]["result"], "pass")
+        self.assertTrue(link.status()["silent"])
+        self.assertEqual(link.gnss()["sync_hz"], 0)                       # the sync output is off again
+
+    def test_failures_come_with_what_to_probe(self):
+        code, out = self.run_cli("realistic,fault=can+card", "--transmit", "selftest", "--active", "--force")
+        self.assertEqual(code, 1)
+        self.assertRegex(out, r"FAIL +can_loop +nothing came back")
+        self.assertIn("TJA1043T", out)
+        self.assertRegex(out, r"FAIL +card +test file read back differs")
+        self.assertIn("MISO GPIO13", out)
+        self.assertRegex(out, r"\d+ pass, 3 fail")                      # with Bluetooth off in the simulator
+
+    def test_refusals(self):
+        code, out = self.run_cli(TEST_SIM, "selftest", "--active")
+        self.assertIn("--transmit", str(code))
+        code, out = self.run_cli(TEST_SIM, "--transmit", "selftest", "--force")
+        self.assertIn("only applies to --active", str(code))
+
+    def test_hints_per_board(self):
+        from vwdiag import selftest
+        xiao = [{"result": "pass", "id": "board", "detail": "XIAO ESP32-S3 carrier v0.3.0"},
+                {"result": "fail", "id": "can_loop", "detail": "nothing came back"},
+                {"result": "fail", "id": "card", "detail": "no card"},
+                {"result": "pass", "id": "can", "detail": "running"}]
+        text = "\n".join(selftest.report(xiao))
+        self.assertIn("TJA1051T/3", text)
+        self.assertIn("CS GPIO43 / D6", text)
+        self.assertNotIn("check: Controller stopped", text)                # passing checks carry no hint
+        self.assertIsNone(selftest.board_of([{"result": "pass", "id": "board", "detail": "something else"}]))
+        self.assertIn("formatted FAT32", selftest.hint(None, xiao[2]))
+
+
+class SelfTestBinary(SelfTest):
+    link_class = BinaryLink
+
+
 class Experiments(unittest.TestCase):
     """Experiments against a stand-in car whose numbers are known, then calibration back to them."""
     CAR = ("realistic,gateway=closed,latency=10-30,fc=4/2,misfire=2,idle=680,cold_idle=1180,mis_idle=1.2,"

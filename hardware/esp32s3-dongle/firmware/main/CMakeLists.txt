@@ -11,6 +11,7 @@ idf_component_register(
          "gnss_esp32.c"
          "${ESP}/leds.c"
          "${ESP}/storage_esp32.c"
+         "${ESP}/twai_selftest.c"
          "${ESP}/ble_esp32.c"
          "${SHARED}/app.c"
          "${SHARED}/ble_link.c"
@@ -20,6 +21,7 @@ idf_component_register(
          "${SHARED}/logger.c"
          "${SHARED}/power.c"
          "${SHARED}/proto.c"
+         "${SHARED}/selftest.c"
          "${SHARED}/uds.c"
     INCLUDE_DIRS "." "${ESP}" "${SHARED}"
     REQUIRES driver esp_driver_gpio esp_driver_spi esp_driver_usb_serial_jtag esp_driver_uart esp_driver_gptimer esp_adc

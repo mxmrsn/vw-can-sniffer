@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "../pins.h"
+#include "selftest.h"
 #include "ff.h"
 #include "hw_config.h"
 
@@ -162,4 +163,49 @@ int storage_read_at(const char *name, uint32_t offset, uint8_t *buf, size_t cap,
     }
     f_close(&f);
     return r == FR_OK ? (int)n : -1;
+}
+
+int storage_check(char *detail, size_t cap)
+{
+    static uint8_t out[2048], back[2048];
+    FIL f;
+    UINT n;
+    if (file_open) {
+        snprintf(detail, cap, "a log is open");
+        return SELFTEST_SKIP;
+    }
+    if (!mount()) {
+        snprintf(detail, cap, "no card, or it cannot be read (FAT32 or exFAT needed)");
+        return SELFTEST_FAIL;
+    }
+    for (size_t i = 0; i < sizeof(out); i++)
+        out[i] = (uint8_t)(i * 7 + 3);
+    bool ok = f_open(&f, "SELFTEST.TMP", FA_WRITE | FA_CREATE_ALWAYS) == FR_OK;
+    if (ok) {
+        ok = f_write(&f, out, sizeof(out), &n) == FR_OK && n == sizeof(out);
+        ok = f_close(&f) == FR_OK && ok;
+    }
+    if (ok && f_open(&f, "SELFTEST.TMP", FA_READ) == FR_OK) {
+        ok = f_read(&f, back, sizeof(back), &n) == FR_OK && n == sizeof(back);
+        f_close(&f);
+    } else {
+        ok = false;
+    }
+    f_unlink("SELFTEST.TMP");
+    if (!ok) {
+        drop_card();
+        snprintf(detail, cap, "the card mounted but a test file could not be written and read");
+        return SELFTEST_FAIL;
+    }
+    if (memcmp(out, back, sizeof(out))) {
+        snprintf(detail, cap, "test file read back differs from what was written");
+        return SELFTEST_FAIL;
+    }
+    DWORD free_clusters;
+    FATFS *pfs;
+    unsigned long mb = 0;
+    if (f_getfree("", &free_clusters, &pfs) == FR_OK)
+        mb = (unsigned long)((uint64_t)(pfs->n_fatent - 2) * pfs->csize / 2048);
+    snprintf(detail, cap, "%lu MB card, test file written, read back and deleted", mb);
+    return SELFTEST_PASS;
 }

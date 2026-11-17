@@ -7,7 +7,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "../src/selftest.h"
 #include "../src/storage.h"
+#include "sim.h"
 
 static FILE *log_file;
 
@@ -112,4 +114,46 @@ int storage_read_at(const char *name, uint32_t offset, uint8_t *buf, size_t cap,
         n = fread(buf, 1, cap, f);
     fclose(f);
     return (int)n;
+}
+
+int storage_check(char *detail, size_t cap)
+{
+    const char *dir = card();
+    if (log_file) {
+        snprintf(detail, cap, "a log is open");
+        return SELFTEST_SKIP;
+    }
+    if (!dir) {
+        snprintf(detail, cap, "no card, or it cannot be read");
+        return SELFTEST_FAIL;
+    }
+    static uint8_t out[2048], back[2048];
+    char path[1024];
+    for (size_t i = 0; i < sizeof(out); i++)
+        out[i] = (uint8_t)(i * 7 + 3);
+    if ((size_t)snprintf(path, sizeof(path), "%s/SELFTEST.TMP", dir) >= sizeof(path)) {
+        snprintf(detail, cap, "card folder name too long");
+        return SELFTEST_FAIL;
+    }
+    FILE *f = fopen(path, "wb");
+    bool ok = f && fwrite(out, 1, sizeof(out), f) == sizeof(out) && fflush(f) == 0;
+    if (f)
+        fclose(f);
+    f = ok ? fopen(path, "rb") : NULL;
+    ok = f && fread(back, 1, sizeof(back), f) == sizeof(back);
+    if (f)
+        fclose(f);
+    remove(path);
+    if (!ok) {
+        snprintf(detail, cap, "could not write and read a test file");
+        return SELFTEST_FAIL;
+    }
+    if (sim_cfg.fault_card)
+        back[100] ^= 0x10;
+    if (memcmp(out, back, sizeof(out))) {
+        snprintf(detail, cap, "test file read back differs from what was written");
+        return SELFTEST_FAIL;
+    }
+    snprintf(detail, cap, "folder card, test file written, read back and deleted");
+    return SELFTEST_PASS;
 }

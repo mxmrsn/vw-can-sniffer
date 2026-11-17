@@ -48,6 +48,12 @@ void plat_idle(void)
     usleep(200);
 }
 
+void plat_selftest(struct selftest_report *r, unsigned flags)
+{
+    (void)flags;
+    selftest_add(r, "board", SELFTEST_PASS, "simulator (vw_diag_sim), standing in for the OBD dongle");
+}
+
 // ---- power: the simulated dongle sleeps like the real one. The battery voltage is the car's
 // (the engine model's), VWDIAG_USB=0 means no computer on USB (the default is one: the console),
 // and VWDIAG_WAKE names the wake reason (power-on, usb, can, engine, button).

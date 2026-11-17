@@ -1,5 +1,6 @@
 #include "can_port.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "can2040.h"
@@ -101,4 +102,18 @@ void can_port_get_stats(struct can_stats *out)
     out->rx_dropped = stats.rx_dropped;
     out->tx = stats.tx;
     out->errors = stats.errors;
+}
+
+enum selftest_result can_port_check(char *detail, size_t cap)
+{
+    snprintf(detail, cap, "can2040 running %s, rx %lu tx %lu, %lu errors", silent ? "listen-only" : "transmit-enabled",
+             (unsigned long)stats.rx, (unsigned long)stats.tx, (unsigned long)stats.errors);
+    return SELFTEST_PASS;
+}
+
+enum selftest_result can_port_loopback(char *detail, size_t cap)
+{
+    // can2040 does not read its own frames back, and without another node no frame is acknowledged.
+    snprintf(detail, cap, "not on this board: test against the bench car instead");
+    return SELFTEST_SKIP;
 }

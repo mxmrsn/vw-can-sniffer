@@ -36,6 +36,8 @@ enum proto_command {
     PROTO_CMD_LOG_READ = 0x0F,      // [offset u32][max length u16][name...] -> [file size u32][data...]
     PROTO_CMD_POWER = 0x10,         // [] or [op][value u32] -> power state; UNKNOWN_CMD on boards without it
     PROTO_CMD_GNSS = 0x11,          // [] or [sync hz u16] -> GPS and sync state; UNKNOWN_CMD on boards without it
+    PROTO_CMD_SELFTEST = 0x12,      // [flags: 1 active, 2 force, optional] -> [count] then count x
+                                    // [result][id length][id][detail length][detail]
     PROTO_CMD_EXIT = 0x7F,          // back to the text console
 };
 

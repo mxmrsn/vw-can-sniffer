@@ -10,6 +10,7 @@ idf_component_register(
          "can_port_twai.c"
          "${ESP}/leds.c"
          "${ESP}/storage_esp32.c"
+         "${ESP}/twai_selftest.c"
          "${ESP}/ble_esp32.c"
          "${SHARED}/app.c"
          "${SHARED}/ble_link.c"
@@ -17,9 +18,10 @@ idf_component_register(
          "${SHARED}/isotp.c"
          "${SHARED}/logger.c"
          "${SHARED}/proto.c"
+         "${SHARED}/selftest.c"
          "${SHARED}/uds.c"
     INCLUDE_DIRS "." "${ESP}" "${SHARED}"
-    REQUIRES driver esp_driver_gpio esp_driver_spi esp_driver_usb_serial_jtag
+    REQUIRES driver esp_driver_gpio esp_driver_spi esp_driver_usb_serial_jtag esp_adc
              esp_timer fatfs sdmmc bt nvs_flash esp_hw_support)
 
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra)

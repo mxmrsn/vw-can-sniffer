@@ -24,3 +24,7 @@ int storage_list(storage_list_fn fn, void *ctx);
 // Read up to `cap` bytes of a file from `offset`; *size gets the file's size.
 // Returns the number of bytes read (0 past the end), or -1 if it cannot be read.
 int storage_read_at(const char *name, uint32_t offset, uint8_t *buf, size_t cap, uint32_t *size);
+
+// Bring-up self-test: write a small file (SELFTEST.TMP), read it back, delete it. Not while a log is
+// open. Returns a SELFTEST_* result (selftest.h) and says what it found in detail.
+int storage_check(char *detail, size_t cap);

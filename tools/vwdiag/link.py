@@ -272,6 +272,21 @@ class Link:
                 "battery_low_for_s": int(low.group(1)) if low else 0, "idle_s": int(s.group(1)),
                 "cutoff_mv": int(s.group(2)), "running_mv": int(s.group(3)), "stay_awake": s.group(4) == "on"}
 
+    def selftest(self, active=False, force=False):
+        """The board's bring-up self-test, from the console's  selftest  command (see binlink)."""
+        words = ["selftest"] + (["active"] if active else []) + (["force"] if force else [])
+        lines = self.command(" ".join(words), timeout=20.0)
+        if lines and lines[-1].startswith("-"):
+            raise LinkError("this firmware has no self-test; update it")
+        out = []
+        for line in lines:
+            m = re.match(r"(pass|warn|FAIL|skip|look) (\S+) +(.*)$", line)
+            if m:
+                out.append({"result": m.group(1).lower(), "id": m.group(2), "detail": m.group(3)})
+        if not out:
+            raise LinkError("could not read the self-test")
+        return out
+
     def gnss(self, sync_hz=None):
         """GPS and sync-output state of the dongle, from the console's  gps  command."""
         from .binlink import gnss_dict

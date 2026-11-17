@@ -15,6 +15,8 @@ With one board plugged in, `--port` can be omitted.
 | Command | What it does | Transmits? |
 |---|---|---|
 | `status` | Interface state and frame counters | no |
+| `selftest [--active [--force]]` | Bring-up check of every part of the board, with the pins and parts to probe for each failure; exits 1 if anything fails. `--active` also sends one CAN loopback frame (refused on a car unless `--force`) and pulses the sync output | only with `--active` |
+| `diagnose SESSION ... [--log FILE] [--compression 1:..,2:..] [--wet 3:..] [--replaced coil,plug,injector] [--swap A:B]` | Misfire diagnosis from saved sessions: which cylinder, when, trims and airflow, other codes; likely causes in order and the next tests, cheapest first. Two sessions with `--swap` say whether the misfire followed a swapped coil. Needs no board | no |
 | `monitor [--seconds N] [--out FILE] [--decode]` | Capture raw CAN frames, optionally decoded | no |
 | `decode FILE [--summary]` | Decode a saved capture; needs no board | no |
 | `log start [--poll VALUE ...] [--interval S]` | Start recording to the board's microSD card, optionally polling live values: OBD values or the engine's Simos 18 measuring values (`misfires`, `knock_cyl_3`, ...; up to 8) | only with `--poll` |
@@ -56,6 +58,13 @@ The board powers up listen-only. Commands that transmit refuse to run without `-
 - **The first car session** (`session.py`): listen-only capture with ignition off and on, scan and
   identification, fault codes with snapshots, an idle capture of the misfire set, and a drive logged to the card.
   Requests are retried; a step that fails is noted and the session carries on.
+- **Misfire diagnosis** (`diagnose.py`): reads session folders (and the drive log) and applies the rules a
+  mechanic uses on a direct-injection EA888: one cylinder or several, idle and cold against load, misfire rate per
+  cylinder from the idle capture, fuel trims at idle against under load, idle airflow, knock retard, cam / crank,
+  fuel-pressure and circuit codes, dry and wet compression, and coil-swap comparisons. Every finding lists its
+  numbers; it ranks causes and lists the next physical tests, but cannot see inside the engine.
+- **Self-test** (`selftest.py`): runs the firmware's bring-up check and adds, per board, the pins and parts to
+  probe for each failure.
 - **VW specifics** (`vw.py`): control module addresses and the identification DIDs.
 - **Fault codes** (`dtc.py`): SAE code and status-bit decoding, and a plain-language description of every code:
   about 470 generic codes from the dtcdb project (MIT licence), 37 more that matter on this car written from the

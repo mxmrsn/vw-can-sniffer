@@ -47,6 +47,12 @@ void plat_idle(void)
 {
 }
 
+void plat_selftest(struct selftest_report *r, unsigned flags)
+{
+    (void)flags;
+    selftest_add(r, "board", SELFTEST_PASS, "Pico 2 W board v0.2.0");
+}
+
 int main(void)
 {
     stdio_init_all();

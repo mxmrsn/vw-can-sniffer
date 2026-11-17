@@ -14,6 +14,7 @@
 // Not yet run on hardware.
 #include "can_port.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "driver/gpio.h"
@@ -23,6 +24,7 @@
 #include "freertos/task.h"
 
 #include "pins.h"
+#include "twai_selftest.h"
 
 #define RX_QUEUE_SIZE 128 // power of two
 #define DRIVER_RX_QUEUE 32
@@ -171,4 +173,30 @@ void can_port_get_stats(struct can_stats *out)
     out->rx_dropped = stats.rx_dropped;
     out->tx = stats.tx;
     out->errors = stats.errors;
+}
+
+enum selftest_result can_port_check(char *detail, size_t cap)
+{
+    return twai_selftest_check(silent, detail, cap);
+}
+
+enum selftest_result can_port_loopback(char *detail, size_t cap)
+{
+    bool was_silent = silent;
+    enum selftest_result res;
+    gpio_set_level(CAN_SILENT_PIN, 1);
+    xSemaphoreTake(driver_lock, portMAX_DELAY);
+    if (twai_selftest_install() != ESP_OK) {
+        snprintf(detail, cap, "the controller would not start in self-test mode");
+        res = SELFTEST_FAIL;
+    } else {
+        gpio_set_level(CAN_SILENT_PIN, 0); // the transceiver may drive the bus for this one frame
+        res = twai_selftest_loopback(detail, cap);
+        gpio_set_level(CAN_SILENT_PIN, 1);
+    }
+    bool ok = reconfigure(was_silent) == ESP_OK;
+    xSemaphoreGive(driver_lock);
+    silent = ok ? was_silent : true;
+    gpio_set_level(CAN_SILENT_PIN, silent ? 1 : 0);
+    return res;
 }

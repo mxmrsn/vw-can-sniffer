@@ -77,6 +77,9 @@ pulse every GPS second, the car driving east from a fixed point at the engine mo
 against the computer's clock with a known error, `VWDIAG_GPS_DRIFT` ppm (default 25), which `gps` should report
 as the clock drift. The sync output (`sync <hz>`) works with or without it.
 
+For the self-test, `fault=can`, `fault=card` or `fault=can+card` in `VWSIM` makes the CAN loopback or the card
+check fail, so the tools' failure hints can be tried without hardware.
+
 The car itself (`sim/car.c`, `sim_engine.c`, `sim_config.c`) does not depend on the host: `sim/sim_bus.c` puts it
 on a pretend bus with fault injection, and the XIAO bench car (`hardware/xiao-esp32s3/bench-car`) puts the same
 code on a real CAN bus.
@@ -139,6 +142,7 @@ Open the Pico's USB serial port (any baud rate) and type `help`.
 | `mode m` / `mode h` | Machine mode for programs (no echo, each reply ends with `$`), or human mode |
 | `ble` | Bluetooth state, name and pairing passkey |
 | `ble pair` / `ble forget` | Allow a new phone to pair for 2 minutes, or forget every paired phone |
+| `selftest [active] [force]` | Bring-up check, one line per part: firmware, CAN controller and transceiver, card (a test file written, read back, deleted), Bluetooth, supply, GPS, LEDs (lit in turn, to watch). `active` also sends one CAN loopback frame through the transceiver and pulses the sync output; `force` allows the loopback with battery voltage or bus traffic (a bench, never a car). `vwdiag selftest` adds what to probe for each failure |
 | `mode b` | Binary packet protocol for apps; see `../docs/link_protocol.md` |
 
 The Python tools in `tools/vwdiag` (repo root) use machine mode and the `x` command, or the binary protocol

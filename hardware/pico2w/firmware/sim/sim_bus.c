@@ -159,3 +159,20 @@ void can_port_get_stats(struct can_stats *out)
 {
     *out = stats;
 }
+
+enum selftest_result can_port_check(char *detail, size_t cap)
+{
+    snprintf(detail, cap, "simulated bus, %s, rx %lu tx %lu, %lu errors", silent ? "listen-only" : "transmit-enabled",
+             (unsigned long)stats.rx, (unsigned long)stats.tx, (unsigned long)stats.errors);
+    return SELFTEST_PASS;
+}
+
+enum selftest_result can_port_loopback(char *detail, size_t cap)
+{
+    if (sim_cfg.fault_can) {
+        snprintf(detail, cap, "nothing came back: tx error counter 128, 16 bus errors, 0 other frames");
+        return SELFTEST_FAIL;
+    }
+    snprintf(detail, cap, "frame 7FF sent and read back through the transceiver");
+    return SELFTEST_PASS;
+}

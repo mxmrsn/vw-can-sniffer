@@ -36,6 +36,6 @@
 #define SD_MISO_PIN 8     // D9
 
 // OBD supply sense: fused OBD +12V -> 100k / 22k -> GPIO9 (ADC1_CH8).
-// Reads ~0 V when powered from USB only. Not read by the firmware yet.
+// Reads ~0 V when powered from USB only. Read by the self-test (main.c).
 #define OBD_SENSE_PIN 9   // D10
 #define OBD_SENSE_ADC_CH ADC_CHANNEL_8

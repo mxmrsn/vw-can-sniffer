@@ -36,7 +36,8 @@ struct sim_config {
     double drop_pct;            // frames the interface misses
     double error_pct;           // frames hit by an error frame (counted, retransmitted a little later)
     double delay_pct;           // frames held back by arbitration...
-    int delay_ms;               // ...this long (other IDs overtake them)
+    int delay_ms;
+    bool fault_can, fault_card; // fault=can|card|can+card: the self-test's loopback or card check fails               // ...this long (other IDs overtake them)
     uint32_t busoff_at, busoff_ms; // the interface is bus-off for this window (0 = never)
     uint32_t seed;
 };

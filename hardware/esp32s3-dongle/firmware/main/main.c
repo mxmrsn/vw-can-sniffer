@@ -53,6 +53,12 @@ void plat_write(const uint8_t *data, size_t len)
     usb_serial_jtag_wait_tx_done(pdMS_TO_TICKS(100));
 }
 
+void plat_selftest(struct selftest_report *r, unsigned flags)
+{
+    (void)flags;
+    selftest_add(r, "board", SELFTEST_PASS, "OBD dongle v0.4.0");
+}
+
 void plat_led(enum plat_led led, bool on)
 {
     switch (led) {
