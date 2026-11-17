@@ -3,6 +3,7 @@ end to end against the host simulator (the real firmware core plus simulated ECU
 
     python3 -m unittest discover -s tools/tests -v
 """
+import csv
 import io
 import os
 import re
@@ -199,14 +200,14 @@ class AgainstSimulator(unittest.TestCase):
         self.link.set_silent(False)
         pids = obd.supported_pids(self.engine())
         self.assertEqual(pids, [0x01, 0x04, 0x05, 0x06, 0x07, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x1C, 0x1F,
-                                0x21, 0x2F, 0x33, 0x34, 0x42, 0x44, 0x46, 0x5C])
+                                0x21, 0x23, 0x2F, 0x33, 0x34, 0x42, 0x44, 0x46, 0x52, 0x5C])
         rpm, unit = obd.read_pid(self.engine(), "rpm")
         self.assertEqual(unit, "rpm")
         self.assertTrue(680 <= rpm < 740, rpm)   # warm idle, with a little unevenness
         self.assertEqual(obd.read_pid(self.engine(), "coolant")[0], 90)
         self.assertEqual(obd.read_vin(self.engine()), "WVWZZZAUZJW123456")
         with self.assertRaises(NegativeResponse):
-            obd.read_pid(self.engine(), "rail")   # simulated engine does not implement it
+            self.engine().request([0x01, 0x24])   # a PID the engine does not list
 
     def test_monitor_and_counters(self):
         self.link.set_monitor(True)
@@ -630,7 +631,7 @@ class CommandLine(unittest.TestCase):
                 rows = f.read().strip().split("\n")
         self.assertEqual(rows[0], "time_s,rpm_rpm,coolant_C,rail_kPa")
         self.assertEqual(len(rows), 4)
-        self.assertTrue(rows[1].endswith(",90,"))   # unsupported value logs as an empty cell
+        self.assertTrue(rows[1].endswith(",90,4000"), rows[1])   # direct-injection rail at idle: 40 bar
 
 
 class CommandLineBinary(CommandLine):
@@ -1049,6 +1050,108 @@ class SelfTest(unittest.TestCase):
 
 class SelfTestBinary(SelfTest):
     link_class = BinaryLink
+
+
+class Discover(unittest.TestCase):
+    """Measuring-value discovery against the simulated engine (all of the Simos 18 list answers there)."""
+
+    def run_cli(self, *argv, spec="realistic"):
+        buf = io.StringIO()
+        os.environ["VWSIM"] = spec
+        self.addCleanup(os.environ.__setitem__, "VWSIM", TEST_SIM)
+        with redirect_stdout(buf):
+            cli.main(["--sim", "--transmit", "discover", "--interval", "0.02"] + list(argv))
+        return buf.getvalue()
+
+    def catalogue(self, out):
+        import json
+        with open(os.path.join(out, "catalogue.json")) as f:
+            return json.load(f)
+
+    def test_engine_default_sweep(self):
+        out = os.path.join(tempfile.mkdtemp(), "engine")
+        text = self.run_cli("--out", out)
+        cat = self.catalogue(out)["results"]
+        self.assertIn("Simos 18 list: %d of %d answer" % (len(simos18.VALUES), len(simos18.VALUES)), text)
+        self.assertEqual(cat["2032"]["name"], "airflow")
+        self.assertIn("value", cat["2032"])
+        self.assertEqual(cat["F190"]["value"], "WVWZZZAUZJW123456")
+        self.assertEqual(cat["F186"]["name"], "Active diagnostic session")
+        self.assertEqual(cat["F40C"]["name"], "engine_speed")          # the Simos list reads rpm here too
+        self.assertEqual(cat["F404"]["name"], "OBD PID 04 (load)")
+        self.assertEqual(cat["F1FF"], {"status": "refused", "nrc": 0x31})
+        self.assertFalse(cat["F190"]["live"])                     # a constant
+        self.assertTrue(any(v.get("live") for v in cat.values()))  # and some values move
+        self.assertIn("refused 31", text)
+        with open(os.path.join(out, "catalogue.csv")) as f:
+            rows = list(csv.DictReader(f))
+        self.assertEqual(len(rows), sum(1 for v in cat.values() if v["status"] == "data"))
+        self.assertTrue(os.path.exists(os.path.join(out, "summary.txt")))
+
+    def test_ranges_stop_and_resume(self):
+        from vwdiag import discover
+        self.assertEqual(list(discover.parse_range("2032")), [0x2032])
+        self.assertEqual(len(discover.parse_range("2000-20ff")), 256)
+        self.assertRaises(ValueError, discover.parse_range, "20FF-2000")
+        out = os.path.join(tempfile.mkdtemp(), "radar")
+        text = self.run_cli("--module", "radar", "--out", out)    # radar is absent: nobody answers
+        cat = self.catalogue(out)
+        self.assertIn("went quiet", cat["stopped"])
+        self.assertIn("--resume", text)
+        self.assertEqual(cat["results"], {})                      # unanswered ones are asked again on resume
+        out = os.path.join(tempfile.mkdtemp(), "engine")
+        self.run_cli("--range", "2030-2033", "--out", out)
+        self.run_cli("--range", "2030-2037", "--out", out, "--resume")
+        cat = self.catalogue(out)["results"]
+        self.assertEqual(sorted(cat), ["%04X" % d for d in range(0x2030, 0x2038)])
+        with self.assertRaises(SystemExit) as e:
+            self.run_cli("--range", "0000-FFFF")
+        self.assertIn("--yes", str(e.exception.code))
+        with self.assertRaises(SystemExit):
+            self.run_cli("--range", "2000-20FF", "--out", out, "--resume", "--module", "abs")   # wrong module
+
+
+class SimulatorData(unittest.TestCase):
+    """What the simulated car takes from open data: the Simos 18 list, OBD service 09, the MQB database."""
+
+    def setUp(self):
+        self.link = sim_with("realistic,gateway=open,drive=1")
+        self.addCleanup(self.link.close)
+
+    def test_every_simos18_value_answers(self):
+        self.link.set_silent(False)
+        e = UdsClient(self.link, 0x7E0, 0x7E8)
+        for name in simos18.VALUES:
+            simos18.read(e, name)                                  # raises if the module refuses
+        self.assertAlmostEqual(simos18.read(e, "eth_content")[0], 10, delta=0.5)
+        self.assertAlmostEqual(obd.read_pid(e, "ethanol")[0], 10, delta=0.5)
+        self.assertGreaterEqual(obd.read_pid(e, "rail")[0], 4000)  # at least 40 bar
+        info = obd.vehicle_info(e)
+        self.assertEqual(info["vin"], "WVWZZZAUZJW123456")
+        self.assertEqual(info["calibration_id"], "5G0906259L  0002")
+        self.assertEqual(len(info["cvn"]), 8)
+        self.assertIn("EngineControl", info["module_name"])
+
+    def test_broadcast_decodes_with_the_mqb_database(self):
+        db = dbc.Database()
+        time.sleep(18)                                             # the drive trace pulls away after 15 s
+        self.link.set_monitor(True)
+        lines = self.link.read_frames(1.5)
+        self.link.set_monitor(False)
+        latest = {}
+        for line in lines:
+            parsed = dbc.parse_log_line(line)
+            if parsed and db.lookup(parsed[0], parsed[1]):
+                latest[db.lookup(parsed[0], parsed[1]).name] = db.lookup(parsed[0], parsed[1]).decode(parsed[2])
+        for name in ("Motor_12", "Motor_20", "ESP_19", "ESP_02", "ESP_05", "ESP_21"):
+            self.assertIn(name, latest)
+        speed = latest["ESP_21"]["ESP_v_Signal"][0]
+        self.assertGreater(speed, 5)
+        for wheel in ("HL", "HR", "VL", "VR"):
+            self.assertAlmostEqual(latest["ESP_19"]["ESP_%s_Radgeschw_02" % wheel][0], speed, delta=1.0)
+        self.assertGreater(latest["Motor_12"]["MO_Drehzahl_01"][0], 600)
+        self.assertGreater(latest["Motor_20"]["MO_Fahrpedalrohwert_01"][0], 0)
+        self.assertLess(abs(latest["ESP_02"]["ESP_Laengsbeschl"][0]), 6)
 
 
 class Experiments(unittest.TestCase):

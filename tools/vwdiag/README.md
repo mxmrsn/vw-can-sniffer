@@ -36,6 +36,7 @@ With one board plugged in, `--port` can be omitted.
 | `clear module ... --yes` | Erase fault codes. Changes the car | yes |
 | `raw module HEX ...` | Send any UDS request. Can change the car | yes |
 | `misfire [--watch S] [--csv FILE]` | Misfire counts per cylinder (service 06), trims, freeze frame, emission codes | yes |
+| `discover [--module M] [--range 2000-20FF ...] [--skip ...] [--interval S] [--out DIR] [--resume] [--yes]` | Which data identifiers a module answers: service 0x22 only, one per request, paced, no session change or security access; stops by itself if the module goes quiet or refuses the service. Default for the engine: the 48 Simos 18 values, VW identification F180-F1FF and the OBD mirror F400-F4FF. Each answer is read twice to tell live values from constants. Saves catalogue.json, catalogue.csv, summary.txt | yes (reads only) |
 | `measure [value ...] [--list] [--count N]` | Engine measuring values from the Simos 18 list (knock retard per cylinder, misfires, cams, rail pressure...) | yes |
 | `dtc ... --details` | Also each code's snapshot (freeze frame) and counters | yes |
 | `session [--listen S] [--idle S] [--drive S] [--sweep] [--yes]` | The scripted first car session; everything saved to a folder | yes, after listening |
@@ -63,6 +64,8 @@ The board powers up listen-only. Commands that transmit refuse to run without `-
   cylinder from the idle capture, fuel trims at idle against under load, idle airflow, knock retard, cam / crank,
   fuel-pressure and circuit codes, dry and wet compression, and coil-swap comparisons. Every finding lists its
   numbers; it ranks causes and lists the next physical tests, but cannot see inside the engine.
+- **Discovery** (`discover.py`): a read-only sweep of a module's data identifiers, with a catalogue of what
+  answers, what it means where a list here knows it, and which values move.
 - **Self-test** (`selftest.py`): runs the firmware's bring-up check and adds, per board, the pins and parts to
   probe for each failure.
 - **VW specifics** (`vw.py`): control module addresses and the identification DIDs.

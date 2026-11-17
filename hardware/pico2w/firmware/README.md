@@ -80,6 +80,21 @@ as the clock drift. The sync output (`sync <hz>`) works with or without it.
 For the self-test, `fault=can`, `fault=card` or `fault=can+card` in `VWSIM` makes the CAN loopback or the card
 check fail, so the tools' failure hints can be tried without hardware.
 
+### Where the simulated car's data comes from
+| Part | Source | Real or modelled |
+|---|---|---|
+| Module addresses, part numbers, software versions | opendbc's VW fingerprints, VW's address scheme | Real numbers from other MK7 cars; this car's are read by `vwdiag info` |
+| Engine measuring values (service 0x22) | VW_Flash's Simos 18 logging list (`tools/vwdiag/data/simos18_parameters_22.csv`): identifiers, lengths, formulas | All 48 answer, encoded with the list's own formulas. Values come from the engine model; turbo, fuel pumps, injector pulse, valve lift, flaps and wastegate follow load and boost as the EA888 Gen 3 is described as working, not from measurements |
+| OBD live data (service 01) | SAE J1979 | 24 PIDs, including rail pressure (0x23) and ethanol (0x52, 10 %: US pump fuel) |
+| Freeze frame, misfire monitor, emission codes (services 02, 03, 06, 07) | SAE J1979 | Standard layouts; misfire counts from the model |
+| Vehicle information (service 09) | SAE J1979 | VIN, calibration ID (part number and software version), CVN (invented), module name |
+| Fault code descriptions | dtcdb and the SAE list (`tools/vwdiag/data`) | Real descriptions; VW's own P1xxx texts are not public |
+| Broadcast frames (with `gateway=open`) | opendbc's `vw_mqb.dbc` | Klemmen_Status_01, ESP_21, Motor_07, Motor_Code_01, Diagnose_01, and for drive replay Motor_12 (rpm), Motor_20 (pedal), ESP_19 (wheel speeds), ESP_02 (acceleration), ESP_05 (brake). Counters run; checksum bytes are zero |
+| Engine behaviour (idle, warm-up, trims, misfire rates, timing) | The engine model | Invented until `vwdiag calibrate` sets it from this car's experiments |
+
+What open data cannot give, and only the car can: which of those identifiers this car's software actually
+answers (`vwdiag discover` finds out), its real part numbers and calibration, and its real numbers.
+
 The car itself (`sim/car.c`, `sim_engine.c`, `sim_config.c`) does not depend on the host: `sim/sim_bus.c` puts it
 on a pretend bus with fault injection, and the XIAO bench car (`hardware/xiao-esp32s3/bench-car`) puts the same
 code on a real CAN bus.

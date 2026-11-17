@@ -109,6 +109,14 @@ def cmd_info(link, args):
             print("  no identification data (module absent or not answering)")
         for label, value in items:
             print("  %-17s %s" % (label, value))
+        if name == "engine" and items:
+            try:
+                info = obd.vehicle_info(client_for(link, name))
+            except UdsError:
+                info = {}
+            for key, label in (("calibration_id", "OBD calibration"), ("cvn", "OBD CVN"), ("module_name", "OBD name")):
+                if key in info:
+                    print("  %-17s %s" % (label, info[key]))
 
 
 def cmd_dtc(link, args):
@@ -344,6 +352,29 @@ def cmd_selftest(link, args):
     print("\n".join(selftest.report(items)))
     if any(i["result"] == "fail" for i in items):
         sys.exit(1)
+
+
+def cmd_discover(link, args):
+    """Which data identifiers a module answers: service 0x22 only, paced, stops by itself."""
+    from . import discover
+    enable_transmit(link, args)
+    if args.module not in vw.ECUS:
+        sys.exit("unknown control module %r; choose from: %s" % (args.module, ", ".join(vw.ECUS)))
+    try:
+        dids = sorted({d for r in args.range for d in discover.parse_range(r)}) if args.range else \
+            discover.default_dids(args.module)
+        skip = {d for r in args.skip for d in discover.parse_range(r)}
+    except ValueError as e:
+        sys.exit("error: %s" % e)
+    dids = [d for d in dids if d not in skip]
+    if len(dids) > discover.CONFIRM_ABOVE and not args.yes:
+        sys.exit("%d identifiers is a long sweep (about %.0f minutes); add --yes to go ahead" % (
+            len(dids), len(dids) * (args.interval + 0.03) / 60))
+    out = args.out or os.path.join("discoveries", "%s-%s" % (args.module, time.strftime("%Y%m%d-%H%M%S")))
+    try:
+        discover.Discovery(link, args.module, dids, out, args.interval, resume=args.resume).run()
+    except ValueError as e:
+        sys.exit("error: %s" % e)
 
 
 def cmd_session(link, args):
@@ -698,6 +729,16 @@ def build_parser():
     s.add_argument("--force", action="store_true", help="run the loopback even with battery voltage or bus traffic "
                    "(a bench supply, never a car)")
     s.set_defaults(fn=cmd_selftest)
+    s = sub.add_parser("discover", help="which data identifiers a module answers (read only, paced), saved as a catalogue")
+    s.add_argument("--module", default="engine", help="control module (default engine)")
+    s.add_argument("--range", action="append", default=[], help="hex identifiers, e.g. 2000-20FF (repeatable); "
+                   "default: the known values and the VW / OBD ranges")
+    s.add_argument("--skip", action="append", default=[], help="hex identifiers to leave out (repeatable)")
+    s.add_argument("--interval", type=float, default=0.05, help="seconds between requests (at least 0.02)")
+    s.add_argument("--out", help="folder (default discoveries/<module>-<date-time>)")
+    s.add_argument("--resume", action="store_true", help="carry on a stopped sweep in --out")
+    s.add_argument("--yes", action="store_true", help="allow sweeps over 4096 identifiers")
+    s.set_defaults(fn=cmd_discover)
     s = sub.add_parser("measure", help="engine measuring values (Simos 18 list), e.g. knock_cyl_1 misfires")
     s.add_argument("value", nargs="*"); s.add_argument("--list", action="store_true")
     s.add_argument("--count", type=int, default=1); s.add_argument("--interval", type=float, default=0.5)

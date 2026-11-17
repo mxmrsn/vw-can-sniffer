@@ -23,6 +23,7 @@ PIDS = {
     "lambda_cmd": (0x44, "ratio", 2, lambda d: (d[0] * 256 + d[1]) / 32768),   # commanded
     "ambient":    (0x46, "C",    1, lambda d: d[0] - 40),
     "oil":        (0x5C, "C",    1, lambda d: d[0] - 40),
+    "ethanol":    (0x52, "%",    1, lambda d: d[0] * 100 / 255),
 }
 BY_PID = {v[0]: k for k, v in PIDS.items()}
 
@@ -57,6 +58,23 @@ def supported_pids(client):
 def read_vin(client):
     resp = client.request([0x09, 0x02])
     return resp[3:].decode("ascii", "replace").strip()
+
+
+def vehicle_info(client):
+    """Service 09: {"vin", "calibration_id", "cvn", "module_name"} for whatever the module offers."""
+    from .uds import NegativeResponse
+    out = {}
+    for infotype, key in ((0x02, "vin"), (0x04, "calibration_id"), (0x06, "cvn"), (0x0A, "module_name")):
+        try:
+            resp = client.request([0x09, infotype])
+        except NegativeResponse:
+            continue
+        body = resp[3:]
+        if key == "cvn":
+            out[key] = body[:4].hex().upper()
+        else:
+            out[key] = body.replace(b"\0", b" ").decode("ascii", "replace").strip()
+    return out
 
 
 # ---- emissions diagnostics: fault codes, freeze frame, on-board monitors (SAE J1979 services 01-07)

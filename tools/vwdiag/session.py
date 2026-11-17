@@ -25,7 +25,8 @@ from .link import LinkError
 from .uds import InterfaceRefused, NegativeResponse, NoResponse, UdsClient, UdsError
 
 IDLE_VALUES = ["rpm", "load", "coolant", "intake", "maf", "map", "stft", "ltft", "timing", "lambda", "voltage"]
-VW_VALUES = ["knock_cyl_1", "knock_cyl_2", "knock_cyl_3", "knock_cyl_4", "misfires", "ign_avg"]
+VW_VALUES = ["knock_cyl_1", "knock_cyl_2", "knock_cyl_3", "knock_cyl_4", "misfires", "ign_avg", "int_cam_pos",
+             "exhaust_cam_pos", "inj_pw_di", "inj_pw_mpi"]
 DRIVE_POLL = ["rpm", "load", "speed", "stft", "ltft", "timing", "coolant", "map"]
 RETRY_NRC = (0x21, 0x22, 0x78)   # busy, conditions not correct (e.g. while cranking), pending
 

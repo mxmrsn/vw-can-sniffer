@@ -196,12 +196,16 @@ static int encode_pid(uint8_t pid, const struct engine_state *s, uint8_t *out)
     case 0x44: v = clampi(s->lambda_cmd * 32768, 0, 65535); out[0] = (uint8_t)(v >> 8); out[1] = (uint8_t)v; return 2;
     case 0x46: out[0] = (uint8_t)clampi(s->ambient_c + 40, 0, 255); return 1;
     case 0x5C: out[0] = (uint8_t)clampi(s->oil_c + 40, 0, 255); return 1;
+    case 0x23:                                              // direct-injection rail, gauge, 10 kPa per bit
+        v = clampi((s->speed_kmh < 1 && s->throttle_pct < 1 ? 40 : 40 + s->load_pct * 1.2) * 10, 0, 65535);
+        out[0] = (uint8_t)(v >> 8); out[1] = (uint8_t)v; return 2;
+    case 0x52: out[0] = (uint8_t)clampi(10 * 2.55, 0, 255); return 1;   // ethanol 10 %: US pump fuel
     default: return -1;
     }
 }
 
 static const uint8_t ENGINE_PIDS[] = { 0x01, 0x04, 0x05, 0x06, 0x07, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11,
-                                       0x1C, 0x1F, 0x21, 0x2F, 0x33, 0x34, 0x42, 0x44, 0x46, 0x5C, 0 };
+                                       0x1C, 0x1F, 0x21, 0x23, 0x2F, 0x33, 0x34, 0x42, 0x44, 0x46, 0x52, 0x5C, 0 };
 static const uint8_t FREEZE_PIDS[] = { 0x02, 0x04, 0x05, 0x06, 0x07, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x1F, 0 };
 static const uint8_t TRANS_PIDS[] = { 0x01, 0x0D, 0 };
 
@@ -250,6 +254,7 @@ static int simos_did(uint16_t did, const struct engine_state *s, uint8_t *out)
 {
     bool idle = s->speed_kmh < 1 && s->throttle_pct < 1;
     int gear = s->speed_kmh < 1 ? 0 : s->speed_kmh < 15 ? 1 : s->speed_kmh < 30 ? 2 : s->speed_kmh < 45 ? 3 : s->speed_kmh < 60 ? 4 : 5;
+    double boost = s->map_kpa > s->baro_kpa ? s->map_kpa - s->baro_kpa : 0;   // kPa above ambient
     switch (did) {
     case 0x2032: return (int)put16(out, s->maf_gs * 3.6);                        // airflow, kg/h
     case 0x13CA: return (int)put16(out, s->baro_kpa * 120.60176665439);          // ambient pressure
@@ -283,6 +288,22 @@ static int simos_did(uint16_t did, const struct engine_state *s, uint8_t *out)
     case 0x2027: case 0x293B: return (int)put16(out, (idle ? 40 : 40 + s->load_pct * 1.2) * 10);   // direct-injection rail, bar
     case 0x2025: case 0x2932: return (int)put16(out, 5.0 * 1000);               // port-injection rail, bar
     case 0x437C: case 0x4380: return (int)put16(out, (idle ? 15 : s->load_pct * 3.5) * 10);        // torque, Nm
+    // The rest of the list. The model has no turbo, fuel pump or valve-lift state of its own, so
+    // these follow load, boost and temperature the way the EA888 Gen 3 is described as working.
+    case 0x101E: out[0] = (uint8_t)clampi((s->coolant_c - 100) * 10 / 0.390625, 0, 255); return 1;   // fan, %
+    case 0x1040: return (int)put16(out, (25 + boost * 1.6) * 163.84);           // turbo speed (the list says rpm; scaled like krpm)
+    case 0x1041: return (int)put16(out, (s->intake_c + boost * 0.4 - 144) / 0.005859375);   // charge air, C
+    case 0x13A0: return (int)put16(out, (0.35 + s->load_pct * 0.03) * 250);    // direct-injection pulse, ms
+    case 0x13AC: return (int)put16(out, (s->load_pct < 60 && s->coolant_c > 60 ? 1.8 + s->load_pct * 0.02 : 0) * 250);
+                                                                                 // port injection: part load, warm
+    case 0x14EC: return (int)put16(out, (55 + s->rpm / 7000 * 20) / 0.09765625);   // ECU processor load, %
+    case 0x167C: out[0] = s->load_pct > 50 || s->rpm > 3000; return 1;         // exhaust cam lift: 0 small, 1 large
+    case 0x2028: return (int)put16(out, (25 + s->load_pct * 0.4) * 100);       // low-pressure pump duty, %
+    case 0x203C: return (int)put16(out, 0);                                     // cruise control off
+    case 0x209A: return (int)put16(out, (10 + s->load_pct * 0.6) * 100);       // high-pressure pump volume, %
+    case 0x295C: out[0] = s->load_pct < 40; return 1;                          // charge-motion flap
+    case 0x39A2: case 0x39A3: return (int)put16(out, (100 - (100 - boost * 1.2 < 0 ? 0 : 100 - boost * 1.2)) * 100);
+                                                                                 // wastegate open %: open off boost
     default: return -1;
     }
 }
@@ -410,10 +431,18 @@ static bool obd_service(struct sim_ecu *e, const uint8_t *req, size_t len, uint8
         negative(e, sid, 0x31);
         return true;
     }
-    if (sid == 0x09 && len == 2 && req[1] == 0x02) {
-        r[0] = 0x49; r[1] = 0x02; r[2] = 0x01;
-        memcpy(&r[3], VIN, 17);
-        reply(e, r, 20);
+    if (sid == 0x09 && len == 2) {
+        // Vehicle information (SAE J1979): supported list, VIN, calibration ID, verification number,
+        // module name. The calibration ID is the part number and software version; the CVN is invented.
+        r[0] = 0x49; r[1] = req[1];
+        switch (req[1]) {
+        case 0x00: r[2] = 0x54; r[3] = 0x40; r[4] = 0x00; r[5] = 0x00; reply(e, r, 6); return true;   // 02 04 06 0A
+        case 0x02: r[2] = 0x01; memcpy(&r[3], VIN, 17); reply(e, r, 20); return true;
+        case 0x04: r[2] = 0x01; memcpy(&r[3], "5G0906259L  0002", 16); reply(e, r, 19); return true;
+        case 0x06: r[2] = 0x01; r[3] = 0x3A; r[4] = 0x7C; r[5] = 0x01; r[6] = 0xD4; reply(e, r, 7); return true;
+        case 0x0A: r[2] = 0x01; memcpy(&r[3], "ECM\0-EngineControl\0", 20); reply(e, r, 23); return true;
+        }
+        negative(e, sid, 0x31);
         return true;
     }
     return false;
@@ -673,6 +702,47 @@ static void broadcast(enum ignition ign)
     // ESP_21 (0x0FD): vehicle speed, 0.01 km/h per bit
     memset(&f, 0, sizeof(f)); f.id = 0x0FD; f.dlc = 8;
     put_bits(f.data, 32, 16, (uint32_t)(s->speed_kmh * 100 + 0.5));
+    ecu_send(NULL, &f);
+
+    // The drive-replay set, every 100 ms, signal layouts from opendbc's vw_mqb.dbc. Counters run;
+    // the checksum bytes stay zero (the message-specific CRC constants are not reproduced here).
+    static double last_kmh;
+    double accel = (s->speed_kmh - last_kmh) / 3.6 / 0.1;   // m/s^2 over this 100 ms
+    last_kmh = s->speed_kmh;
+    bool braking = accel < -1.0 && s->throttle_pct < 1;
+    bool idle = s->speed_kmh < 1 && s->throttle_pct < 1;
+
+    // Motor_12 (0x0A8): engine speed, 0.25 rpm per bit
+    memset(&f, 0, sizeof(f)); f.id = 0x0A8; f.dlc = 8;
+    put_bits(f.data, 48, 16, (uint32_t)clampi(s->rpm * 4, 0, 65535));
+    ecu_send(NULL, &f);
+
+    // Motor_20 (0x121): accelerator pedal 0.4 % per bit, idle flag, idle speed target 10 rpm per bit
+    memset(&f, 0, sizeof(f)); f.id = 0x121; f.dlc = 8;
+    put_bits(f.data, 8, 4, tick & 0xF);
+    put_bits(f.data, 12, 8, (uint32_t)clampi(s->throttle_pct / 0.4, 0, 254));
+    put_bits(f.data, 37, 1, idle);
+    put_bits(f.data, 40, 8, (uint32_t)clampi(sim_cfg.idle_rpm / 10, 0, 254));
+    ecu_send(NULL, &f);
+
+    // ESP_19 (0x0B2): the four wheel speeds, 0.0075 km/h per bit
+    memset(&f, 0, sizeof(f)); f.id = 0x0B2; f.dlc = 8;
+    for (int w = 0; w < 4; w++)
+        put_bits(f.data, w * 16, 16, (uint32_t)clampi(s->speed_kmh / 0.0075, 0, 65534));
+    ecu_send(NULL, &f);
+
+    // ESP_02 (0x101): longitudinal acceleration (0.03125 m/s^2, offset -16), no lateral or yaw
+    memset(&f, 0, sizeof(f)); f.id = 0x101; f.dlc = 8;
+    put_bits(f.data, 8, 4, tick & 0xF);
+    put_bits(f.data, 16, 8, 127);                                       // lateral 0 g
+    put_bits(f.data, 24, 10, (uint32_t)clampi((accel + 16) / 0.03125, 0, 1022));
+    ecu_send(NULL, &f);
+
+    // ESP_05 (0x106): brake pressure (0.3 bar, offset -30) and "driver brakes"
+    memset(&f, 0, sizeof(f)); f.id = 0x106; f.dlc = 8;
+    put_bits(f.data, 8, 4, tick & 0xF);
+    put_bits(f.data, 16, 10, (uint32_t)clampi(((braking ? -accel * 8 : 0) + 30) / 0.3, 0, 1022));
+    put_bits(f.data, 26, 1, braking);
     ecu_send(NULL, &f);
 
     if (tick % 10 == 0) {

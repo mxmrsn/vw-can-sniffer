@@ -75,7 +75,8 @@ The simulator exercises the protocol logic well, but it is optimistic in ways th
 | Fault codes | Status bits change, freeze frames exist | Static list, only report type 02 | Snapshots (19 04), extended data (19 06), state changes |
 | Bus errors | Error frames, lost frames, bus-off | Never | Fault injection: drop, corrupt, delay, reorder |
 | Security access | Seed and key | Refused outright | Leave refused: we should never need it for reads |
-| Measuring values | Hundreds of VW-specific identifiers | A dozen | Grows from real captures (Phase 4) |
+| Measuring values | Hundreds of VW-specific identifiers | All 48 of the public Simos 18 list (2026-11-17), with its formulas | `vwdiag discover` on the car shows which really answer; grows from real captures (Phase 4) |
+| Broadcast | Hundreds of messages behind the gateway | 10 from the public MQB database, counters running, checksums zero | The gateway tap, then replay |
 
 **The biggest lever is replay.** Once real captures exist, the simulator should play recorded traffic back, and
 the control-module models should answer from recorded request/response pairs. Until then, comma.ai has published
@@ -136,7 +137,7 @@ sync output; it refuses on a car unless forced. It is step 3.0 and 3.9 of the XI
 
 ## Phase 4: real data
 - **Misfire analysis** (see the section below).
-- **Measuring values**: discover which VW identifiers the engine and other modules answer, by careful read-only
+- **Measuring values** (`vwdiag discover`, ready 2026-11-17): discover which VW identifiers the engine and other modules answer, by careful read-only
   sweeps of documented ranges, and log them. This is how the app gets VCDS-style measuring blocks.
 - **Fast logging**: UDS lets a tester define its own identifier that packs many values into one answer
   (service 2C, dynamically defined identifiers). That is how commercial loggers reach 20 to 50 samples a second
