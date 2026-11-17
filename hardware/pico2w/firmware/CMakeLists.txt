@@ -37,6 +37,7 @@ add_executable(vw_diag
     src/isotp.c
     src/logger.c
     src/proto.c
+    src/selftest.c
     src/storage_pico.c
     src/uds.c
     ${can2040_SOURCE_DIR}/src/can2040.c)

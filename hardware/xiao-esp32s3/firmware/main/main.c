@@ -12,6 +12,9 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
+#include "esp_adc/adc_oneshot.h"
 #include "nvs_flash.h"
 
 #include "app.h"
@@ -73,6 +76,52 @@ void plat_idle(void)
 {
     // FreeRTOS: the main loop has to let the idle task run, or its watchdog fires.
     vTaskDelay(1);
+}
+
+// OBD +12V through 100 k / 22 k: reads about 0 V on USB alone.
+#define OBD_SENSE_RATIO ((100.0 + 22.0) / 22.0)
+
+static int obd_sense_mv(void)
+{
+    static adc_oneshot_unit_handle_t adc;
+    static adc_cali_handle_t cali;
+    static bool ready, cali_ready;
+    if (!ready) {
+        adc_oneshot_unit_init_cfg_t unit = { .unit_id = ADC_UNIT_1 };
+        adc_oneshot_chan_cfg_t ch = { .atten = ADC_ATTEN_DB_12, .bitwidth = ADC_BITWIDTH_DEFAULT };
+        if (adc_oneshot_new_unit(&unit, &adc) != ESP_OK || adc_oneshot_config_channel(adc, OBD_SENSE_ADC_CH, &ch) != ESP_OK)
+            return -1;
+        adc_cali_curve_fitting_config_t c = { .unit_id = ADC_UNIT_1, .atten = ADC_ATTEN_DB_12,
+                                              .bitwidth = ADC_BITWIDTH_DEFAULT };
+        cali_ready = adc_cali_create_scheme_curve_fitting(&c, &cali) == ESP_OK;
+        ready = true;
+    }
+    int raw, mv, sum = 0;
+    for (int i = 0; i < 8; i++) {
+        if (adc_oneshot_read(adc, OBD_SENSE_ADC_CH, &raw) != ESP_OK)
+            return -1;
+        if (!cali_ready || adc_cali_raw_to_voltage(cali, raw, &mv) != ESP_OK)
+            mv = raw * 3100 / 4095;
+        sum += mv;
+    }
+    return (int)(sum / 8 * OBD_SENSE_RATIO);
+}
+
+void plat_selftest(struct selftest_report *r, unsigned flags)
+{
+    (void)flags;
+    selftest_add(r, "board", SELFTEST_PASS, "XIAO ESP32-S3 carrier v0.3.0");
+    int mv = obd_sense_mv();
+    if (mv < 0)
+        selftest_add(r, "supply", SELFTEST_FAIL, "the ADC on GPIO9 would not read");
+    else if (mv < 6000)
+        selftest_add(r, "supply", SELFTEST_SKIP, "%d mV at the OBD port: no battery, running from USB", mv);
+    else if (mv < 11800)
+        selftest_add(r, "supply", SELFTEST_WARN, "%d mV at the OBD port: battery low, or the divider reads low", mv);
+    else if (mv <= 15500)
+        selftest_add(r, "supply", SELFTEST_PASS, "%d mV at the OBD port", mv);
+    else
+        selftest_add(r, "supply", SELFTEST_FAIL, "%d mV at the OBD port: above any charging voltage", mv);
 }
 
 static void console_init(void)

@@ -329,6 +329,23 @@ def cmd_measure(link, args):
             time.sleep(args.interval)
 
 
+def cmd_selftest(link, args):
+    """Bring-up checklist: every part of the board, with what to probe where something fails."""
+    from . import selftest
+    if args.force and not args.active:
+        sys.exit("--force only applies to --active")
+    if args.active and not args.transmit:
+        sys.exit("--active drives the CAN bus for one loopback frame; add --transmit to allow it")
+    if args.active:
+        print("running, with the CAN loopback and the sync output; watch the LEDs ...")
+    else:
+        print("running; watch the LEDs ...")
+    items = link.selftest(active=args.active, force=args.force)
+    print("\n".join(selftest.report(items)))
+    if any(i["result"] == "fail" for i in items):
+        sys.exit(1)
+
+
 def cmd_session(link, args):
     from .session import Session
     if not args.transmit:
@@ -596,6 +613,33 @@ def cmd_replay(args):
         out, len(data["series"]), len(data["track"]), len(data["marks"]), data["duration"]))
 
 
+def cmd_diagnose(args):
+    from . import diagnose
+    try:
+        compression = diagnose.parse_cylinder_values(args.compression)
+        wet = diagnose.parse_cylinder_values(args.wet)
+        swap = tuple(int(c) for c in args.swap.split(":")) if args.swap else None
+        replaced = [p.strip() for p in (args.replaced or "").split(",") if p.strip()]
+        for part in replaced:
+            if part not in diagnose.PARTS:
+                raise ValueError("--replaced takes %s" % ", ".join(diagnose.PARTS))
+        if swap and (len(swap) != 2 or not all(1 <= c <= diagnose.CYLINDERS for c in swap)):
+            raise ValueError("--swap takes two cylinders, e.g. 3:2")
+        sessions = [diagnose.load(d, args.log if i == len(args.session) - 1 else None)
+                    for i, d in enumerate(args.session)]
+    except (OSError, ValueError) as e:
+        sys.exit("error: %s" % e)
+    if swap and len(sessions) < 2:
+        sys.exit("--swap compares two sessions: before and after the swap")
+    result = diagnose.analyze(sessions, compression, wet, swap, replaced)
+    text = "\n".join(result["lines"]) + "\n"
+    print(text, end="")
+    out = args.out or os.path.join(args.session[-1], "diagnosis.txt")
+    with open(out, "w") as f:
+        f.write(text)
+    print("(saved to %s)" % out)
+
+
 def cmd_decode(args):
     with open(args.log) as f:
         lines = f.read().split("\n")
@@ -648,6 +692,12 @@ def build_parser():
     s.add_argument("--sync", metavar="HZ", help="set the sync output: 1-100 Hz, or off")
     s.add_argument("--watch", type=float, metavar="SECONDS", help="then follow the fix once a second")
     s.set_defaults(fn=cmd_gps)
+    s = sub.add_parser("selftest", help="bring-up check of every part of the board, with what to probe for failures")
+    s.add_argument("--active", help="also send one CAN loopback frame and pulse the sync output (needs --transmit)",
+                   action="store_true")
+    s.add_argument("--force", action="store_true", help="run the loopback even with battery voltage or bus traffic "
+                   "(a bench supply, never a car)")
+    s.set_defaults(fn=cmd_selftest)
     s = sub.add_parser("measure", help="engine measuring values (Simos 18 list), e.g. knock_cyl_1 misfires")
     s.add_argument("value", nargs="*"); s.add_argument("--list", action="store_true")
     s.add_argument("--count", type=int, default=1); s.add_argument("--interval", type=float, default=0.5)
@@ -697,6 +747,15 @@ def build_parser():
     s = sub.add_parser("replay", help="a log as an HTML page: engine values, GPS speed and track on one timeline")
     s.add_argument("file"); s.add_argument("--out", help="output file (default: the log's name with .html)")
     s.set_defaults(fn=None, offline=cmd_replay)
+    s = sub.add_parser("diagnose", help="misfire diagnosis from saved sessions: likely causes, next tests (no board needed)")
+    s.add_argument("session", nargs="+", help="session folder(s), oldest first")
+    s.add_argument("--log", help="the drive log copied off the card (default: looked for in the session folder)")
+    s.add_argument("--compression", help="dry compression readings, e.g. 1:185,2:180,3:125,4:182 (any unit)")
+    s.add_argument("--wet", help="wet compression readings, same form")
+    s.add_argument("--replaced", help="parts already renewed on the misfiring cylinder: coil,plug,injector")
+    s.add_argument("--swap", help="A:B: you swapped a part (coil, plug) between cylinders A and B between the sessions")
+    s.add_argument("--out", help="where to save the text (default diagnosis.txt in the last session folder)")
+    s.set_defaults(fn=None, offline=cmd_diagnose)
     s = sub.add_parser("decode", help="decode a saved monitor log (no board needed)"); s.add_argument("log")
     s.add_argument("--summary", action="store_true", help="only the latest value of each message")
     s.set_defaults(fn=None, offline=cmd_decode)

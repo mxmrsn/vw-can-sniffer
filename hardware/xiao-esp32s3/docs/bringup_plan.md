@@ -57,6 +57,7 @@ Current-limited bench supply on J1 (12 V on pin 1, ground on pin 4). Do this bef
 ## Stage 3: boards with modules
 | # | Test | Pass condition |
 |---|---|---|
+| 3.0 | `vwdiag selftest` on USB | no `FAIL` lines; `supply` skip (no 12 V); the LEDs light D1 to D4 in turn. Each failure prints the pins and parts to probe |
 | 3.1 | USB only, no 12 V | console works; VSYS at least 4.5 V (the transceiver's minimum; it runs from VSYS) |
 | 3.2 | 12 V only (S3 on), no USB | boots; LED chain lights |
 | 3.3 | USB and 12 V together, then unplug either | no glitch, keeps running |
@@ -65,6 +66,7 @@ Current-limited bench supply on J1 (12 V on pin 1, ground on pin 4). Do this bef
 | 3.6 | Card in: `log on`, wait 10 s, `log off`, `log ls` | `LOG00001.VWL` listed with a size; logging LED on while recording |
 | 3.7 | `vwdiag files all` | the log copies to `./logs` and `vwdiag logread logs/LOG00001.VWL` reads cleanly |
 | 3.8 | Pull the card while logging | logging stops, LED off; `log on` works after reinserting |
+| 3.9 | JP1 bridged, nothing on J1: `vwdiag --transmit selftest --active --force` | `can_loop` pass: one frame went out through the TJA1051 and came back; `supply` within 0.3 V of a meter at 12 V |
 
 ## Stage 4: two boards on the bench bus
 Interface board and bench-car board, wired CAN-H, CAN-L and GND through J1, both on USB, **JP1 bridged on

@@ -54,6 +54,7 @@ static void cmd_power(char *rest);
 static void gnss_service(void);
 static void cmd_gps(char *rest);
 static void cmd_sync(char *rest);
+static void cmd_selftest(char *rest);
 static uint32_t timeout_ms = 1000;
 
 static char line[700];
@@ -311,6 +312,8 @@ static void cmd_help(void)
            "  power               power state; power stay on|off, idle <s>, cutoff <mV>, sleep (dongle)\n"
            "  gps                 GPS fix, pulse lock and clock drift; gps baud <n> (dongle)\n"
            "  sync off|<hz>       camera sync output, 1-100 Hz, locked to the GPS pulse (dongle)\n"
+           "  selftest [active] [force]   bring-up check of every part; active also drives the\n"
+           "                      CAN bus (one loopback frame) and the sync output\n"
            "  mode b              binary packet protocol, for apps\n");
 }
 
@@ -645,6 +648,8 @@ static void handle_line(char *text)
         cmd_log(rest);
     } else if (!strcmp(cmd, "poll")) {
         cmd_poll(rest);
+    } else if (!strcmp(cmd, "selftest")) {
+        cmd_selftest(rest);
     } else if (!strcmp(cmd, "time") && rest) {
         app_set_time((uint32_t)strtoul(rest, NULL, 10));
         printf("time set\n");
@@ -1024,4 +1029,176 @@ void app_poll(void)
         }
         fflush(stdout);
     }
+}
+
+// ---------------------------------------------------------------- bring-up self-test (selftest.h)
+#define LOOPBACK_QUIET_MS 2000 // no frames for this long before the loopback may send
+#define NO_BATTERY_MV 6000
+
+static void wait_pumping(uint32_t ms)
+{
+    uint32_t until = plat_now_ms() + ms;
+    while ((int32_t)(plat_now_ms() - until) < 0)
+        pump(NULL);
+}
+
+static void selftest_leds(struct selftest_report *r)
+{
+    static const enum plat_led order[] = { PLAT_LED_SILENT, PLAT_LED_CAN, PLAT_LED_WIFI, PLAT_LED_USB };
+    for (size_t i = 0; i < sizeof(order) / sizeof(order[0]); i++)
+        plat_led(order[i], false);
+    wait_pumping(250);
+    for (size_t i = 0; i < sizeof(order) / sizeof(order[0]); i++) {
+        plat_led(order[i], true);
+        wait_pumping(250);
+        plat_led(order[i], false);
+    }
+    plat_led(PLAT_LED_SILENT, can_port_is_silent());
+    plat_led(PLAT_LED_WIFI, logger_active());
+    plat_led(PLAT_LED_USB, true);
+    selftest_add(r, "leds", SELFTEST_LOOK, "all off, then status, CAN, log, USB lit one at a time for 0.25 s");
+}
+
+static void selftest_can(struct selftest_report *r, unsigned flags)
+{
+    char d[SELFTEST_DETAIL_LEN];
+    enum selftest_result res = can_port_check(d, sizeof(d));
+    selftest_add(r, "can", res, "%s", d);
+    if (!(flags & SELFTEST_ACTIVE)) {
+        selftest_add(r, "can_loop", SELFTEST_SKIP, "not asked for: selftest active (sends one frame)");
+        return;
+    }
+    if (!(flags & SELFTEST_FORCE)) {
+        if (bus_ms && plat_now_ms() - bus_ms < LOOPBACK_QUIET_MS) {
+            selftest_add(r, "can_loop", SELFTEST_SKIP, "frames on the bus: on a car? On a bench, add force");
+            return;
+        }
+#ifdef APP_POWER
+        uint16_t mv = plat_battery_mv();
+        if (mv >= NO_BATTERY_MV) {
+            selftest_add(r, "can_loop", SELFTEST_SKIP, "%u mV at the OBD port: on a car? On a bench supply, add force",
+                         (unsigned)mv);
+            return;
+        }
+#endif
+    }
+    res = can_port_loopback(d, sizeof(d));
+    plat_led(PLAT_LED_SILENT, can_port_is_silent());
+    selftest_add(r, "can_loop", res, "%s", d);
+}
+
+static void selftest_card(struct selftest_report *r)
+{
+    char d[64];
+    if (logger_active()) {
+        struct logger_stats ls;
+        logger_get_stats(&ls);
+        selftest_add(r, "card", SELFTEST_PASS, "recording %s, %lu bytes so far (not written to while logging)",
+                     ls.name, (unsigned long)ls.bytes);
+        return;
+    }
+    uint32_t t0 = plat_now_ms();
+    int res = storage_check(d, sizeof(d));
+    selftest_add(r, "card", (enum selftest_result)res, "%s (%lu ms)", d, (unsigned long)(plat_now_ms() - t0));
+}
+
+static void selftest_ble(struct selftest_report *r)
+{
+    if (!ble_info.available)
+        selftest_add(r, "bluetooth", SELFTEST_FAIL, "no Bluetooth controller running");
+    else
+        selftest_add(r, "bluetooth", SELFTEST_PASS, "%s as %s%s", ble_info.connected ? "connected" : "advertising",
+                     ble_info.name, ble_info.emulated ? " (emulated)" : "");
+}
+
+#ifdef APP_POWER
+static void selftest_supply(struct selftest_report *r)
+{
+    unsigned mv = plat_battery_mv();
+    if (mv < NO_BATTERY_MV)
+        selftest_add(r, "supply", SELFTEST_SKIP, "%u mV at the OBD port: no battery, running from USB", mv);
+    else if (mv < 11800)
+        selftest_add(r, "supply", SELFTEST_WARN, "%u mV at the OBD port: battery low, or the divider reads low", mv);
+    else if (mv <= 15500)
+        selftest_add(r, "supply", SELFTEST_PASS, "%u mV at the OBD port", mv);
+    else
+        selftest_add(r, "supply", SELFTEST_FAIL, "%u mV at the OBD port: above any charging voltage", mv);
+}
+#endif
+
+#ifdef APP_GNSS
+static void selftest_gnss(struct selftest_report *r, unsigned flags)
+{
+    struct gnss_status g;
+    gnss_get_status(&g, plat_now_us());
+    if (!g.sentences && !g.bad_sentences)
+        selftest_add(r, "gps", SELFTEST_SKIP, "nothing readable from the GPS connector (none fitted?)");
+    else if (g.bad_sentences > g.sentences)
+        selftest_add(r, "gps", SELFTEST_FAIL, "%lu of %lu sentences unreadable", (unsigned long)g.bad_sentences,
+                     (unsigned long)(g.sentences + g.bad_sentences));
+    else
+        selftest_add(r, "gps", SELFTEST_PASS, "%lu sentences, %s, %u satellites", (unsigned long)g.sentences,
+                     g.fix ? "fix" : "no fix yet", (unsigned)g.last.sats);
+    if (g.pulses && g.paired)
+        selftest_add(r, "pps", SELFTEST_PASS, "%lu pulses, %lu paired with GPS time", (unsigned long)g.pulses,
+                     (unsigned long)g.paired);
+    else if (g.pulses)
+        selftest_add(r, "pps", SELFTEST_WARN, "%lu pulses, none paired with a time sentence yet", (unsigned long)g.pulses);
+    else if (g.fix)
+        selftest_add(r, "pps", SELFTEST_FAIL, "a fix but no pulses");
+    else
+        selftest_add(r, "pps", SELFTEST_SKIP, "no pulses yet; most receivers pulse only once they have a fix");
+
+    if (!(flags & SELFTEST_ACTIVE)) {
+        selftest_add(r, "sync", SELFTEST_SKIP, "not asked for: selftest active (pulses the sync output)");
+        return;
+    }
+    uint32_t before_hz = sync_hz, before = sync_edges;
+    if (!app_sync_set(10)) {
+        selftest_add(r, "sync", SELFTEST_FAIL, "the sync timer would not start");
+        return;
+    }
+    wait_pumping(350);
+    uint32_t n = sync_edges - before;
+    app_sync_set(before_hz);
+    selftest_add(r, "sync", n >= 2 ? SELFTEST_PASS : SELFTEST_FAIL,
+                 "%lu rising edges in 0.35 s at 10 Hz; confirm on the pin with a scope or an LED", (unsigned long)n);
+}
+#endif
+
+void app_selftest(struct selftest_report *r, unsigned flags)
+{
+    memset(r, 0, sizeof(*r));
+    plat_selftest(r, flags);
+    selftest_add(r, "firmware", SELFTEST_PASS, "%s, protocol %d", PROTO_NAME, PROTO_VERSION);
+    selftest_can(r, flags);
+    selftest_card(r);
+    selftest_ble(r);
+#ifdef APP_POWER
+    selftest_supply(r);
+#endif
+#ifdef APP_GNSS
+    selftest_gnss(r, flags);
+#endif
+    selftest_leds(r);
+}
+
+static void cmd_selftest(char *rest)
+{
+    static struct selftest_report rep;
+    unsigned flags = 0;
+    for (char *w = rest ? strtok(rest, " ") : NULL; w; w = strtok(NULL, " ")) {
+        if (!strcmp(w, "active"))
+            flags |= SELFTEST_ACTIVE;
+        else if (!strcmp(w, "force"))
+            flags |= SELFTEST_FORCE;
+        else {
+            printf("- selftest [active] [force]\n");
+            return;
+        }
+    }
+    app_selftest(&rep, flags);
+    for (size_t i = 0; i < rep.count; i++)
+        printf("%-4s %-9s %s\n", selftest_result_name((enum selftest_result)rep.items[i].result), rep.items[i].id,
+               rep.items[i].detail);
 }

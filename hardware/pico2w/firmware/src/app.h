@@ -41,6 +41,10 @@ struct app_gnss {
 bool app_gnss_get(struct app_gnss *out);
 bool app_sync_set(uint32_t hz); // 0 off, 1 to 100
 
+// Bring-up self-test (selftest.h). Takes a second or two: the LEDs light in turn.
+#include "selftest.h"
+void app_selftest(struct selftest_report *r, unsigned flags);
+
 // One UDS request to any address. timeout_ms 0 uses the console's setting.
 // Returns a uds.h result; *detail is the NRC or the ISO-TP error code.
 int app_uds_request(uint32_t request_id, uint32_t response_id, uint32_t timeout_ms,

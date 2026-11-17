@@ -343,6 +343,29 @@ static void handle(struct proto_port *port, const uint8_t *in, size_t len)
         break;
     }
 
+    case PROTO_CMD_SELFTEST: {
+        static struct selftest_report rep;
+        if (nargs > 1) {
+            respond(PROTO_BAD_ARGS, 0);
+            break;
+        }
+        app_selftest(&rep, nargs ? args[0] : 0);
+        size_t pos = 1;
+        data[0] = (uint8_t)rep.count;
+        for (size_t i = 0; i < rep.count; i++) {
+            const struct selftest_item *it = &rep.items[i];
+            size_t ni = strlen(it->id), nd = strlen(it->detail);
+            data[pos++] = it->result;
+            data[pos++] = (uint8_t)ni;
+            memcpy(data + pos, it->id, ni);
+            pos += ni;
+            data[pos++] = (uint8_t)nd;
+            memcpy(data + pos, it->detail, nd);
+            pos += nd;
+        }
+        respond(PROTO_OK, pos);
+        break;
+    }
     case PROTO_CMD_GNSS: {
         struct app_gnss a;
         if (nargs != 0 && nargs != 2) {

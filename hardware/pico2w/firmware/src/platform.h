@@ -21,6 +21,11 @@ void plat_ble_kick(void);         // packets were queued: start sending them
 bool plat_ble_open_pairing(void); // allow a new phone to pair for a while
 bool plat_ble_forget(void);       // delete every bonded phone
 
+// Bring-up self-test (selftest.h): the board adds an item "board" (its name and revision) and any
+// checks of its own. flags: SELFTEST_ACTIVE, SELFTEST_FORCE.
+struct selftest_report;
+void plat_selftest(struct selftest_report *r, unsigned flags);
+
 // Boards that switch themselves off (built with APP_POWER: the OBD dongle, and the simulator).
 #include "power.h"
 uint16_t plat_battery_mv(void);   // the OBD port's battery voltage; under ~6 V means none

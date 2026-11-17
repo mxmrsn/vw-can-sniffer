@@ -101,6 +101,9 @@ and run against a simulated receiver (`VWDIAG_GPS=1`); the UART, the pulse inter
 timer are not.
 
 ## To check first on hardware
+- `vwdiag selftest`, then on a bench supply with nothing else on the bus and a 120 Ω across CAN-H and CAN-L,
+  `vwdiag --transmit selftest --active --force`: every line `pass` (or `skip` for a GPS not fitted), with the
+  probe points for anything that fails.
 - With 12 V on the bottom board and nothing else: `power` reads the battery within 0.2 V of a meter (the reading
   is the node after the input diode, about 0.3 V under the OBD pin).
 - Wake reasons: plug in (power-on), button with the engine off (button), engine start (engine), bus traffic from

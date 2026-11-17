@@ -13,7 +13,7 @@ it feeds what the car told us back into the simulator.
 | Pico 2 W board (v0.2.0) | Designed, DRC clean, sourced. Not ordered. Pico 2 W hard to buy |
 | XIAO ESP32-S3 board (v0.3.0) | Routed, DRC clean, BOM verified, buck reviewed, module footprint corrected. **Ready to order** |
 | Firmware | CAN, ISO-TP, UDS, text console, packet protocol over USB and BLE, logging to SD. Builds for both boards, never run |
-| Tools (`vwdiag`) | Scan, identification, faults, OBD live data, logging, DBC decoding. Tested against the simulator only |
+| Tools (`vwdiag`) | Scan, identification, faults, OBD live data, logging, DBC decoding, drive replay, misfire diagnosis, bring-up self-test. Tested against the simulator only |
 | Simulator | 7 control modules, real part numbers, invented live data, idealised timing (audit below) |
 | iOS app | Not started. The simulator's BLE stand-in is ready for it |
 
@@ -128,6 +128,11 @@ First panels, mirroring what OBDeleven and VCDS put up front:
 the card, two boards on a bench bus with the second running the **bench car** (`hardware/xiao-esp32s3/bench-car`,
 the simulator's car on a real CAN bus), Bluetooth with a phone, then the car. On the car, the logging experiments
 in `docs/logging_experiments.md` gather the data, and `vwdiag calibrate` turns it into simulator settings.
+
+**Self-test (2026-11-17):** every board answers `selftest` (console) or command 0x12, and `vwdiag selftest`
+prints one line per part (CAN controller and transceiver, card, Bluetooth, supply, GPS, LEDs) with the pins and
+parts to probe for each failure. `--active` adds a CAN loopback frame through the transceiver and a burst on the
+sync output; it refuses on a car unless forced. It is step 3.0 and 3.9 of the XIAO bring-up plan.
 
 ## Phase 4: real data
 - **Misfire analysis** (see the section below).
@@ -256,7 +261,11 @@ What the logs **can** add:
 - **Cam timing, actual against specified**: valve timing problems look like low compression.
 - **Coolant temperature behaviour** and any coolant loss: a head gasket sign.
 
-The idle and cold-start capture in the first car session script is built around exactly these.
+The idle and cold-start capture in the first car session script is built around exactly these, and
+`vwdiag diagnose <session folder> --replaced coil,plug,injector --compression 1:..,2:..,3:..,4:..` reads them
+back: which cylinder, cold and warm idle misfire rates, trims at idle against under load, airflow, other codes,
+the causes in order and the next tests. A wet reading goes in with `--wet 3:..`; a later session after a swap
+goes in with `--swap A:B`.
 
 ## CAD for the enclosure: who leads
 I can write parametric CAD as code (CadQuery or build123d, producing STEP and STL), and KiCad exports the boards

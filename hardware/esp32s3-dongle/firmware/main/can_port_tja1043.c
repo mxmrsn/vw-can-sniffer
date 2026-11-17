@@ -14,6 +14,7 @@
 // Not yet run on hardware.
 #include "can_port.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "driver/gpio.h"
@@ -24,6 +25,7 @@
 #include "freertos/task.h"
 
 #include "pins.h"
+#include "twai_selftest.h"
 #include "tja1043.h"
 
 #define RX_QUEUE_SIZE 128 // power of two
@@ -213,4 +215,37 @@ void can_port_get_stats(struct can_stats *out)
     out->rx_dropped = stats.rx_dropped;
     out->tx = stats.tx;
     out->errors = stats.errors;
+}
+
+enum selftest_result can_port_check(char *detail, size_t cap)
+{
+    enum selftest_result res = twai_selftest_check(silent, detail, cap);
+    if (tja1043_flag() && res == SELFTEST_PASS) {
+        // In listen-only and normal mode ERR_N shows the transceiver's failure flags (TJA1043
+        // datasheet, ERR_N table): TXD held dominant, over-temperature, or a bus wiring fault.
+        snprintf(detail, cap, "controller running, but ERR_N is low: a transceiver failure flag is set");
+        res = SELFTEST_WARN;
+    }
+    return res;
+}
+
+enum selftest_result can_port_loopback(char *detail, size_t cap)
+{
+    bool was_silent = silent;
+    enum selftest_result res;
+    tja1043_set_mode(TJA1043_LISTEN_ONLY);
+    xSemaphoreTake(driver_lock, portMAX_DELAY);
+    if (twai_selftest_install() != ESP_OK) {
+        snprintf(detail, cap, "the controller would not start in self-test mode");
+        res = SELFTEST_FAIL;
+    } else {
+        tja1043_set_mode(TJA1043_NORMAL); // the transceiver may drive the bus for this one frame
+        res = twai_selftest_loopback(detail, cap);
+        tja1043_set_mode(TJA1043_LISTEN_ONLY);
+    }
+    bool ok = reconfigure(was_silent) == ESP_OK;
+    xSemaphoreGive(driver_lock);
+    silent = ok ? was_silent : true;
+    tja1043_set_mode(silent ? TJA1043_LISTEN_ONLY : TJA1043_NORMAL);
+    return res;
 }

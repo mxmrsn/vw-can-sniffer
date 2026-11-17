@@ -22,6 +22,7 @@
 #include "sdmmc_cmd.h"
 
 #include "pins.h"
+#include "selftest.h"
 
 #define MOUNT_POINT "/sd"
 #define SD_FREQ_KHZ 12500 // conservative; the card is initialised at 400 kHz first
@@ -206,4 +207,40 @@ int storage_read_at(const char *name, uint32_t offset, uint8_t *buf, size_t cap,
     int err = ferror(f);
     fclose(f);
     return err ? -1 : (int)n;
+}
+
+int storage_check(char *detail, size_t cap)
+{
+    static uint8_t out[2048], back[2048];
+    if (log_file) {
+        snprintf(detail, cap, "a log is open");
+        return SELFTEST_SKIP;
+    }
+    if (!mount()) {
+        snprintf(detail, cap, "no card, or it cannot be read (FAT32 needed)");
+        return SELFTEST_FAIL;
+    }
+    for (size_t i = 0; i < sizeof(out); i++)
+        out[i] = (uint8_t)(i * 7 + 3);
+    FILE *f = fopen(MOUNT_POINT "/SELFTEST.TMP", "wb");
+    bool ok = f && fwrite(out, 1, sizeof(out), f) == sizeof(out) && fflush(f) == 0 && fsync(fileno(f)) == 0;
+    if (f)
+        fclose(f);
+    f = ok ? fopen(MOUNT_POINT "/SELFTEST.TMP", "rb") : NULL;
+    ok = f && fread(back, 1, sizeof(back), f) == sizeof(back);
+    if (f)
+        fclose(f);
+    remove(MOUNT_POINT "/SELFTEST.TMP");
+    if (!ok) {
+        drop_card();
+        snprintf(detail, cap, "the card mounted but a test file could not be written and read");
+        return SELFTEST_FAIL;
+    }
+    if (memcmp(out, back, sizeof(out))) {
+        snprintf(detail, cap, "test file read back differs from what was written");
+        return SELFTEST_FAIL;
+    }
+    unsigned long mb = (unsigned long)((uint64_t)card->csd.capacity * card->csd.sector_size >> 20);
+    snprintf(detail, cap, "%lu MB card, test file written, read back and deleted", mb);
+    return SELFTEST_PASS;
 }

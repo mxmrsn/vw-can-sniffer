@@ -10,6 +10,7 @@
 // Profiles and key=value settings apply left to right. Keys:
 //   latency=MIN-MAX ms   s3=MS   fc=BS/STMIN   gateway=open|closed   trans_obd=0|1
 //   ignition=STATE:MS/...  (off, on, crank, run)   misfire=0..4   history=0|1
+//   fault=can|card|can+card  the self-test's CAN loopback or card check fails
 //   start=cold|warm   drive=0|1   drop=PCT   errors=PCT   delay=PCT:MS   busoff=AT:MS   seed=N
 #include <stdio.h>
 #include <stdlib.h>
@@ -168,6 +169,11 @@ static void apply(char *item)
     } else if (!strcmp(k, "misfire")) {
         sim_cfg.misfire_cyl = atoi(v);
         if (sim_cfg.misfire_cyl < 0 || sim_cfg.misfire_cyl > 4)
+            bad(v);
+    } else if (!strcmp(k, "fault")) {
+        sim_cfg.fault_can = strstr(v, "can") != NULL;
+        sim_cfg.fault_card = strstr(v, "card") != NULL;
+        if (!sim_cfg.fault_can && !sim_cfg.fault_card)
             bad(v);
     } else if (!strcmp(k, "history")) {
         sim_cfg.history = atoi(v) != 0;

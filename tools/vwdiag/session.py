@@ -287,6 +287,13 @@ class Session:
         self.note("first car session, %s; results in %s" % (self.data["started"], self.dir))
         status = self.link.status()
         self.data["interface"] = status
+        try:
+            self.data["selftest"] = self.link.selftest()
+            bad = [i for i in self.data["selftest"] if i["result"] in ("fail", "warn")]
+            self.note("interface self-test: %s" % ("; ".join("%s %s: %s" % (i["result"], i["id"], i["detail"])
+                                                             for i in bad) or "nothing failed"))
+        except (LinkError, AttributeError):
+            pass
         if self.args.listen:
             self.step("listen", "1. listen only", self.listen)
         self.step("scan", "2. modules and identification", self.scan)

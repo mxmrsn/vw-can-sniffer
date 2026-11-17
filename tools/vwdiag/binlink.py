@@ -16,7 +16,8 @@ from .uds import InterfaceRefused, NegativeResponse, NoResponse
 
 CMD_HELLO, CMD_STATUS, CMD_SET_SILENT, CMD_SET_MONITOR, CMD_UDS, CMD_SET_KEEPALIVE, CMD_EXIT = 1, 2, 3, 4, 5, 6, 0x7F
 CMD_SET_LOG, CMD_SET_TIME, CMD_LOG_STATUS, CMD_POLL_ADD, CMD_POLL_CLEAR, CMD_LOG_MARK = 8, 9, 10, 11, 12, 13
-CMD_LOG_LIST, CMD_LOG_READ, CMD_POWER, CMD_GNSS = 0x0E, 0x0F, 0x10, 0x11
+CMD_LOG_LIST, CMD_LOG_READ, CMD_POWER, CMD_GNSS, CMD_SELFTEST = 0x0E, 0x0F, 0x10, 0x11, 0x12
+SELFTEST_RESULTS = ["pass", "warn", "fail", "skip", "look"]
 EVT_CAN_FRAME = 1
 OK, BAD_ARGS, UNKNOWN_CMD, SILENT, TIMEOUT, NEGATIVE, TRANSPORT, STORAGE, BUSY = range(9)
 STATUS_NAMES = ["ok", "bad arguments", "unknown command", "silent", "timeout", "negative response", "transport error",
@@ -249,6 +250,25 @@ class BinaryLink(Link):
         return gnss_dict(flags & 1, flags & 2, flags & 4, flags & 16, quality, sats, utc + utc_ms / 1000.0,
                          lat / 1e7, lon / 1e7, alt / 100.0, speed / 100.0, course / 100.0, hdop / 100.0,
                          drift if flags & 8 else None, hz, pulses, paired, edges, sentences, bad)
+
+    def selftest(self, active=False, force=False):
+        """The board's bring-up self-test: [{"result", "id", "detail"}], board first (see selftest.h)."""
+        status, d = self._exchange(CMD_SELFTEST, bytes([(1 if active else 0) | (2 if force else 0)]), timeout=20.0)
+        if status == UNKNOWN_CMD:
+            raise LinkError("this firmware has no self-test; update it")
+        if status != OK:
+            raise LinkError("self-test refused (%s)" % STATUS_NAMES[status])
+        out, pos = [], 1
+        for _ in range(d[0]):
+            result, n = d[pos], d[pos + 1]
+            ident = d[pos + 2:pos + 2 + n].decode("ascii", "replace")
+            pos += 2 + n
+            n = d[pos]
+            detail = d[pos + 1:pos + 1 + n].decode("ascii", "replace")
+            pos += 1 + n
+            out.append({"result": SELFTEST_RESULTS[result] if result < len(SELFTEST_RESULTS) else "?",
+                        "id": ident, "detail": detail})
+        return out
 
     def log_files(self):
         out, first = [], 0
